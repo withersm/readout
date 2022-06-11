@@ -205,10 +205,12 @@ class rfsocInterface:
         
         return dacI, dacQ, ddcI, ddcQ, freqs
 
-    # begin new
     def load_DAC(self, wave_real, wave_imag):
+        """
+        load_dac
+            Load waveform via bram controller into BRAM
+        """
         # get base address from overlay
-
         base_addr_DAC_I = int(self.firmware.ip_dict['DAC_I/axi_bram_ctrl_0']['parameters']['C_S_AXI_BASEADDR'], 16)
         base_addr_DAC_Q = int(self.firmware.ip_dict['DAC_Q/axi_bram_ctrl_0']['parameters']['C_S_AXI_BASEADDR'], 16)
         mem_size = 262144*4 # 32 bit address slots
@@ -222,6 +224,25 @@ class rfsocInterface:
         mmio_bramQ.array[0:262144] = dataQ[0:262144]
         print("DAC waveform uploaded to AXI BRAM")
         return 
+
+    def load_DDS(self, wave_real, wave_imag):
+        """
+        load dds
+            Load dds waveform via bram controller into bram
+        """
+        base_addr_DDS_I = int(self.firmware.ip_dict['DDC_I/axi_bram_ctrl_0']['parameters']['C_S_AXI_BASEADDR'], 16) 
+        base_addr_DDS_Q = int(self.firmware.ip_dict['DDC_Q/axi_bram_ctrl_0']['parameters']['C_S_AXI_BASEADDR'], 16)
+        mem_size = 262144*4 # 32 bit address slots
+        mmio_bramI = MMIO(base_addr_DDS_I,mem_size)
+        mmio_bramQ = MMIO(base_addr_DDS_Q,mem_size)
+        I0, I1 = wave_real[0::2], wave_real[1::2]
+        Q0, Q1 = wave_imag[0::2], wave_imag[1::2]
+        dataI = ((np.int32(I1) << 16) + I0).astype("int32")
+        dataQ = ((np.int32(Q1) << 16) + Q0).astype("int32")
+        mmio_bramI.array[0:262144] = dataI[0:262144] # half of data
+        mmio_bramQ.array[0:262144] = dataQ[0:262144]
+        print("DDC waveform uploaded to AXI BRAM")
+        return
 
     def getSnapData(self, snap):
         snap.write(0x04,0)       #
