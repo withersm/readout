@@ -343,7 +343,8 @@ class rfsocInterface:
         I = self.__get_adc_data(self.bram_ADCI)
         return I,Q
 
-    def get_pfb_data(self, snap): # make sure to toggle sync (gpio) first
+    def get_pfb_data(self): # make sure to toggle sync (gpio) first
+        snap = self.pfbIQ
         snap.write(0x04,0)       #
         snap.write(0x04,2**31)   # toggling sync clear
         snap.write(0x04,2**29)       #
@@ -361,7 +362,8 @@ class rfsocInterface:
         return snap_data
 
 
-    def get_ddc_data(self, snap):
+    def get_ddc_data(self):
+        snap = self.ddc_snap
         snap.write(0x04,0)
         snap.write(0x04,2**31)# toggling sync clear
         snap.write(0x04,2**29)#
@@ -376,3 +378,21 @@ class rfsocInterface:
         snap_data = np.array(d).astype("uint32")
 
         return snap_data<<13
+
+    def get_accum_data(self,slp=.3):
+        snap = self.accum_snap
+        snap.write(0x04,0)       #
+        snap.write(0x04,(2**29) + (2**31))   # toggling sync clear
+        snap.write(0x04,2**29)       #
+        sleep(slp)
+
+        d = np.zeros(4*2**11)# bram data
+
+        for i in range(2**11):
+            snap.write(0x00,i<<(32-11)) # write address space to read
+            for j in range(4):
+                snap.write(0x04,j<<19)
+                data = snap.read(0x08)
+                d[i*4+j]= data
+        snap_data = np.array(d)#.astype("int32")
+        return snap_data
