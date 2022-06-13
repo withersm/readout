@@ -91,8 +91,8 @@ class rfsocInterface:
         data_in_mux.write( 0x00, 1) # coffee when 0, data when 1
         data_in_mux.write( 0x08, (509) + ((8189)<<16) ) # ethernet max write count and max read count
         
-        self.bram_ADC_I = self.firmware.ADC_I.BRAM_SNAP_0
-        self.bram_ADC_Q = self.firmware.ADC_Q.BRAM_SNAP_0
+        self.bram_ADCI = self.firmware.ADC_I.BRAM_SNAP_0
+        self.bram_ADCQ = self.firmware.ADC_Q.BRAM_SNAP_0
         self.pfbIQ = self.firmware.PFB_SNAP_SYNC.BRAM_SNAPIII_0
         self.ddc_snap = self.firmware.DDC_SNAP_SYNC.BRAM_SNAPIII_0
         self.accum_snap = self.firmware.ACCUM_SNAP_SYNC.BRAM_SNAPIII_0
@@ -201,8 +201,8 @@ class rfsocInterface:
                 wave_ddc[i::1024] = 0 # beat_ddc[0]
 
 
-        dacI, dacQ = norm_wave(ts)
-        ddcI, ddcQ = norm_wave(wave_ddc, max_amp=(2**13)-1)
+        dacI, dacQ = self.norm_wave(ts)
+        ddcI, ddcQ = self.norm_wave(wave_ddc, max_amp=(2**13)-1)
 
         
         return dacI, dacQ, ddcI, ddcQ, freqs
@@ -339,8 +339,8 @@ class rfsocInterface:
         return d2
 
     def get_adc_data(self):
-        Q = self.__get_adc_data(self.bram_ADCQ)
-        I = self.__get_adc_data(self.bram_ADCI)
+        Q = self.__get_adc_data_helper(self.bram_ADCQ)
+        I = self.__get_adc_data_helper(self.bram_ADCI)
         return I,Q
 
     def get_pfb_data(self): # make sure to toggle sync (gpio) first
@@ -396,3 +396,28 @@ class rfsocInterface:
                 d[i*4+j]= data
         snap_data = np.array(d)#.astype("int32")
         return snap_data
+
+    def writeWaveform(self, waveform, vna=False, verbose=False):
+        """
+        writeWaveform: Exports a given waveform to the DAC's on board. This is the
+        primary function that should be exposed to the user.
+
+        waveform : numpy.array
+            List of Desired Frequencies in Hz units. Note that users must account for this unit 
+            and use 10eN notation. eg: 10e6 for 10 MHz
+
+            Example usage:
+                writeWaveform(np.array([10e6, 13e6, 16e6, 200e6]))
+        vna : boolean
+            If enabled, sets the waveform to be 1000 equally spaced tones from -256 to +256 MHz
+            or 500MHz Bandwidth
+
+        verbose : boolean
+            (DEPRECATED) -> Enabled various print statements, most of which have been removed.
+        """
+
+        LUT_I, LUT_Q, DDS_I, DDS_Q, freqs = self.surfsUpDude(waveform, vna=vna, verbose=verbose) 
+        self.load_bin_list(freqs)
+        self.load_waveform_into_mem(freqs, LUT_I, LUT_Q, DDS_I, DDS_Q)
+
+        
