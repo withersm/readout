@@ -47,10 +47,22 @@ class rfsocInterface:
         # INITIALIZING LMK04208 CLOCK
         xrfclk.set_all_ref_clks(409.6) # MHz
         print("Firmware uploaded and pll set")
+        self.bram_ADCI = self.firmware.ADC_I.BRAM_SNAP_0
+        self.bram_ADCQ = self.firmware.ADC_Q.BRAM_SNAP_0
+        self.pfbIQ = self.firmware.PFB_SNAP_SYNC.BRAM_SNAPIII_0
+        self.ddc_snap = self.firmware.DDC_SNAP_SYNC.BRAM_SNAPIII_0
+        self.accum_snap = self.firmware.ACCUM_SNAP_SYNC.BRAM_SNAPIII_0
+
         return 0
     
     def getFirmwareObjects(self):
         self.firmware = Overlay("/bitstreams/blast_1.0.bit",ignore_version=True,download=False)
+        self.bram_ADCI = self.firmware.ADC_I.BRAM_SNAP_0
+        self.bram_ADCQ = self.firmware.ADC_Q.BRAM_SNAP_0
+        self.pfbIQ = self.firmware.PFB_SNAP_SYNC.BRAM_SNAPIII_0
+        self.ddc_snap = self.firmware.DDC_SNAP_SYNC.BRAM_SNAPIII_0
+        self.accum_snap = self.firmware.ACCUM_SNAP_SYNC.BRAM_SNAPIII_0
+
         return self.firmware
 
     def initRegs(self):
@@ -91,12 +103,7 @@ class rfsocInterface:
         data_in_mux.write( 0x00, 1) # coffee when 0, data when 1
         data_in_mux.write( 0x08, (509) + ((8189)<<16) ) # ethernet max write count and max read count
         
-        self.bram_ADCI = self.firmware.ADC_I.BRAM_SNAP_0
-        self.bram_ADCQ = self.firmware.ADC_Q.BRAM_SNAP_0
-        self.pfbIQ = self.firmware.PFB_SNAP_SYNC.BRAM_SNAPIII_0
-        self.ddc_snap = self.firmware.DDC_SNAP_SYNC.BRAM_SNAPIII_0
-        self.accum_snap = self.firmware.ACCUM_SNAP_SYNC.BRAM_SNAPIII_0
-
+        
     def set_dd_shift(shift):
         pass
 
