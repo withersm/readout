@@ -37,9 +37,9 @@ class rfsocInterface:
         self.firmware = None
         self.bram_ADCI = None
         self.bram_ADCQ = None
-        self.pfbSnap = None
-        self.ddcSnap = None
-        self.accumSnap = None
+        self.pfbIQ = None
+        self.ddc_snap = None
+        self.accum_snap = None
 
     def uploadOverlay(self):
         # FIRMWARE UPLOAD
@@ -47,10 +47,22 @@ class rfsocInterface:
         # INITIALIZING LMK04208 CLOCK
         xrfclk.set_all_ref_clks(409.6) # MHz
         print("Firmware uploaded and pll set")
+        self.bram_ADCI = self.firmware.ADC_I.BRAM_SNAP_0
+        self.bram_ADCQ = self.firmware.ADC_Q.BRAM_SNAP_0
+        self.pfbIQ = self.firmware.PFB_SNAP_SYNC.BRAM_SNAPIII_0
+        self.ddc_snap = self.firmware.DDC_SNAP_SYNC.BRAM_SNAPIII_0
+        self.accum_snap = self.firmware.ACCUM_SNAP_SYNC.BRAM_SNAPIII_0
+
         return 0
     
     def getFirmwareObjects(self):
         self.firmware = Overlay("/bitstreams/blast_1.0.bit",ignore_version=True,download=False)
+        self.bram_ADCI = self.firmware.ADC_I.BRAM_SNAP_0
+        self.bram_ADCQ = self.firmware.ADC_Q.BRAM_SNAP_0
+        self.pfbIQ = self.firmware.PFB_SNAP_SYNC.BRAM_SNAPIII_0
+        self.ddc_snap = self.firmware.DDC_SNAP_SYNC.BRAM_SNAPIII_0
+        self.accum_snap = self.firmware.ACCUM_SNAP_SYNC.BRAM_SNAPIII_0
+
         return self.firmware
 
     def initRegs(self):
@@ -90,11 +102,8 @@ class rfsocInterface:
         ###############################
         data_in_mux.write( 0x00, 1) # coffee when 0, data when 1
         data_in_mux.write( 0x08, (509) + ((8189)<<16) ) # ethernet max write count and max read count
-        ###############################
-        # DDC shift
-        ###############################
-
-
+        
+        
     def set_dd_shift(shift):
         pass
 
@@ -199,8 +208,8 @@ class rfsocInterface:
                 wave_ddc[i::1024] = 0 # beat_ddc[0]
 
 
-        dacI, dacQ = norm_wave(ts)
-        ddcI, ddcQ = norm_wave(wave_ddc, max_amp=(2**13)-1)
+        dacI, dacQ = self.norm_wave(ts)
+        ddcI, ddcQ = self.norm_wave(wave_ddc, max_amp=(2**13)-1)
 
         
         return dacI, dacQ, ddcI, ddcQ, freqs
@@ -244,98 +253,178 @@ class rfsocInterface:
         print("DDC waveform uploaded to AXI BRAM")
         return
 
-    def getSnapData(self, snap):
+    def load_bin_list(self, freqs):
+        bin_list = np.int64( np.round(freqs/1e6) )
+        fft_shift_and_load_bins = self.firmware.gpio1.axi_gpio_0 # 0x00 fft shift, 0x08 load bins
+        accum_and_bin_idx = self.firmware.gpio2.axi_gpio_0 # 0x00 bins, 0x08 0-23 accum len, 24 accum rst, 25 sync in
+        # initialization
+        sync_in = 2**26
+        accum_rst = 2**24  # (active low)
+        accum_length = (2**19)-1
+
+        ################################################
+        # Load DDC bins
+        ################################################
+        #offs=60
+        offs=20#12
+
+        # only write tones to bin list
+        for addr in range(1024):
+             if ((offs-1)<addr<((offs)+len(bin_list))):
+                 print("addr = {}, bin# = {}".format(addr, bin_list[addr-offs]))
+                 accum_and_bin_idx.write(0x00, int(bin_list[addr-offs])) #110 # write bin for address single address
+                 fft_shift_and_load_bins.write(0x08,(addr<<1)+1) # enable we
+                 fft_shift_and_load_bins.write(0x08,0) # disable we
+             else:
+                 accum_and_bin_idx.write(0x00,0)#0) #110 # write bin for address single address
+                 fft_shift_and_load_bins.write(0x08,(addr<<1)+1) # enable we
+                 fft_shift_and_load_bins.write(0x08,0) # disable we
+
+        return
+
+    def load_waveform_into_mem(self, freqs, dac_r,dac_i,dds_r,dds_i):
+        #######################################################
+        # Load configured LUT values into FPGA memory
+        #######################################################
+
+        # Arming DDC Waveform
+        ########################
+        # initialization
+
+
+        sync_in = 2**26
+        accum_rst = 2**24  # (active redge)
+        accum_length = (2**19)-1 # (2**18)-1
+
+        fft_shift=0
+        if len(freqs)<400:
+            fft_shift = 1*((2**9)-1) #(2**7)-1 # CHANGED FOR NEW GPIO
+        else:
+            fft_shift = 1*((2**5)-1) #(2**7)-1 # CHANGED FOR NEW GPIO
+
+
+        fft_shift_and_load_bins = self.firmware.gpio1.axi_gpio_0
+        dds_shift=self.firmware.gpio3.axi_gpio_0 # DDS SHIFT offset = 0x00, 0x08 is open
+        dds_shift.write(0x00,234) # WRITING TO DDS SHIFT
+        accum_and_bin_idx = self.firmware.gpio2.axi_gpio_0 # 0x00 bins, 0x08 0b-23b accum len, 24b accum rst, 26b sync in
+        accum_and_bin_idx.write(0x08,1*accum_length) #100
+
+        # accum reset low then high
+        fft_shift_and_load_bins.write(0x00,2**11) # reset DAC/DDS counter
+
+        accum_and_bin_idx.write(0x08,1*accum_length+0*sync_in+1*accum_rst) # 101
+
+        self.load_DAC(dac_r,dac_i)
+        self.load_DDS(dds_r,dds_i)
+        sleep(.5)
+        fft_shift_and_load_bins.write(0x00, fft_shift+2**10) # enable DAC/DDS counter
+        accum_and_bin_idx.write(0x08,1*accum_length+1*sync_in+0*accum_rst) # 110 -- STARTS DSP FIRMWARE
+        sleep(0.5)
+        accum_and_bin_idx.write(0x08,1*accum_length+1*sync_in+1*accum_rst) #111
+
+        return 0 
+
+    def __get_adc_data_helper(self, snap):
         snap.write(0x04,0)       #
         snap.write(0x04,2**31)   # toggling sync clear
-        snap.write(0x04,2**29)   # 
-        d = np.zeros(2**11)           # bram data
-          
+        snap.write(0x04,2**29)   #
+        d = np.zeros(2**11)    # bram data
+
         for i in range(2**11):
-          snap.write(0x00,i<<(32-11)) # write address space to read
-          for j in range(1):
-            snap.write(0x04,j<<19)
-            data = snap.read(0x08)
-            d[i*1+j]= data
-            #print(str(i*8+j))
+            snap.write(0x00,i<<(32-11)) # write address space to read
+            for j in range(1):
+                snap.write(0x04,j<<19)
+                data = snap.read(0x08)
+                d[i*1+j]= data
+
         snap_data = np.array(d).astype("int32")
         snap_data_0 = ((snap_data >> 16).astype("int16"))#.astype('float') # decoding concatenated values
-        snap_data_1 = ((snap_data & 2**(16)-1).astype("int16"))#.astype('float') 
+        snap_data_1 = ((snap_data & (2**(16)-1)).astype("int16"))#.astype('float')
         d2 = np.zeros(2*2**11)# bram data
         d2[0::2]=snap_data_1
         d2[1::2]=snap_data_0
-        return d2   
-    
-    def getADCData(self):
-        self.bram_ADCI = self.firmware.ADC_I.BRAM_SNAP_0
-        self.bram_ADCQ = self.firmware.ADC_Q.BRAM_SNAP_0
+        return d2
 
-        I = self.getSnapData(self.bram_ADCI)
-        Q = self.getSnapData(self.bram_ADCQ)
+    def get_adc_data(self):
+        Q = self.__get_adc_data_helper(self.bram_ADCQ)
+        I = self.__get_adc_data_helper(self.bram_ADCI)
         return I,Q
 
-
-    def getAccumData(self):
-        self.accumSnap = self.firmware.ACCUM_SNAP_SYNC.BRAM_SNAPIII_v1_0_0
-        self.accumSnap.write(0x04,0)       #
-        self.accumSnap.write(0x04,2**31)   # toggling sync clear
-        self.accumSnap.write(0x04,2**29)   # 
-
-        d = np.zeros(4*2**11)# bram data 
+    def get_pfb_data(self): # make sure to toggle sync (gpio) first
+        snap = self.pfbIQ
+        snap.write(0x04,0)       #
+        snap.write(0x04,2**31)   # toggling sync clear
+        snap.write(0x04,2**29)       #
+        d = np.zeros(4*2**11)# bram data
 
         for i in range(2**11):
-            self.accumSnap.write(0x00,i<<(32-11)) # write address space to read
+            snap.write(0x00,i<<(32-11)) # write address space to read
             for j in range(4):
-                self.accumSnap.write(0x04,j<<19)
-                data = self.accumSnap.read(0x08)
-                d[i*4+j]= data
-        snap_data = np.array(d)
-        return snap_data
-
-
-    def getPFBData(self):
-        self.pfbSnap = self.firmware.PFB_SNAP_SYNC.BRAM_SNAPIII_v1_0_0
-        self.pfbSnap.write(0x04,0)       #
-        self.pfbSnap.write(0x04,2**31)   # toggling sync clear
-        self.pfbSnap.write(0x04,2**29)       # 
-
-        d = np.zeros(4*2**11)# bram data 
-            
-        for i in range(2**11):
-            self.pfbSnap.write(0x00,i<<(32-11)) # write address space to read
-            for j in range(4):
-                self.pfbSnap.write(0x04,j<<19)
-                data = self.pfbSnap.read(0x08)
+                snap.write(0x04,j<<19)
+                data = snap.read(0x08)
                 d[i*4+j]= data
 
         snap_data = np.array(d).astype("uint32")
-
         snap_data=snap_data<<14
         return snap_data
 
-    
-    def getDDCData(self):
-        self.ddcSnap = self.firmware.DDC_SNAP_SYNC.BRAM_SNAPIII_v1_0_0
-        self.ddcSnap.write(0x04,0)       #
-        self.ddcSnap.write(0x04,2**31)   # toggling sync clear
-        self.ddcSnap.write(0x04,2**29)       # 
 
-        d = np.zeros(4*2**11)# bram data 
-            
+    def get_ddc_data(self):
+        snap = self.ddc_snap
+        snap.write(0x04,0)
+        snap.write(0x04,2**31)# toggling sync clear
+        snap.write(0x04,2**29)#
+        d = np.zeros(4*2**11)# bram data
+
         for i in range(2**11):
-            self.ddcSnap.write(0x00,i<<(32-11)) # write address space to read
+            snap.write(0x00,i<<(32-11)) # write address space to read
             for j in range(4):
-                self.ddcSnap.write(0x04,j<<19)
-                data = self.ddcSnap.read(0x08)
+                snap.write(0x04,j<<19)
+                data = snap.read(0x08)
                 d[i*4+j]= data
-
         snap_data = np.array(d).astype("uint32")
 
-        #snap_data=snap_data<<13
         return snap_data<<13
 
+    def get_accum_data(self,slp=.3):
+        snap = self.accum_snap
+        snap.write(0x04,0)       #
+        snap.write(0x04,(2**29) + (2**31))   # toggling sync clear
+        snap.write(0x04,2**29)       #
+        sleep(slp)
 
-    # This name should be changed
-    def finalizeWaveForm(self, vna=False):
-        LUT_I, LUT_Q, DDS_I, DDS_Q, freqs = self.surfsUpDude(np.array([150e6]), vna)
+        d = np.zeros(4*2**11)# bram data
+
+        for i in range(2**11):
+            snap.write(0x00,i<<(32-11)) # write address space to read
+            for j in range(4):
+                snap.write(0x04,j<<19)
+                data = snap.read(0x08)
+                d[i*4+j]= data
+        snap_data = np.array(d)#.astype("int32")
+        return snap_data
+
+    def writeWaveform(self, waveform, vna=False, verbose=False):
+        """
+        writeWaveform: Exports a given waveform to the DAC's on board. This is the
+        primary function that should be exposed to the user.
+
+        waveform : numpy.array
+            List of Desired Frequencies in Hz units. Note that users must account for this unit 
+            and use 10eN notation. eg: 10e6 for 10 MHz
+
+            Example usage:
+                writeWaveform(np.array([10e6, 13e6, 16e6, 200e6]))
+        vna : boolean
+            If enabled, sets the waveform to be 1000 equally spaced tones from -256 to +256 MHz
+            or 500MHz Bandwidth
+
+        verbose : boolean
+            (DEPRECATED) -> Enabled various print statements, most of which have been removed.
+        """
+
+        LUT_I, LUT_Q, DDS_I, DDS_Q, freqs = self.surfsUpDude(waveform, vna=vna, verbose=verbose) 
         self.load_bin_list(freqs)
-        self.load_waveform_into_mem(LUT_I, LUT_Q, DDS_I, DDS_Q)
+        self.load_waveform_into_mem(freqs, LUT_I, LUT_Q, DDS_I, DDS_Q)
+
+        
