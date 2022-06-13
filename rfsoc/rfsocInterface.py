@@ -271,7 +271,6 @@ class rfsocInterface:
         # only write tones to bin list
         for addr in range(1024):
              if ((offs-1)<addr<((offs)+len(bin_list))):
-                 print("addr = {}, bin# = {}".format(addr, bin_list[addr-offs]))
                  accum_and_bin_idx.write(0x00, int(bin_list[addr-offs])) #110 # write bin for address single address
                  fft_shift_and_load_bins.write(0x08,(addr<<1)+1) # enable we
                  fft_shift_and_load_bins.write(0x08,0) # disable we
