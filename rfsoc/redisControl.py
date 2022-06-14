@@ -17,12 +17,15 @@ import redis
 import rfsocInterface
 import numpy as np
 import json
+from time import sleep
 
 class cli:
     def __init__(self, host="192.168.2.10"):
         self.r = redis.Redis(host=host)
         self.p = self.r.pubsub()
         self.p.subscribe("picard") # command and control
+        sleep(1)
+
         if self.p.get_message()['data'] == 1:
             print("Successfully subscribed to Captain Picard, Awaiting Commands...") 
             self.rfsoc = rfsocInterface.rfsocInterface() # create interface object
@@ -54,9 +57,9 @@ class cli:
                             self.rfsoc.initRegs()
                             print("Done")
                         elif cmd['cmd'] == "ulWaveform":
-                            if len(cmd['args'][0]) == 0:
+                            if (len(cmd['args']) == 0):
                                 print("Writing Full Comb")
-                                self.rfsoc.writeWaveform(vna=True)
+                                self.rfsoc.writeWaveform(None, vna=True)
                                 print("Done")
                             else:
                                 print("Writing Specified Waveform")
