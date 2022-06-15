@@ -22,6 +22,7 @@ import sys, os
 import struct
 from socket import *
 import redis
+import json
 #from gbeConfig import roachDownlink
 import time
 import matplotlib.pyplot as plt
@@ -39,6 +40,8 @@ import configparser
 config = configparser.ConfigParser()
 config.read("generalConfig.conf")
 __redis_host = config['REDIS']['host']
+r = redis.Redis(__redis_host)
+
 
 
 #######################################################################
@@ -82,34 +85,22 @@ def main_opt(ri, fpga, udp, valon, upload_status):
         outputs:
           int  upload_status"""
     while 1:
-        #if not fpga:
-        #    print('\n\t\033[93mROACH link is down: Check PPC IP & Network Config\033[93m')
-        #else:
-        #    print('\n\t\033[92mROACH link is up\033[92m')
-        #if not upload_status:
-        #    print('\n\t\033[93mNo firmware onboard. If ROACH link is up, try upload option\033[93m')
-        #else:
-        #    print('\n\t\033[92mFirmware uploaded\033[92m')
+        #TODO: implement a check here to ensure we are connected to the redis server and in turn
+        # the RFSOC is connected to the redis server as well
+
+        #TODO: implement a response routine
         opt = menu(captions,main_opts)
-        if opt == 0: # upload firmwarei
-            # run init file
-            if (ri.uploadOverlay() < 0):
-                print("\nFirmware upload failed")
-            else:
-               upload_status = 1
+        if opt == 0: # upload firmware
+            cmd = {"cmd" : "ulBitstream", "args":[]}
+            cmdstr = json.dumps(cmd)
+            r.publish("picard", cmdstr)
 
         if opt == 1: # Init System & UDP conn.
-            # run single script
-            
-            ri.initRegs()
-            
-            try:
-                initValon(valon)
-                print("Valon initiliazed")
-            except (OSError, IndexError):
-                print('\033[93mValon Synthesizer could not be initialized: Check comm port and power supply\033[93m')
-                break
-        
+            cmd = {"cmd" : "initRegs", "args":[]}
+            cmdstr = json.dumps(cmd)
+            r.publish("picard", cmdstr)
+
+       
         if opt == 2: # Write test comb
             prompt = input('Full test comb? y/n ')
             if prompt == 'y':
@@ -126,27 +117,7 @@ def main_opt(ri, fpga, udp, valon, upload_status):
                 ri.load_waveform_into_mem(LUT_I, LUT_Q, DDS_I, DDS_Q)
         
         if opt == 3: # write stored comb
-            if not fpga:
-                print("\nROACH link is down")
-                break
-            try:
-                freq_comb = np.load(freq_list)
-                freq_comb = freq_comb[freq_comb != 0]
-                freq_comb = np.roll(freq_comb, - np.argmin(np.abs(freq_comb)) - 1)
-                ri.freq_comb = freq_comb
-                ri.upconvert = np.sort(((ri.freq_comb + (ri.center_freq)*1.0e6))/1.0e6)
-                print("RF tones =", ri.upconvert)
-                if len(ri.freq_comb) > 400:
-                    fpga.write_int(regs[np.where(regs == 'fft_shift_reg')[0][0]][1], 2**5 -1)
-                    time.sleep(0.1)
-                else:
-                    fpga.write_int(regs[np.where(regs == 'fft_shift_reg')[0][0]][1], 2**9 -1)
-                    time.sleep(0.1)
-                ri.writeQDR(ri.freq_comb)
-                #setAtten(27, 17)
-                np.save("last_freq_comb.npy", ri.freq_comb)
-            except KeyboardInterrupt:
-                pass
+            exit()   
         if opt == 4: # get system state
             if not fpga:
                 print("\nROACH link is down")
@@ -284,13 +255,6 @@ def main():
     s = None
     # Valon synthesizer instance
     
-    try:
-        valon = valon_synth9.Synthesizer('/dev/ttyUSB0')
-    except OSError:
-        print("Valon could not be initialized. Check comm port and power supply.")
-    
-    ri = rfsocInterface.rfsocInterface() #fpga, gc )#, valon)
-    
     os.system('clear')
     while 1:
         try:
@@ -301,7 +265,7 @@ def main():
             #        upload_status = 1
             #time.sleep(0.1)
             #upload_status = main_opt(fpga, ri, udp, valon, upload_status)
-            upload_status= main_opt(ri, None, None, valon, upload_status)
+            upload_status= main_opt(None, None, None, None, None)
         except TypeError:
             pass
     return 

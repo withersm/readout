@@ -8,7 +8,9 @@ the XILILX PYNQ framework
     2022-06-09
     - Merge changes from fast-bram-design_asu-fixed-phil-adrian-cody-GOLDEN_RECOMPILED.ipynb
     - Added ROOT user permissions check
-
+    2022-06-15
+    - Completed conversion from notebook.
+    - Modified bitstream management such that the bitstream loaded can be passed as a parameter.
 """
 #user check since we can't run without root priviliges
 import getpass
@@ -40,10 +42,12 @@ class rfsocInterface:
         self.pfbIQ = None
         self.ddc_snap = None
         self.accum_snap = None
+        self.selectedBitstream = None
 
-    def uploadOverlay(self):
+    def uploadOverlay(self, bitstream="/bitstreams/blast_1.0.bit"):
         # FIRMWARE UPLOAD
-        self.firmware = Overlay("/bitstreams/blast_1.0.bit",ignore_version=True)
+        self.firmware = Overlay(bitstream,ignore_version=True)
+        self.selectedBitstream = bitstream
         # INITIALIZING LMK04208 CLOCK
         xrfclk.set_all_ref_clks(409.6) # MHz
         print("Firmware uploaded and pll set")
@@ -55,8 +59,8 @@ class rfsocInterface:
 
         return 0
     
-    def getFirmwareObjects(self):
-        self.firmware = Overlay("/bitstreams/blast_1.0.bit",ignore_version=True,download=False)
+    def getFirmwareObjects(self, bitstream="/bitstreams/blast_1.0.bit"):
+        self.firmware = Overlay(bitstream, ignore_version=True,download=False)
         self.bram_ADCI = self.firmware.ADC_I.BRAM_SNAP_0
         self.bram_ADCQ = self.firmware.ADC_Q.BRAM_SNAP_0
         self.pfbIQ = self.firmware.PFB_SNAP_SYNC.BRAM_SNAPIII_0

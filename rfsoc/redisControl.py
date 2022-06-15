@@ -47,11 +47,19 @@ class cli:
                             cmd = json.loads(data)
                         except:
                             print("JSON FORMAT PARSE ERROR")
+                            return
                         
                         if cmd['cmd'] == "ulBitstream":
-                            print("Uploading bitstream...")
-                            self.rfsoc.uploadOverlay()
-                            print("Done")
+                            if (len(cmd['args']) == 0):
+                                print("Writing default bitstream")
+                                self.rfsoc.uploadOverlay()
+                                print("Done")
+                            else:
+                                print("Writing Specified bitstream")
+                                print(cmd['args'][0])
+                                self.rfsoc.uploadOverlay(bitsream = cmd['args'][0])
+                                print("Done")
+
                         elif cmd['cmd'] == "initRegs":
                             print("Initializing Registers")
                             self.rfsoc.initRegs()
