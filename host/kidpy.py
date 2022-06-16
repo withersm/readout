@@ -43,7 +43,12 @@ __redis_host = config['REDIS']['host']
 __customWaveform = config['DSP']['customWaveform']
 __customSingleTone = config['DSP']['singleToneFrequency']
 r = redis.Redis(__redis_host)
-
+p = r.pubsub()
+p.subscribe("ping")
+time.sleep(1)
+if p.get_message()['data'] != 1:
+    print("Failed to Subscribe to redis Ping Channel")
+    exit()
 
 
 #######################################################################
@@ -56,7 +61,7 @@ main_opts= ['Upload firmware',
             'Write test comb (single or multitone)',
             'Write stored comb from config file',
             #'Get system state',
-            #'VNA sweep and plot','Locate freqs from VNA sweep',
+           #'VNA sweep and plot','Locate freqs from VNA sweep',
             #'Write found freqs',
             #'Target sweep and plot',
             #'Execute a script',
@@ -65,14 +70,41 @@ main_opts= ['Upload firmware',
 def testConnection(r):
     try:
         tr = r.set('testkey', '123')
-        print('\033[0;36m' + "\r\nConnected" + '\033[0m')
         return True
     except redis.exceptions.ConnectionError as e:
-        print('\033[0;31m' + "\r\nCouldn't connect to redis-server double check it's running and the generalConfig is correct" + '\033[0m')
         print(e)
         return False
         
 
+def waitForFree(delay = 0.25, timeout = 10):
+    count = 0
+    r.set("status", "busy")
+    while(r.get("status") != b"free"):
+        time.sleep(delay)
+        count = count + 1
+        if (count == timeout):
+            print("TIMED OUT WHILE WAITING FOR RFSOC")
+            return False
+    return True
+
+def checkBlastCli():
+    r.publish("ping", "hello?")
+    count = 1 
+    delay = 0.5 
+    timeout = 3
+    m = None
+    while(1):       
+        m = p.get_message()
+        if (m is not None and m['data'] == b"Hello World"):
+            print("redisControl is running")
+            return True
+        if (count >= timeout):
+            print("RFSOC didn't reply, is it running redisControl?")
+            return False
+
+        time.sleep(delay)
+        count = count + 1
+       
 
 def menu(captions, options):
     """Creates menu for terminal interface
@@ -102,38 +134,58 @@ def main_opt(ri, fpga, udp, valon, upload_status):
         # the RFSOC is connected to the redis server as well
 
         #TODO: implement a response routine
-        os.system("clear") 
         conStatus = testConnection(r)
+        if conStatus:
+            print('\033[0;36m' + "\r\nConnected" + '\033[0m')
+        else:
+            print('\033[0;31m' + "\r\nCouldn't connect to redis-server double check it's running and the generalConfig is correct" + '\033[0m')
         opt = menu(captions,main_opts)
         if conStatus == False:
             resp = input("Can't connect to redis server, do you want to continue anyway? [y/n]: ")
             if resp != "y":
                 exit()
         if opt == 0: # upload firmware
+            os.system("clear")
             cmd = {"cmd" : "ulBitstream", "args":[]}
             cmdstr = json.dumps(cmd)
             r.publish("picard", cmdstr)
+            r.set("status", "busy")
+            print("Waiting for the RFSOC to upload it's bitstream...")
+            if waitForFree(0.75, 25):
+                print("Done")
+
 
         if opt == 1: # Init System & UDP conn.
+            os.system("clear")
+            print("Initializing System and UDP Connection")
             cmd = {"cmd" : "initRegs", "args":[]}
             cmdstr = json.dumps(cmd)
             r.publish("picard", cmdstr)
+            if waitForFree(0.5, 5):
+                print("Done")
+
        
         if opt == 2: # Write test comb
             prompt = input('Full test comb? y/n ')
+            os.system("clear")
             if prompt == 'y':
+                print("Waiting for the RFSOC to finish writing the full comb")
                 cmd = {"cmd" : "ulWaveform", "args":[]}
                 cmdstr = json.dumps(cmd)
                 r.publish("picard", cmdstr)
 
             else:
-                print("Writing single {} Hz Tone".format(float(__customSingleTone)))
+                print("Waiting for the RFSOC to write single {} MHz Tone".format(float(__customSingleTone)/1e6))
                 cmd = {"cmd" : "ulWaveform", "args":[[float(__customSingleTone)]]}
                 cmdstr = json.dumps(cmd)
-                r.publish("picard", cmdstr)
+                r.publish("picard", cmdstr)           
+            if waitForFree(0.75, 25):
+                print("Done")
 
        
         if opt == 3: # write stored comb
+            os.system("clear")
+            print("Waiting for the RFSOC to custom comb: \r\n{}".format(__customWaveform))
             fList = []
 
             # seperate values from config and remove ',' before converting to number and
@@ -145,6 +197,8 @@ def main_opt(ri, fpga, udp, valon, upload_status):
             cmd = {"cmd" : "ulWaveform", "args":[fList]}
             cmdstr = json.dumps(cmd)
             r.publish("picard", cmdstr)
+            if waitForFree(0.75, 25):
+                print("Done")
 
 
         if opt == 4: # get system state
@@ -214,6 +268,8 @@ def main():
     # Valon synthesizer instance
     
     os.system('clear')
+    if checkBlastCli() == False:
+        exit()
     while 1:
         try:
             upload_status = 0

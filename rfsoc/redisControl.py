@@ -39,6 +39,10 @@ class cli:
                 if message is not None and isinstance(message, dict):
                     # Here was expect to have a valid message
                     chan = message['channel']
+                    if chan == b"ping":
+                        if message['data'] == b"hello?":
+                            print("Received Ping")
+                            self.r.publish("ping", "Hello World")
                     if chan == b"picard":
                         # command parsing goes here
                         cmd = "nil"
