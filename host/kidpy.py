@@ -40,6 +40,8 @@ import configparser
 config = configparser.ConfigParser()
 config.read("generalConfig.conf")
 __redis_host = config['REDIS']['host']
+__customWaveform = config['DSP']['customWaveform']
+__customSingleTone = config['DSP']['singleToneFrequency']
 r = redis.Redis(__redis_host)
 
 
@@ -52,7 +54,7 @@ captions = [caption1]
 main_opts= ['Upload firmware',
             'Initialize system & UDP conn',
             'Write test comb (single or multitone)',
-            #'Write stored comb',
+            'Write stored comb from config file',
             #'Get system state',
             #'VNA sweep and plot','Locate freqs from VNA sweep',
             #'Write found freqs',
@@ -60,6 +62,17 @@ main_opts= ['Upload firmware',
             #'Execute a script',
             'Exit']
 #########################################################################
+def testConnection(r):
+    try:
+        tr = r.set('testkey', '123')
+        print('\033[0;36m' + "\r\nConnected" + '\033[0m')
+        return True
+    except redis.exceptions.ConnectionError as e:
+        print('\033[0;31m' + "\r\nCouldn't connect to redis-server double check it's running and the generalConfig is correct" + '\033[0m')
+        print(e)
+        return False
+        
+
 
 def menu(captions, options):
     """Creates menu for terminal interface
@@ -89,7 +102,13 @@ def main_opt(ri, fpga, udp, valon, upload_status):
         # the RFSOC is connected to the redis server as well
 
         #TODO: implement a response routine
+        os.system("clear") 
+        conStatus = testConnection(r)
         opt = menu(captions,main_opts)
+        if conStatus == False:
+            resp = input("Can't connect to redis server, do you want to continue anyway? [y/n]: ")
+            if resp != "y":
+                exit()
         if opt == 0: # upload firmware
             cmd = {"cmd" : "ulBitstream", "args":[]}
             cmdstr = json.dumps(cmd)
@@ -99,99 +118,38 @@ def main_opt(ri, fpga, udp, valon, upload_status):
             cmd = {"cmd" : "initRegs", "args":[]}
             cmdstr = json.dumps(cmd)
             r.publish("picard", cmdstr)
-
        
         if opt == 2: # Write test comb
             prompt = input('Full test comb? y/n ')
             if prompt == 'y':
-                print("Writing VNA comb")
-                LUT_I, LUT_Q, DDS_I, DDS_Q , freqs = ri.surfsUpDude(np.array([100e6]), vna=True)
-                print("here")
-                ri.load_bin_list(freqs)
-                print("here2")
-                ri.load_waveform_into_mem(LUT_I, LUT_Q, DDS_I, DDS_Q)
-            else:
-                print("Writing single 100MHz tone")
-                LUT_I, LUT_Q, DDS_I, DDS_Q, freqs = ri.surfsUpDude(np.array([100e6]), vna=False)
-                ri.load_bin_list(freqs)
-                ri.load_waveform_into_mem(LUT_I, LUT_Q, DDS_I, DDS_Q)
-        
-        if opt == 3: # write stored comb
-            exit()   
-        if opt == 4: # get system state
-            if not fpga:
-                print("\nROACH link is down")
-                break
-            if not np.size(ri.freq_comb):
-                try:
-                    ri.freq_comb = np.load("last_freq_comb.npy")
-                except IOError:
-                   print("\nFirst need to write a frequency comb with length > 1")
-                   break
-            try:
-                ri.writeQDR(ri.freq_comb, transfunc = True)
-                fpga.write_int(regs[np.where(regs == 'write_comb_len_reg')[0][0]][1], len(ri.freq_comb))
-            except ValueError:
-                print("\nClose Accumulator snap plot before calculating transfer function")
-        if opt == 5: # VNA sweep and plot
-            try:
-                valonSweep(valon) 
-                #plotVNASweep(str(np.load("last_vna_dir.npy")))
-            except KeyboardInterrupt:
-                print("AAAAHHHHHHHHHHHHHHHHHHHHHHHHHHH")
+                cmd = {"cmd" : "ulWaveform", "args":[]}
+                cmdstr = json.dumps(cmd)
+                r.publish("picard", cmdstr)
 
-        if opt == 6: # Locate freqs from VNA Sweep
-            try:
-                path = str(np.load("last_vna_dir.npy"))
-                print("Sweep path:", path)
-                fk.main(path, center_freq, lo_step, smoothing_scale, peak_threshold, spacing_threshold)
-                #findFreqs(str(np.load("last_vna_dir.npy")), plot = True)
-            except KeyboardInterrupt:
-                break
+            else:
+                print("Writing single {} Hz Tone".format(float(__customSingleTone)))
+                cmd = {"cmd" : "ulWaveform", "args":[[float(__customSingleTone)]]}
+                cmdstr = json.dumps(cmd)
+                r.publish("picard", cmdstr)
+
        
-        if opt == 7: # Write found freqs 
-            if not fpga:
-                print("\nROACH link is down")
-                break
-            try:
-                freq_comb = np.load(os.path.join(str(np.load('last_vna_dir.npy')), 'bb_targ_freqs.npy'))
-                freq_comb = freq_comb[freq_comb != 0]
-                freq_comb = np.roll(freq_comb, - np.argmin(np.abs(freq_comb)) - 1)
-                ri.freq_comb = freq_comb
-                print(ri.freq_comb)
-                #ri.upconvert = np.sort(((ri.freq_comb + (center_freq)*1.0e6))/1.0e6)
-                #print "RF tones =", ri.upconvert
-                if len(ri.freq_comb) > 400:
-                    fpga.write_int(regs[np.where(regs == 'fft_shift_reg')[0][0]][1], 2**5 -1)    
-                    time.sleep(0.1)
-                else:
-                    fpga.write_int(regs[np.where(regs == 'fft_shift_reg')[0][0]][1], 2**9 -1)    
-                    time.sleep(0.1)
-                ri.writeQDR(ri.freq_comb)
-                #setAtten(27, 17)
-                np.save("last_freq_comb.npy", ri.freq_comb)
-            except KeyboardInterrupt:
-                pass
-        if opt == 8: # Target Sweep and plot 
-            if not fpga:
-                print("\nROACH link is down")
-                break
-            try:
-                targetSweep(ri, udp, valon)
-                plotTargSweep(str(np.load("last_targ_dir.npy")))
-            except KeyboardInterrupt:
-                pass
-        if opt == 9: # Execute Script
-            if not fpga:
-                print("\nROACH link is down")
-                break
-            try:
-                prompt = input("what is the filename of the script to be executed: ")
-                exec(compile(open("./scripts/"+prompt, "rb").read(), "./scripts/"+prompt, 'exec'))
-            except KeyboardInterrupt:
-                pass
-        if opt == 10: # Exit
-            sys.exit()
+        if opt == 3: # write stored comb
+            fList = []
+
+            # seperate values from config and remove ',' before converting to number and
+            # sending the list of values upto the DAC
+            for value in __customWaveform.split():
+                s = value.replace(',', '')
+                fList.append(float(s))
+
+            cmd = {"cmd" : "ulWaveform", "args":[fList]}
+            cmdstr = json.dumps(cmd)
+            r.publish("picard", cmdstr)
+
+
+        if opt == 4: # get system state
+           exit()
+
         return upload_status
 
 ############################################################################
