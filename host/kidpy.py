@@ -91,10 +91,11 @@ def checkBlastCli():
     r.publish("ping", "hello?")
     count = 1 
     delay = 0.5 
-    timeout = 3
+    timeout = 6
     m = None
     while(1):       
         m = p.get_message()
+        print(m) 
         if (m is not None and m['data'] == b"Hello World"):
             print("redisControl is running")
             return True
