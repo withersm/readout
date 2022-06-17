@@ -1,21 +1,9 @@
 # This software is a work in progress. It is a console interface designed 
-# to operate the BLAST-TNG ROACH2 firmware. 
+# to operate the BLAST RFSOC firmware. 
 #
-# Copyright (C) January, 2018  Gordon, Sam <sbgordo1@asu.edu>
-# Author: Gordon, Sam <sbgordo1@asu.edu>
-#
-# Modified, May 2020: Stephenson, Ryan; Sinclair, Adrian; Roberson, Cody 
-# (and Hacked by students of the ASU Astronomical Instruments lab for RFSoC)
-# 
-# This program is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-# 
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
+# Copyright (C) 2022 <Authors listed below>
+# Author: Cody Roberson, Ryan Stephenson Adrian Sinclair, Philip Mauskopf
+#       (carobers@asu.edu)
 
 import numpy as np
 import sys, os
@@ -27,11 +15,8 @@ import json
 import time
 import matplotlib.pyplot as plt
 from scipy import signal
-################################################################
-# Run in IPYTHON as: %run kidPy
-
-# for plotting interface, run as: %run kidPy plot
-################################################################
+import udpcap
+import datetime
 
 ################################################################
 # Config File Settings
@@ -42,14 +27,7 @@ config.read("generalConfig.conf")
 __redis_host = config['REDIS']['host']
 __customWaveform = config['DSP']['customWaveform']
 __customSingleTone = config['DSP']['singleToneFrequency']
-r = redis.Redis(__redis_host)
-p = r.pubsub()
-p.subscribe("ping")
-time.sleep(1)
-if p.get_message()['data'] != 1:
-    print("Failed to Subscribe to redis Ping Channel")
-    exit()
-
+__saveData = config['DATA']['saveFolder']
 
 #######################################################################
 # Captions and menu options for terminal interface
@@ -60,7 +38,7 @@ main_opts= ['Upload firmware',
             'Initialize system & UDP conn',
             'Write test comb (single or multitone)',
             'Write stored comb from config file',
-            #'Get system state',
+            'Take Raw Data',
            #'VNA sweep and plot','Locate freqs from VNA sweep',
             #'Write found freqs',
             #'Target sweep and plot',
@@ -76,7 +54,7 @@ def testConnection(r):
         return False
         
 
-def waitForFree(delay = 0.25, timeout = 10):
+def waitForFree(r, delay = 0.25, timeout = 10):
     count = 0
     r.set("status", "busy")
     while(r.get("status") != b"free"):
@@ -87,7 +65,7 @@ def waitForFree(delay = 0.25, timeout = 10):
             return False
     return True
 
-def checkBlastCli():
+def checkBlastCli(r, p):
     r.publish("ping", "hello?")
     count = 1 
     delay = 0.5 
@@ -95,7 +73,6 @@ def checkBlastCli():
     m = None
     while(1):       
         m = p.get_message()
-        print(m) 
         if (m is not None and m['data'] == b"Hello World"):
             print("redisControl is running")
             return True
@@ -117,19 +94,14 @@ def menu(captions, options):
     print('\t' + captions[0] + '\n')
     for i in range(len(options)):
         print('\t' +  '\033[32m' + str(i) + ' ..... ' '\033[0m' +  options[i] + '\n')
-    opt = eval(input())
+    opt = None
+    try:
+        opt = eval(input())
+    except KeyboardInterrupt:
+        exit()
     return opt
 
-def main_opt(ri, fpga, udp, valon, upload_status):
-    """Creates terminal interface
-       inputs:
-           casperfpga object fpga
-           roachInterface object ri
-           gbeConfig object udp
-           valon synth object valon
-           int upload_status: Integer indicating whether or not firmware is uploaded
-        outputs:
-          int  upload_status"""
+def main_opt(r, p, udp):
     while 1:
         #TODO: implement a check here to ensure we are connected to the redis server and in turn
         # the RFSOC is connected to the redis server as well
@@ -152,7 +124,7 @@ def main_opt(ri, fpga, udp, valon, upload_status):
             r.publish("picard", cmdstr)
             r.set("status", "busy")
             print("Waiting for the RFSOC to upload it's bitstream...")
-            if waitForFree(0.75, 25):
+            if waitForFree(r, 0.75, 25):
                 print("Done")
 
 
@@ -162,7 +134,7 @@ def main_opt(ri, fpga, udp, valon, upload_status):
             cmd = {"cmd" : "initRegs", "args":[]}
             cmdstr = json.dumps(cmd)
             r.publish("picard", cmdstr)
-            if waitForFree(0.5, 5):
+            if waitForFree(r, 0.5, 5):
                 print("Done")
 
        
@@ -180,13 +152,13 @@ def main_opt(ri, fpga, udp, valon, upload_status):
                 cmd = {"cmd" : "ulWaveform", "args":[[float(__customSingleTone)]]}
                 cmdstr = json.dumps(cmd)
                 r.publish("picard", cmdstr)           
-            if waitForFree(0.75, 25):
+            if waitForFree(r, 0.75, 25):
                 print("Done")
 
        
         if opt == 3: # write stored comb
             os.system("clear")
-            print("Waiting for the RFSOC to custom comb: \r\n{}".format(__customWaveform))
+            print("Waiting for the RFSOC to finish writing the custom frequency list: \r\n{}".format(__customWaveform))
             fList = []
 
             # seperate values from config and remove ',' before converting to number and
@@ -198,14 +170,37 @@ def main_opt(ri, fpga, udp, valon, upload_status):
             cmd = {"cmd" : "ulWaveform", "args":[fList]}
             cmdstr = json.dumps(cmd)
             r.publish("picard", cmdstr)
-            if waitForFree(0.75, 25):
+            if waitForFree(r, 0.75, 25):
                 print("Done")
 
+        if opt == 4:
+            t = 0;
+            try:
+                t = int(input("How many seconds of data?: "))
+            except ValueError:
+                print("Error, not a valid Number")
+            except KeyboardInterrupt:
+                return
 
-        if opt == 4: # get system state
+            if t <= 0:
+                print("Can't sample 0 seconds")
+            else:
+                os.system('clear')
+                print("Binding Socket")
+                udp.bindSocket()
+                print("Capturing packets")
+                data = udp.capture_packets(488 * t)
+                print("Releasing Socket")
+                udp.release()
+                fname = __saveData + "kidpyCaptureData{0:%Y%m%d%H%M%S}".format(datetime.datetime.now())
+                print("saving data to {}.npy".format(fname))
+                np.save(fname, data)
+                
+
+        if opt == 5: # get system state
            exit()
 
-        return upload_status
+        return 0
 
 ############################################################################
 # Interface for snap block plotting
@@ -230,47 +225,22 @@ def makePlotMenu(prompt,options):
     opt = eval(input())
     return opt
 
-def plot_opt(ri):
-    """Creates terminal interface for plotting snap blocks
-       inputs:
-           roachInterface object ri"""
-    while 1:
-        opt = makePlotMenu(plot_caption, plot_opts)
-        if opt == 0:
-            try:
-                ri.plotADC()
-            except KeyboardInterrupt:
-                #fig = plt.gcf()
-                #plt.close(fig)
-                pass
-        if opt == 1:
-            try:
-                ri.plotFFT()
-            except KeyboardInterrupt:
-                fig = plt.gcf()
-                plt.close(fig)
-        if opt == 2:
-            chan = eval(input('Channel = ? '))
-            try:
-                ri.plotMixer(chan, fir = False)
-            except KeyboardInterrupt:
-                fig = plt.gcf()
-                plt.close(fig)
-        if opt == 3:
-            try:
-                ri.plotAccum()
-            except KeyboardInterrupt:
-                fig = plt.gcf()
-                plt.close(fig)
-    return
 
 def main():
-    s = None
-    # Valon synthesizer instance
-    
-    os.system('clear')
-    if checkBlastCli() == False:
+    r = redis.Redis(__redis_host)
+    p = r.pubsub()
+    p.subscribe("ping")
+    time.sleep(1)
+    if p.get_message()['data'] != 1:
+        print("Failed to Subscribe to redis Ping Channel")
         exit()
+
+    # check that the RFSOC is running redisControl.py 
+    os.system('clear')
+    if checkBlastCli(r, p) == False:
+        exit()
+
+    udp = udpcap.udpcap()
     while 1:
         try:
             upload_status = 0
@@ -280,24 +250,10 @@ def main():
             #        upload_status = 1
             #time.sleep(0.1)
             #upload_status = main_opt(fpga, ri, udp, valon, upload_status)
-            upload_status= main_opt(None, None, None, None, None)
+            upload_status = main_opt(r, p, udp)
         except TypeError:
             pass
     return 
 
-def plot_main():
-    try:
-        fpga = casperfpga.katcp_fpga.KatcpFpga(gc[np.where(gc == 'roach_ppc_ip')[0][0]][1], timeout = 3.)
-    except RuntimeError:
-        fpga = None
-    # Roach interface
-    ri = roachInterface(fpga, gc, regs, None)
-    while 1:
-        plot_opt(ri)
-    return 
-
 if __name__ == "__main__":
-    if len(sys.argv) > 1:
-        plot_main()
-    else:
-        main()
+    main()
