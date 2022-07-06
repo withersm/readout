@@ -38,8 +38,9 @@ main_opts= ['Upload firmware',
             'Initialize system & UDP conn',
             'Write test comb (single or multitone)',
             'Write stored comb from config file',
+            'I <-> Q Phase offset',
             'Take Raw Data',
-           #'VNA sweep and plot','Locate freqs from VNA sweep',
+            #'',
             #'Write found freqs',
             #'Target sweep and plot',
             #'Execute a script',
@@ -174,6 +175,9 @@ def main_opt(r, p, udp):
                 print("Done")
 
         if opt == 4:
+            print("Not Implemented")
+
+        if opt == 5:
             t = 0;
             try:
                 t = int(input("How many seconds of data?: "))
@@ -197,7 +201,7 @@ def main_opt(r, p, udp):
                 np.save(fname, data)
                 
 
-        if opt == 5: # get system state
+        if opt == 6: # get system state
            exit()
 
         return 0

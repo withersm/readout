@@ -49,6 +49,19 @@ class udpcap():
                 print("{}/{} captured".format(i, N_packets))
         return packets
     
+
+    def captureAndSave(self, N_packets, fname):
+        packets = np.zeros(shape=(2052,N_packets))
+        #packets = np.zeros(shape=(2051,N_packets))
+        counter = 0
+        for i in range(N_packets):
+            data_2 = self.parse_packet()
+            packets[:,i] = data_2 
+            if i%488 == 0:
+                print("{}/{} captured".format(i, N_packets))
+        return 0
+    
+
     def release(self):
         self.sock.close()
 
