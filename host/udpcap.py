@@ -3,6 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from time import sleep
 from scipy import signal
+import h5py
 
 DEFAULT_UDP_IP = "192.168.3.40"
 DEFAULT_UDP_PORT = 4096
@@ -25,11 +26,6 @@ class udpcap():
             return
         datarray = bytearray(data)
         
-        # the above step unrolls the c0ffee data stream
-        for i in range(499):
-            datarray[214+i*16:216+i*16]=datarray[230+i*16:232+i*16]
-
-
         # now allow a shift of the bytes
         byte_off = 6
         for i in range(byte_off):
@@ -46,21 +42,32 @@ class udpcap():
             data_2 = self.parse_packet()
             packets[:,i] = data_2 
             if i%488 == 0:
-                print("{}/{} captured".format(i, N_packets))
+                print("{}/{} captured ({:.3f}% Complete)".format(i, N_packets, 
+                    (N_packets/488)*100.0))
         return packets
-    
 
-    def captureAndSave(self, N_packets, fname):
-        packets = np.zeros(shape=(2052,N_packets))
-        #packets = np.zeros(shape=(2051,N_packets))
-        counter = 0
-        for i in range(N_packets):
-            data_2 = self.parse_packet()
-            packets[:,i] = data_2 
-            if i%488 == 0:
-                print("{}/{} captured".format(i, N_packets))
-        return 0
-    
+    def capturePacketsToFile(self, fname, nPackets):
+        """
+        Captures packets and saved them to an hdf5 type file
+        N : int
+            Number of packets to save
+        fname : string
+            file name / path
+        """
+        try:
+            print("capture {} packets".format(nPackets))
+            dFile = h5py.File(fname, 'w')
+            pkts = dFile.create_dataset("PACKETS",(2052, nPackets), dtype=h5py.h5t.NATIVE_INT32, chunks=True, maxshape=(None, None))
+            print("Begin Capture")
+            for i in range(nPackets):
+                pkts[:, i] = self.parse_packet()
+                if i > 0 and i % 488 == 0:
+                    print("{}/{} captured ({}% Complete)".format(i, nPackets, ((i/nPackets)*100.0)))
+            dFile.close()
+        except Exception as errorE:
+            raise(errorE)
+        return True
+
 
     def release(self):
         self.sock.close()

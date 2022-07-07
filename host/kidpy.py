@@ -181,6 +181,7 @@ def main_opt(r, p, udp):
             t = 0;
             try:
                 t = int(input("How many seconds of data?: "))
+                print(t)
             except ValueError:
                 print("Error, not a valid Number")
             except KeyboardInterrupt:
@@ -192,13 +193,13 @@ def main_opt(r, p, udp):
                 os.system('clear')
                 print("Binding Socket")
                 udp.bindSocket()
-                print("Capturing packets")
-                data = udp.capture_packets(488 * t)
+                print("Capturing packets") 
+                fname = __saveData + "kidpyCaptureData{0:%Y%m%d%H%M%S}.h5".format(datetime.datetime.now())
+                print(fname)
+                udp.capturePacketsToFile(fname, 488*t)
                 print("Releasing Socket")
                 udp.release()
-                fname = __saveData + "kidpyCaptureData{0:%Y%m%d%H%M%S}".format(datetime.datetime.now())
-                print("saving data to {}.npy".format(fname))
-                np.save(fname, data)
+
                 
 
         if opt == 6: # get system state
