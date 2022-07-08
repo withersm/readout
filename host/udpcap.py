@@ -27,10 +27,7 @@ class udpcap():
         datarray = bytearray(data)
         
         # now allow a shift of the bytes
-        byte_off = 6
-        for i in range(byte_off):
-            datarray.append(0)
-        spec_data = np.frombuffer(datarray, dtype = '<i', offset = byte_off)
+        spec_data = np.frombuffer(datarray, dtype = '<i')
         # offset allows a shift in the bytes
         return spec_data # int32 data type
        
