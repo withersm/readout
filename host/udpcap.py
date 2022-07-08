@@ -62,7 +62,7 @@ class udpcap():
             for i in range(nPackets):
                 pkts[:, i] = self.parse_packet()
                 if i > 0 and i % 488 == 0:
-                    print("{}/{} captured ({}% Complete)".format(i, nPackets, ((i/nPackets)*100.0)))
+                    print("{}/{} captured ({:.2f}% Complete)".format(i, nPackets, ((i/nPackets)*100.0)))
             dFile.close()
         except Exception as errorE:
             raise(errorE)
