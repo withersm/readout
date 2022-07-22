@@ -178,7 +178,7 @@ def main_opt(r, p, udp):
             print("Not Implemented")
 
         if opt == 5:
-            t = 0;
+            t = 0
             try:
                 t = int(input("How many seconds of data?: "))
                 print(t)
@@ -196,7 +196,10 @@ def main_opt(r, p, udp):
                 print("Capturing packets") 
                 fname = __saveData + "kidpyCaptureData{0:%Y%m%d%H%M%S}.h5".format(datetime.datetime.now())
                 print(fname)
-                udp.capturePacketsToFile(fname, 488*t)
+                if s < 60:
+                    udp.shortDataCapture(fname, 488*t)
+                else:
+                    udp.LongDataCapture(fname, 488*t)
                 print("Releasing Socket")
                 udp.release()
 
