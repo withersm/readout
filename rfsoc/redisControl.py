@@ -3,7 +3,9 @@
 @date: June 14, 2022
 @file: redisControl.py
 @description:
-
+This is a prototype redis message listener and command dispatcher. 
+Further work needed to abstract away the messaging system and implement error
+logging/handling. 
 """
 
 #user check since we can't run without root priviliges
@@ -36,7 +38,7 @@ class cli:
         self.p.subscribe("ping")
         sleep(1)
         if self.p.get_message()['data'] == 2:
-            print("Successfully subscribed to PING, Awaiting Commands...") 
+            print("Successfully subscribed to PING") 
         else:
             print("Something went wrong when subscibing to the PING channel")
 

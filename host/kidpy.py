@@ -196,7 +196,7 @@ def main_opt(r, p, udp):
                 print("Capturing packets") 
                 fname = __saveData + "kidpyCaptureData{0:%Y%m%d%H%M%S}.h5".format(datetime.datetime.now())
                 print(fname)
-                if s < 60:
+                if t < 60:
                     udp.shortDataCapture(fname, 488*t)
                 else:
                     udp.LongDataCapture(fname, 488*t)

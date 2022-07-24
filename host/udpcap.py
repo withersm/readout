@@ -5,6 +5,9 @@ import matplotlib.pyplot as plt
 from time import sleep
 from scipy import signal
 import h5py
+import multiprocessing as mproc
+
+from sympy import false, npartitions
 
 DEFAULT_UDP_IP = "192.168.3.40"
 DEFAULT_UDP_PORT = 4096
@@ -44,36 +47,65 @@ class udpcap():
                     (N_packets/488)*100.0))
         return packets
 
-    def __ldcHelper(self):
+    def __ldcHelper(self, queue, filename, nPackets):
 
         """
-        We want to use this subprocess to copy memory out of our numpy array
-        and into the h5py data set. The hdf5 backend controls when to flush it's 
-        buffers automatically however we're still working on performance
-        issues and this may help mitigate them.
+        dSet : h5py dataset
+            Pointer to the dataset we're writing data to
+        
+        dIn : numpy.array
+            Numpy array that shall be copied into the h5p5 dataset
         """
-        pass
+        print("ldc helper internal function was called")
+        dFile = h5py.File(filename, 'w')
+        data = dFile.create_dataset("PACKETS",(2052, nPackets), dtype=h5py.h5t.NATIVE_INT32, chunks=True, maxshape=(None, None))
+        active = True
+        while active:
+            rawData = queue.get()
+            print("rawdata {}".format(rawData))
+            if rawData is not None:
+                d, c = rawData
+                data[:, c] = d
+            else:
+                active = false
+                dFile.flush()
+        dFile.close()
 
     def LongDataCapture(self, fname, nPackets):
         """
         Captures packets and saved them to an hdf5 type file
-        N : int
-            Number of packets to save
         fname : string
             file name / path
+        N : int
+            Number of packets to save
         """
         try:
             print("capture {} packets".format(nPackets))
-            dFile = h5py.File(fname, 'w')
-            pkts = dFile.create_dataset("PACKETS",(2052, nPackets), dtype=h5py.h5t.NATIVE_INT32, chunks=True, maxshape=(None, None))
             print("Begin Capture")
-            for i in range(nPackets):
-                pkts[:, i] = self.parse_packet()
-                if i > 0 and i % 488 == 0:
-                    print("{}/{} captured ({:.2f}% Complete)".format(i, nPackets, ((i/nPackets)*100.0)))
-            dFile.close()
+            
+            # enter while loop
+            
+            manager = mproc.Manager()
+            pool = manager.Pool(1)
+            queue = mproc.Queue()
+            
+            pool.apply_async(self.__ldcHelper, (queue, fname, nPackets))
+
+            while count < nPackets:
+                packet = self.parse_packet()
+                if packet is None:
+                    continue
+                queue.put((packet, count))
+                count = count + 1
+            # create helper process
+            # capture n packets 
+                # Dispatch helper process to dump data into hdf5 dataset
+            # continue to capture n packets, never interrupting datataking
         except Exception as errorE:
             raise(errorE)
+        except TypeError:
+            print("Type error occured")
+            pass
         return True
 
 
@@ -108,3 +140,29 @@ class udpcap():
         self.sock.close()
 
 
+
+
+
+"""
+    def LongDataCapture(self, fname, nPackets):
+        '''
+        Captures packets and saved them to an hdf5 type file
+        N : int
+            Number of packets to save
+        fname : string
+            file name / path
+        '''
+        try:
+            print("capture {} packets".format(nPackets))
+            dFile = h5py.File(fname, 'w')
+            pkts = dFile.create_dataset("PACKETS",(2052, nPackets), dtype=h5py.h5t.NATIVE_INT32, chunks=True, maxshape=(None, None))
+            print("Begin Capture")
+            for i in range(nPackets):
+                pkts[:, i] = self.parse_packet()
+                if i > 0 and i % 488 == 0:
+                    print("{}/{} captured ({:.2f}% Complete)".format(i, nPackets, ((i/nPackets)*100.0)))
+            dFile.close()
+        except Exception as errorE:
+            raise(errorE)
+        return True
+"""
