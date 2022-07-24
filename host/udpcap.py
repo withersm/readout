@@ -10,7 +10,7 @@ import multiprocessing as mproc
 DEFAULT_UDP_IP = "192.168.3.40"
 DEFAULT_UDP_PORT = 4096
 
-def ldcHelper(self, queue, filename, nPackets):
+def ldcHelper(queue, filename, nPackets):
 
     """
     dSet : h5py dataset
@@ -25,7 +25,7 @@ def ldcHelper(self, queue, filename, nPackets):
     active = True
     while active:
         rawData = queue.get()
-        print("rawdata {}".format(rawData))
+        # print("rawdata {}".format(rawData))
         if rawData is not None:
             d, c = rawData
             data[:, c] = d
@@ -87,16 +87,18 @@ class udpcap():
             
             manager = mproc.Manager()
             pool = manager.Pool(1)
-            queue = mproc.Queue()
+            queue = manager.Queue()
             
             pool.apply_async(ldcHelper, (queue, fname, nPackets))
-
+            count = 0
             while count < nPackets:
                 packet = self.parse_packet()
                 if packet is None:
                     continue
                 queue.put((packet, count))
                 count = count + 1
+                if count > 0 and count % 488 == 0:
+                    print("{}/{} captured ({:.2f}% Complete)".format(count, nPackets, ((count/nPackets)*100.0)))
             # create helper process
             # capture n packets 
                 # Dispatch helper process to dump data into hdf5 dataset
