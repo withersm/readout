@@ -324,31 +324,6 @@ class Synthesizer:
         #_verify_checksum(data, checksum)
         return struct.unpack('>HH', data)
 
-    def set_vco_range(self, synth, low, high):
-        """
-        Sets VCO range.
-
-        @param synth : synthesizer base address
-        @type  synth : int
-
-        @param min : minimum VCO frequency
-        @type  min : int
-
-        @param max : maximum VCO frequency
-        @type  max : int
-
-        @return: True if success (bool)
-        """
-        self.conn.open()
-        data = struct.pack('>BHH', 0x03 | synth, low, high)
-        checksum = _generate_checksum(data)
-        self.conn.write(data + checksum)
-        self.conn.flush()
-        data = self.conn.read(1)
-        self.conn.close()
-        ack = struct.unpack('>B', data)[0]
-        return ack == ACK
-
     def get_phase_lock(self, synth):
         """
         Get phase lock status
