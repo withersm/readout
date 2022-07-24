@@ -10,6 +10,30 @@ import multiprocessing as mproc
 DEFAULT_UDP_IP = "192.168.3.40"
 DEFAULT_UDP_PORT = 4096
 
+def ldcHelper(self, queue, filename, nPackets):
+
+    """
+    dSet : h5py dataset
+        Pointer to the dataset we're writing data to
+    
+    dIn : numpy.array
+        Numpy array that shall be copied into the h5p5 dataset
+    """
+    print("ldc helper internal function was called")
+    dFile = h5py.File(filename, 'w')
+    data = dFile.create_dataset("PACKETS",(2052, nPackets), dtype=h5py.h5t.NATIVE_INT32, chunks=True, maxshape=(None, None))
+    active = True
+    while active:
+        rawData = queue.get()
+        print("rawdata {}".format(rawData))
+        if rawData is not None:
+            d, c = rawData
+            data[:, c] = d
+        else:
+            active = False
+            dFile.flush()
+    dFile.close()
+
 class udpcap():
     def __init__(self, UDP_IP = DEFAULT_UDP_IP, UDP_PORT = DEFAULT_UDP_PORT):
         self.UDP_IP = UDP_IP
@@ -45,29 +69,7 @@ class udpcap():
                     (N_packets/488)*100.0))
         return packets
 
-    def __ldcHelper(self, queue, filename, nPackets):
 
-        """
-        dSet : h5py dataset
-            Pointer to the dataset we're writing data to
-        
-        dIn : numpy.array
-            Numpy array that shall be copied into the h5p5 dataset
-        """
-        print("ldc helper internal function was called")
-        dFile = h5py.File(filename, 'w')
-        data = dFile.create_dataset("PACKETS",(2052, nPackets), dtype=h5py.h5t.NATIVE_INT32, chunks=True, maxshape=(None, None))
-        active = True
-        while active:
-            rawData = queue.get()
-            print("rawdata {}".format(rawData))
-            if rawData is not None:
-                d, c = rawData
-                data[:, c] = d
-            else:
-                active = false
-                dFile.flush()
-        dFile.close()
 
     def LongDataCapture(self, fname, nPackets):
         """
@@ -87,7 +89,7 @@ class udpcap():
             pool = manager.Pool(1)
             queue = mproc.Queue()
             
-            pool.apply_async(self.__ldcHelper, (queue, fname, nPackets))
+            pool.apply_async(ldcHelper, (queue, fname, nPackets))
 
             while count < nPackets:
                 packet = self.parse_packet()
