@@ -10,11 +10,18 @@ import multiprocessing as mproc
 DEFAULT_UDP_IP = "192.168.3.40"
 DEFAULT_UDP_PORT = 4096
 
+
 def ldcHelper(queue, filename, nPackets):
 
     """
-    dSet : h5py dataset
-        Pointer to the dataset we're writing data to
+    ldcHelper is a helper method intended to be used in the udpcap.LongDataCapture method.
+    This method runs asynchronously to udpcap.LongDataCapture in order to seperate 
+    the array copy and i/o writing phases of data capture.
+
+     **** This should not be used for any purpose. ****
+    
+    queue : multiprocessing.manager.queue
+        Data Queue we are sourceing data from
     
     dIn : numpy.array
         Numpy array that shall be copied into the h5p5 dataset
@@ -34,6 +41,7 @@ def ldcHelper(queue, filename, nPackets):
             dFile.flush()
     dFile.close()
 
+
 class udpcap():
     def __init__(self, UDP_IP = DEFAULT_UDP_IP, UDP_PORT = DEFAULT_UDP_PORT):
         self.UDP_IP = UDP_IP
@@ -41,10 +49,12 @@ class udpcap():
         print(self.UDP_IP)
         print(self.UDP_PORT)
 
+
     def bindSocket(self):
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.sock.bind((self.UDP_IP,self.UDP_PORT))
-    
+
+
     def parse_packet(self):
         data = self.sock.recv(8208 * 1)
         if len(data) <  8000:
@@ -56,8 +66,12 @@ class udpcap():
         spec_data = np.frombuffer(datarray, dtype = '<i')
         # offset allows a shift in the bytes
         return spec_data # int32 data type
-       
+
+
     def capture_packets(self, N_packets):
+        """
+        DEPRECATED
+        """
         packets = np.zeros(shape=(2052,N_packets))
         #packets = np.zeros(shape=(2051,N_packets))
         counter = 0
@@ -70,13 +84,12 @@ class udpcap():
         return packets
 
 
-
     def LongDataCapture(self, fname, nPackets):
         """
-        Captures packets and saved them to an hdf5 type file
+        Captures packets for extended periods of time utilzing pythons Multiprocessing library
         fname : string
-            file name / path
-        N : int
+            file name / path where data shall be exported
+        nPackets : int
             Number of packets to save
         """
         try:
@@ -105,9 +118,14 @@ class udpcap():
             # continue to capture n packets, never interrupting datataking
         except Exception as errorE:
             raise(errorE)
+        
         except TypeError:
             print("Type error occured")
-            pass
+            return False
+
+        except KeyboardInterrupt:
+            print("Interrupted Data Capture")
+            return False
         return True
 
 
@@ -121,7 +139,7 @@ class udpcap():
             file name / path
         """
 
-        assert nPackets < 488*60, "METHOD NOT INTENDED FOR LONG DATA CAPTURES > 488*60"
+        assert nPackets < 488*60, "METHOD NOT INTENDED FOR LONG DATA CAPTURES > 488 packets per second * 60 seconds"
         pData = np.zeros((2052, nPackets))
         try:
             print("capture {} packets".format(nPackets))
@@ -143,28 +161,3 @@ class udpcap():
 
 
 
-
-
-"""
-    def LongDataCapture(self, fname, nPackets):
-        '''
-        Captures packets and saved them to an hdf5 type file
-        N : int
-            Number of packets to save
-        fname : string
-            file name / path
-        '''
-        try:
-            print("capture {} packets".format(nPackets))
-            dFile = h5py.File(fname, 'w')
-            pkts = dFile.create_dataset("PACKETS",(2052, nPackets), dtype=h5py.h5t.NATIVE_INT32, chunks=True, maxshape=(None, None))
-            print("Begin Capture")
-            for i in range(nPackets):
-                pkts[:, i] = self.parse_packet()
-                if i > 0 and i % 488 == 0:
-                    print("{}/{} captured ({:.2f}% Complete)".format(i, nPackets, ((i/nPackets)*100.0)))
-            dFile.close()
-        except Exception as errorE:
-            raise(errorE)
-        return True
-"""
