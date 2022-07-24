@@ -7,8 +7,6 @@ from scipy import signal
 import h5py
 import multiprocessing as mproc
 
-from sympy import false, npartitions
-
 DEFAULT_UDP_IP = "192.168.3.40"
 DEFAULT_UDP_PORT = 4096
 
