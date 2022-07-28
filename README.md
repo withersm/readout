@@ -6,9 +6,19 @@ our standard jupyter notebook flow.
 
 ### host
 This contains all notebooks and python files that will run on a host computer such as a server.
+
 * host/kidpy.py
     This is the main tui based control of the KIDPY firmware on the rfsoc. This connects to the redis server 
-    and publishes data as a means to control the rfsoc. Data streams taken shall use the HDF5 file standard.
+    and publishes data as a means to control the rfsoc. 
+
+* host/udpcap.py
+    data is captured and saved here from the ethernet port on the readout server. This library features two main
+    user functions of note. Short Data Capture and Long Data Capture. The short data capture runs on a single core processor however
+    the long data capture requires a multicore processor. 
+
+* host/generalConfig.conf
+    Settings are stored here such as redis server configuration, data save path, etc.
+    **Note that this assumed there is a folder in the root directory named 'data' and has it's permissions set to allow read/write from all users**
 
 ### rfsoc
 This contains all notebooks and python files which will run on the RFSOC
