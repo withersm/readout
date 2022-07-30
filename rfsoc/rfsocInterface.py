@@ -57,7 +57,7 @@ class rfsocInterface:
         self.ddc_snap = self.firmware.DDC_SNAP_SYNC.BRAM_SNAPIII_0
         self.accum_snap = self.firmware.ACCUM_SNAP_SYNC.BRAM_SNAPIII_0
 
-        return 0
+        return bitstream
     
     def getFirmwareObjects(self, bitstream="/bitstreams/blastv1.3.bit"):
         self.firmware = Overlay(bitstream, ignore_version=True,download=False)
@@ -429,5 +429,6 @@ class rfsocInterface:
         LUT_I, LUT_Q, DDS_I, DDS_Q, freqs = self.surfsUpDude(waveform, vna=vna, verbose=verbose) 
         self.load_bin_list(freqs)
         self.load_waveform_into_mem(freqs, LUT_I, LUT_Q, DDS_I, DDS_Q)
+        return freqs
 
         

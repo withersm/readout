@@ -6,6 +6,25 @@
 This is a prototype redis message listener and command dispatcher. 
 Further work needed to abstract away the messaging system and implement error
 logging/handling. 
+
+Format for accepting commands from redis
+message = {
+    'cmd' : 'cmd here',
+    'args' : [
+        arg0,
+        arg1,
+        arg2,
+        etc
+    ]
+}
+
+Format for replying to commands from redis 
+message = {
+    'cmd' : 'relay command',
+    'status' : 'OK'|'FAIL',
+    'data' : 'nil' | <arbitrary data>
+}
+
 """
 
 #user check since we can't run without root priviliges
@@ -82,15 +101,30 @@ class cli:
                             self.rfsoc.initRegs()
                             print("Done")
                             self.r.set("status", "free")
+
                         elif cmd['cmd'] == "ulWaveform":
                             if (len(cmd['args']) == 0):
                                 print("Writing Full Comb")
-                                self.rfsoc.writeWaveform(None, vna=True)
+                                freqs = self.rfsoc.writeWaveform(None, vna=True)
+                                reply = {
+                                    'cmd' : "ulWaveform",
+                                    'status' : "OK",
+                                    'data' : freqs
+                                }
+                                replyJson = json.dumps(reply)
+                                self.r.publish("picard_reply", replyJson)
                                 print("Done")
                             else:
                                 print("Writing Specified Waveform")
                                 print(cmd['args'][0])
-                                self.rfsoc.writeWaveform(np.array(cmd['args'][0]), vna=False)
+                                freqs = self.rfsoc.writeWaveform(np.array(cmd['args'][0]), vna=False)
+                                reply = {
+                                    'cmd' : "ulWaveform",
+                                    'status' : "OK",
+                                    'data' : freqs
+                                }
+                                replyJson = json.dumps(reply)
+                                self.r.publish("picard_reply", replyJson)
                                 print("Done")
                             self.r.set("status", "free")
                         elif cmd['cmd'] == "exit":

@@ -53,3 +53,10 @@ Starting Listener
 10. upload the bitstream, setup udp and registers, write your waveform
 11. raw data is currently configured to save to /data/, this can be modified in generalConfig.conf in the readout
 folder.
+
+
+### READOUT SERVER NOTE
+Setting up an interface with
+ifconfig <interface> <ip> netmask <addr> mtu 9000 hw ether <mac>
+ex: 
+    ifconfig ens1f3 192.168.3.40 netmask 255.255.255.0 mtu 9000 hw ether 80:3f:5d:09:2b:b0

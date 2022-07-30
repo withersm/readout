@@ -19,9 +19,48 @@ EXT_REF = 1
 class Synthesizer:
     """A simple interface to the Valon 5009 synthesizer."""
     def __init__(self, port):
-        self.conn = serial.Serial(None, 9600, serial.EIGHTBITS,
+        self.conn = serial.Serial(None, 115200, serial.EIGHTBITS,
                                   serial.PARITY_NONE, serial.STOPBITS_ONE, timeout = 0.500)
         self.conn.setPort(port)
+        supportedBauds = [115200, 9600, 19200, 38400, 57600, 230400, 460800, 912600]
+        
+        def idCheck(baud):
+            if self.conn.isOpen:
+                self.conn.close()
+            self.conn.baudrate = baud
+            self.conn.open()
+            self.conn.write(b"ID\r")
+            r = self.conn.readlines()
+            if r[0] == b'ID\r\n':
+                self.conn.close()
+                return True
+            else:
+                return False
+            
+        # Hunt for, and set connection baud rate
+        for baud in supportedBauds:
+            a = idCheck(baud)
+            print("Checking for baud {}".format(baud))
+            if a == True:
+                print("Connected at baud {}".format(baud))
+                break
+        
+
+    def getSN(self):
+        self.conn.open()
+        self.conn.write(b"ID\r")
+        info = self.conn.readlines()
+        self.conn.flush()
+        self.conn.close()
+        print(info)
+        if info is not None:
+            inf = info[1].decode("ASCII")
+            inf = inf.split(',')
+            print(inf[2])
+            return inf[2]
+        else:
+            return None
+
 
     def get_frequency(self, synth):
         """

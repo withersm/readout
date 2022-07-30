@@ -1,9 +1,19 @@
-# This software is a work in progress. It is a console interface designed 
-# to operate the BLAST RFSOC firmware. 
-#
-# Copyright (C) 2022 <Authors listed below>
-# Author: Cody Roberson, Ryan Stephenson Adrian Sinclair, Philip Mauskopf
-#       (carobers@asu.edu)
+"""
+This software is a work in progress. It is a console interface designed 
+to operate the BLAST RFSOC firmware. 
+
+Copyright (C) 2022 <Authors listed below>
+Author: Cody Roberson, Ryan Stephenson Adrian Sinclair, Philip Mauskopf
+      (carobers@asu.edu)
+
+subscribe message Out[6]: {'type': 'subscribe', 'pattern': None, 'channel': b'picard', 'data': 1}
+
+ ******  REVISIONS *****
+2022-07-25
+    - Began overhaul of command <-> repsonse. Previously we only had a busy please wait approach
+        however now we will be utilizing pub-sub to facilitate replys with data payloads.
+        Write waveform for instance shall now reply back with the written baseband frequencies.
+"""
 
 import numpy as np
 import sys, os
@@ -17,9 +27,10 @@ import matplotlib.pyplot as plt
 from scipy import signal
 import udpcap
 import datetime
+import valon5009
 
 ################################################################
-# Config File Settings
+# Config File import settings 
 ################################################################
 import configparser
 config = configparser.ConfigParser()
@@ -28,7 +39,8 @@ __redis_host = config['REDIS']['host']
 __customWaveform = config['DSP']['customWaveform']
 __customSingleTone = config['DSP']['singleToneFrequency']
 __saveData = config['DATA']['saveFolder']
-
+__valon_RF1_SYS1 = config['VALON']['rfsoc1System1']
+__valon_RF1_SYS1 = config['VALON']['rfsoc1System2']
 #######################################################################
 # Captions and menu options for terminal interface
 caption1 = '\n\t\033[95mKID-PY2 RFSoC Readout\033[95m'
@@ -40,7 +52,7 @@ main_opts= ['Upload firmware',
             'Write stored comb from config file',
             'I <-> Q Phase offset',
             'Take Raw Data',
-            #'',
+            'LO Sweep',
             #'Write found freqs',
             #'Target sweep and plot',
             #'Execute a script',
@@ -66,7 +78,46 @@ def waitForFree(r, delay = 0.25, timeout = 10):
             return False
     return True
 
+def waitForReply(redisIF, cmd, maxTimeout = 15):
+    """
+
+    This is the eventual replacement for the waitForFree() method. 
+    We want to have smarter replies that can ferry data back from the RFSOC. 
+  
+    Once a command is sent out, listen for a reply on the <cmd_reply> channel
+        Format for replying to commands from redis 
+            message = {
+                'cmd' : 'relay command',
+                'status' : 'OK'|'FAIL',
+                'data' : 'nil' | <arbitrary data>
+            }
+    Parameters::
+        redisIF : reference to a REDIS interface object
+        cmd : Command sent out
+        maxTimeout : Time in seconds to wait before we time out
+                (default is 15 seconds)
+    
+
+    """
+    time = 0
+    while(time < maxTimeout):
+        m = redisIF.get_message()
+        if(m is not None):
+            msgData = m['data'].decode("ASCII") 
+            data = json.loads(msgData)
+            if data['cmd'] == cmd and data['status'] == "OK":
+                return (True, data['data'])
+            else:
+                return (False, data['data'])
+        time.sleep(1)
+        time = time+1
+    print("WARINNG: TIMED OUT WAITING FOR REPLY -->  def waitForReply(redisIF, cmd, maxTimeout = 15):")
+
+
 def checkBlastCli(r, p):
+    """
+    Rudamentary "is the rfsoc control software running" check. 
+    """
     r.publish("ping", "hello?")
     count = 1 
     delay = 0.5 
@@ -102,7 +153,15 @@ def menu(captions, options):
         exit()
     return opt
 
+
 def main_opt(r, p, udp):
+    """
+    Main user interface routing
+
+    r : redis Server instance
+    p : redis.pubsub instance
+    udp : udpcap object instance
+    """
     while 1:
         #TODO: implement a check here to ensure we are connected to the redis server and in turn
         # the RFSOC is connected to the redis server as well
@@ -203,9 +262,14 @@ def main_opt(r, p, udp):
                 print("Releasing Socket")
                 udp.release()
 
-                
+        if opt == 6: # Lo Sweep
+            # valon should be connected and differentiated as part of bringing kidpy up.
+            os.system("clear")
+            print("LO Sweep")
 
-        if opt == 6: # get system state
+            pass
+
+        if opt == 7: # get system state
            exit()
 
         return 0
@@ -242,26 +306,98 @@ def main():
     if p.get_message()['data'] != 1:
         print("Failed to Subscribe to redis Ping Channel")
         exit()
+    p.subscribe("picard_reply")
+    time.sleep(1)
+    if p.get_message()['data'] != 2:
+        print("Failed to Subscribe redis picard_reply channel")
+        exit()
 
     # check that the RFSOC is running redisControl.py 
     os.system('clear')
     if checkBlastCli(r, p) == False:
         exit()
 
+    # Figure out what which valons which
+
+
     udp = udpcap.udpcap()
     while 1:
         try:
             upload_status = 0
-            #if fpga:
-            #    if fpga.is_running():
-            #        #firmware_info = fpga.get_config_file_info()
-            #        upload_status = 1
-            #time.sleep(0.1)
-            #upload_status = main_opt(fpga, ri, udp, valon, upload_status)
             upload_status = main_opt(r, p, udp)
         except TypeError:
             pass
     return 
 
+#######################################################
+# Temporary Home for DSP Functions
+# These should get a dedicated DSP python file
+#######################################################
+def loSweep(loSource, udp, f_center, freqs, N_steps = 500):
+    """
+    Perform an LO Sweep using valon 5009's and save the data
+
+    loSource : valon5009.Synthesizer
+        Valon 5009 Device Object instance
+    f_center : float
+        Frequency center
+    freqs : float[]
+        List of Baseband Frequencies returned from rfsocInterface.py's writeWaveform()
+    udp : udpcap.udpcap object instance
+        udp data capture utility. This is our bread and butter for taking data from ethernet
+    N_steps : int 
+        Number of steps to sweep
+
+
+    Credit to Adrian Sinclair (adriankaisinclair@gmail.com )
+    """
+    tone_diff = np.diff(freqs)[0]/1e6 # MHz
+    flo_step = tone_diff/N_steps
+    flo_start = f_center - tone_diff/2. #256
+    flo_stop =  f_center + tone_diff/2. #256
+
+    flos = np.arange(flo_start, flo_stop, flo_step)
+
+    def temp(lofreq):
+        # self.set_ValonLO function here
+        loSource.set_frequency(valon5009.SYNTH_B, lofreq)
+        # Read values and trash initial read, suspecting linear delay is cause..
+        Naccums = 5
+        I, Q = [], []
+        for i in range(Naccums):
+            d = udp.parse_packet()
+            It = d[::2]
+            Qt = d[1::2]
+            I.append(It)
+            Q.append(Qt)
+        I = np.array(I)
+        Q = np.array(Q)
+        Imed = np.median(I,axis=0)
+        Qmed = np.median(Q,axis=0)
+
+        Z = Imed + 1j*Qmed
+        Z = Z[0:len(freqs)]
+
+        print(".", end="")
+
+        return Z
+
+    sweep_Z = np.array([
+        temp(lofreq)
+        for lofreq in flos
+    ])
+
+    f = np.array([flos*1e6 + ftone for ftone in freqs]).flatten()
+    sweep_Z_f = sweep_Z.T.flatten()
+
+    ## SAVE f and sweep_Z_f TO LOCAL FILES
+    # SHOULD BE ABLE TO SAVE TARG OR VNA
+    # WITH TIMESTAMP
+
+    return (f, sweep_Z_f)
+
+
 if __name__ == "__main__":
     main()
+
+
