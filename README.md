@@ -56,7 +56,8 @@ folder.
 
 
 ### READOUT SERVER NOTE
-Setting up an interface with
-ifconfig <interface> <ip> netmask <addr> mtu 9000 hw ether <mac>
+interface config 
+ifconfig \<interface> \<ip> netmask \<addr> mtu 9000 hw ether \<mac>
+
 ex: 
     ifconfig ens1f3 192.168.3.40 netmask 255.255.255.0 mtu 9000 hw ether 80:3f:5d:09:2b:b0
