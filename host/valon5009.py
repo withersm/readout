@@ -6,6 +6,7 @@ Adapted from Python2 Example code.
 
 # Python modules
 import serial
+import serial.tools.list_ports_linux
 import struct
 from time import sleep, time
 
@@ -18,12 +19,13 @@ EXT_REF = 1
 
 class Synthesizer:
     """A simple interface to the Valon 5009 synthesizer."""
-    def __init__(self, port):
+    def __init__(self, port, serialNumber = None):
         self.conn = serial.Serial(None, 115200, serial.EIGHTBITS,
                                   serial.PARITY_NONE, serial.STOPBITS_ONE, timeout = 0.500)
+                                  
         self.conn.setPort(port)
         supportedBauds = [115200, 9600, 19200, 38400, 57600, 230400, 460800, 912600]
-        
+
         def idCheck(baud):
             if self.conn.isOpen:
                 self.conn.close()
@@ -44,7 +46,7 @@ class Synthesizer:
             if a == True:
                 print("Connected at baud {}".format(baud))
                 break
-        
+
 
     def getSN(self):
         self.conn.open()
@@ -414,5 +416,4 @@ class Synthesizer:
         self.conn.close()
         print(data)
         return True
-
 

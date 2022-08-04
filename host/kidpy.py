@@ -16,15 +16,12 @@ subscribe message Out[6]: {'type': 'subscribe', 'pattern': None, 'channel': b'pi
 """
 
 import numpy as np
-import sys, os
-import struct
-from socket import *
+import os
 import redis
 import json
-#from gbeConfig import roachDownlink
+
 import time
-import matplotlib.pyplot as plt
-from scipy import signal
+import serial.tools.list_ports_linux
 import udpcap
 import datetime
 import valon5009
@@ -39,25 +36,25 @@ __redis_host = config['REDIS']['host']
 __customWaveform = config['DSP']['customWaveform']
 __customSingleTone = config['DSP']['singleToneFrequency']
 __saveData = config['DATA']['saveFolder']
-__valon_RF1_SYS1 = config['VALON']['rfsoc1System1']
-__valon_RF1_SYS1 = config['VALON']['rfsoc1System2']
+__ValonPorts = config['VALON']['valonSerialPorts'].split(',')
+__valon_RF1_SYS1 = int(config['VALON']['rfsoc1System1'])
+__valon_RF1_SYS2 = int(config['VALON']['rfsoc1System2'])
 #######################################################################
 # Captions and menu options for terminal interface
 caption1 = '\n\t\033[95mKID-PY2 RFSoC Readout\033[95m'
 captions = [caption1]
 
-main_opts= ['Upload firmware',
-            'Initialize system & UDP conn',
-            'Write test comb (single or multitone)',
-            'Write stored comb from config file',
-            'I <-> Q Phase offset',
-            'Take Raw Data',
-            'LO Sweep',
-            #'Write found freqs',
-            #'Target sweep and plot',
-            #'Execute a script',
-            'Exit']
+main_opts = ['Upload firmware',
+             'Initialize system & UDP conn',
+             'Write test comb (single or multitone)',
+             'Write stored comb from config file',
+             'I <-> Q Phase offset',
+             'Take Raw Data',
+             'LO Sweep'
+             'Exit']
 #########################################################################
+
+
 def testConnection(r):
     try:
         tr = r.set('testkey', '123')
@@ -67,18 +64,19 @@ def testConnection(r):
         return False
         
 
-def waitForFree(r, delay = 0.25, timeout = 10):
+def wait_for_free(r, delay = 0.25, timeout = 10):
     count = 0
     r.set("status", "busy")
-    while(r.get("status") != b"free"):
+    while r.get("status") != b"free":
         time.sleep(delay)
         count = count + 1
-        if (count == timeout):
+        if count == timeout:
             print("TIMED OUT WHILE WAITING FOR RFSOC")
             return False
     return True
 
-def waitForReply(redisIF, cmd, maxTimeout = 15):
+
+def wait_for_reply(redis_interface, cmd, max_timeout = 15):
     """
 
     This is the eventual replacement for the waitForFree() method. 
@@ -91,26 +89,27 @@ def waitForReply(redisIF, cmd, maxTimeout = 15):
                 'status' : 'OK'|'FAIL',
                 'data' : 'nil' | <arbitrary data>
             }
-    Parameters::
-        redisIF : reference to a REDIS interface object
-        cmd : Command sent out
-        maxTimeout : Time in seconds to wait before we time out
-                (default is 15 seconds)
-    
 
+    :param max_timeout: int :
+        time in seconds to wait for the RFSOC to reply. If it fails in this time,
+        this should indicate a failure of some kind has occured
+    :param cmd: str :
+        Command sent out
+    :param redis_interface: redis.Redis :
+        reference to a REDIS interface object
     """
-    time = 0
-    while(time < maxTimeout):
-        m = redisIF.get_message()
-        if(m is not None):
-            msgData = m['data'].decode("ASCII") 
-            data = json.loads(msgData)
+    current_time = 0
+    while current_time < max_timeout:
+        m = redis_interface.get_message()
+        if m is not None:
+            msg = m['data'].decode("ASCII")
+            data = json.loads(msg)
             if data['cmd'] == cmd and data['status'] == "OK":
-                return (True, data['data'])
+                return True, data['data']
             else:
-                return (False, data['data'])
+                return False, data['data']
         time.sleep(1)
-        time = time+1
+        current_time = current_time + 1
     print("WARINNG: TIMED OUT WAITING FOR REPLY -->  def waitForReply(redisIF, cmd, maxTimeout = 15):")
 
 
@@ -125,10 +124,10 @@ def checkBlastCli(r, p):
     m = None
     while(1):       
         m = p.get_message()
-        if (m is not None and m['data'] == b"Hello World"):
+        if m is not None and m['data'] == b"Hello World":
             print("redisControl is running")
             return True
-        if (count >= timeout):
+        if count >= timeout:
             print("RFSOC didn't reply, is it running redisControl?")
             return False
 
@@ -184,7 +183,7 @@ def main_opt(r, p, udp):
             r.publish("picard", cmdstr)
             r.set("status", "busy")
             print("Waiting for the RFSOC to upload it's bitstream...")
-            if waitForFree(r, 0.75, 25):
+            if wait_for_free(r, 0.75, 25):
                 print("Done")
 
 
@@ -194,7 +193,7 @@ def main_opt(r, p, udp):
             cmd = {"cmd" : "initRegs", "args":[]}
             cmdstr = json.dumps(cmd)
             r.publish("picard", cmdstr)
-            if waitForFree(r, 0.5, 5):
+            if wait_for_free(r, 0.5, 5):
                 print("Done")
 
        
@@ -212,7 +211,7 @@ def main_opt(r, p, udp):
                 cmd = {"cmd" : "ulWaveform", "args":[[float(__customSingleTone)]]}
                 cmdstr = json.dumps(cmd)
                 r.publish("picard", cmdstr)           
-            if waitForFree(r, 0.75, 25):
+            if wait_for_free(r, 0.75, 25):
                 print("Done")
 
        
@@ -230,7 +229,7 @@ def main_opt(r, p, udp):
             cmd = {"cmd" : "ulWaveform", "args":[fList]}
             cmdstr = json.dumps(cmd)
             r.publish("picard", cmdstr)
-            if waitForFree(r, 0.75, 25):
+            if wait_for_free(r, 0.75, 25):
                 print("Done")
 
         if opt == 4:
@@ -266,6 +265,7 @@ def main_opt(r, p, udp):
             # valon should be connected and differentiated as part of bringing kidpy up.
             os.system("clear")
             print("LO Sweep")
+            print("")
 
             pass
 
@@ -318,6 +318,12 @@ def main():
         exit()
 
     # Figure out what which valons which
+    # first, enumerate the specified valon ports
+    # for each port, if we get a matching serial number; delete it from the list and continue
+    valonlist = serial.tools.list_ports_linux.comports()
+    print(valonlist)
+    
+
 
 
     udp = udpcap.udpcap()

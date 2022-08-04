@@ -28,7 +28,8 @@ def ldcHelper(queue, filename, nPackets):
     """
     print("ldc helper internal function was called")
     dFile = h5py.File(filename, 'w')
-    data = dFile.create_dataset("PACKETS",(2052, nPackets), dtype=h5py.h5t.NATIVE_INT32, chunks=True, maxshape=(None, None))
+    data = dFile.create_dataset("PACKETS",(2052, nPackets), dtype=h5py.h5t.NATIVE_INT32, chunks=True,
+                                maxshape=(None, None))
     active = True
     while active:
         rawData = queue.get()
