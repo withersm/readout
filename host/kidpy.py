@@ -56,6 +56,8 @@ main_opts = ['Upload firmware',
 
 
 #########################################################################
+current_waveform = None
+
 def testConnection(r):
     try:
         tr = r.set('testkey', '123')
