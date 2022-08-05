@@ -33,11 +33,13 @@ class Synthesizer:
             self.conn.open()
             self.conn.write(b"ID\r")
             r = self.conn.readlines()
-            if r[0] == b'ID\r\n':
+            if not r:
+                return False
+            elif r[0] == b'ID\r\n':
                 self.conn.close()
                 return True
             else:
-                return False
+                print("something went wrong when hunting for valon baudrates")
             
         # Hunt for, and set connection baud rate
         for baud in supportedBauds:
