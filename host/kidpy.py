@@ -279,12 +279,6 @@ class kidpy:
                             'Take Raw Data',
                             'LO Sweep',
                             'Exit']
-        # while 1:
-        #     try:
-        #         upload_status = 0
-        #         upload_status = main_opt(r, p, udp, valon)
-        #     except Exception as e:
-        #         raise (e)
 
     def begin_ui(self):
         pass
@@ -298,10 +292,7 @@ class kidpy:
         udp : udpcap object instance
         """
         while 1:
-            # TODO: implement a check here to ensure we are connected to the redis server and in turn
-            # the RFSOC is connected to the redis server as well
 
-            # TODO: implement a response routine
             conStatus = testConnection(self.r)
             if conStatus:
                 print('\033[0;36m' + "\r\nConnected" + '\033[0m')
@@ -424,7 +415,8 @@ class kidpy:
 def main():
     k = kidpy()
     try:
-        k.main_opt()
+        while 1:
+            k.main_opt()
     except Exception as e:
         raise e
 
