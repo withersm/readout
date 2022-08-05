@@ -419,3 +419,15 @@ class kidpy:
                 exit()
 
             return 0
+
+
+def main():
+    k = kidpy()
+    try:
+        k.main_opt()
+    except Exception as e:
+        raise e
+
+
+if __name__ == "__main__":
+    main()
