@@ -79,7 +79,7 @@ def wait_for_free(r, delay=0.25, timeout=10):
     return True
 
 
-def wait_for_reply(redis_interface, cmd, max_timeout=15):
+def wait_for_reply(redis_pubsub, cmd, max_timeout=15):
     """
 
     This is the eventual replacement for the waitForFree() method. 
@@ -98,13 +98,13 @@ def wait_for_reply(redis_interface, cmd, max_timeout=15):
         this should indicate a failure of some kind has occured
     :param cmd: str :
         Command sent out
-    :param redis_interface: redis.Redis :
-        reference to a REDIS interface object
+    :param redis_pubsub: redis.Redis.pubsub :
+        reference to a Redis pubsub object that has already subscribed to relevant channels
     """
     current_time = 0
     while current_time < max_timeout:
-        m = redis_interface.get_message()
-        if m is not None:
+        m = redis_pubsub.get_message()
+        if m is not None and m['channel'] == b"picard_reply":
             msg = m['data'].decode("ASCII")
             data = json.loads(msg)
             if data['cmd'] == cmd and data['status'] == "OK":
@@ -214,7 +214,7 @@ def main_opt(r, p, udp, valonsynth):
                 cmd = {"cmd": "ulWaveform", "args": [[float(__customSingleTone)]]}
                 cmdstr = json.dumps(cmd)
                 r.publish("picard", cmdstr)
-                success, current_waveform = wait_for_reply(r, "ulWaveform", max_timeout=10)
+                success, current_waveform = wait_for_reply(p, "ulWaveform", max_timeout=10)
                 if success:
                     print("Wrote Waveform")
                     print(current_waveform)
@@ -235,7 +235,7 @@ def main_opt(r, p, udp, valonsynth):
             cmd = {"cmd": "ulWaveform", "args": [fList]}
             cmdstr = json.dumps(cmd)
             r.publish("picard", cmdstr)
-            success, current_waveform = wait_for_reply(r, "ulWaveform", max_timeout=10)
+            success, current_waveform = wait_for_reply(p, "ulWaveform", max_timeout=10)
             if success:
                 print("Wrote Waveform")
                 print(current_waveform)
