@@ -275,7 +275,7 @@ def main_opt(r, p, udp, valonsynth):
             # valon should be connected and differentiated as part of bringing kidpy up.
             os.system("clear")
             print("LO Sweep")
-            loSweep(valonsynth, udp, 400, 1000)
+            loSweep(valonsynth, udp, 400, np.array(current_waveform))
 
             pass
 
@@ -341,8 +341,8 @@ def main():
         try:
             upload_status = 0
             upload_status = main_opt(r, p, udp, valon)
-        except TypeError:
-            pass
+        except Exception as e:
+            raise(e)
     return
 
 
@@ -414,12 +414,12 @@ def sweep(loSource, udp, f_center, freqs, N_steps=500):
     return (f, sweep_Z_f)
 
 
-def loSweep(freqs = [], f_center=400):
+def loSweep(loSource, udp, freqs = [], f_center=400):
     """
     vnaSweep: perform a stepped frequency sweep centered at f_center and save result as s21.npy file
     f_center: center frequency for sweep in [MHz]
     """
-    f, sweep_Z_f = sweep(f_center, freqs)
+    f, sweep_Z_f = sweep(loSource, udp, f_center, freqs)
     np.save("s21.npy", np.array((f, sweep_Z_f)))
     print("s21.npy saved.")
 

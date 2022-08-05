@@ -109,7 +109,7 @@ class cli:
                                 reply = {
                                     'cmd' : "ulWaveform",
                                     'status' : "OK",
-                                    'data' : freqs
+                                    'data' : freqs.tolist()
                                 }
                                 replyJson = json.dumps(reply)
                                 self.r.publish("picard_reply", replyJson)
@@ -121,7 +121,7 @@ class cli:
                                 reply = {
                                     'cmd' : "ulWaveform",
                                     'status' : "OK",
-                                    'data' : freqs
+                                    'data' : freqs.tolist()
                                 }
                                 replyJson = json.dumps(reply)
                                 self.r.publish("picard_reply", replyJson)

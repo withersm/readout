@@ -40,6 +40,7 @@ class Synthesizer:
                 return True
             else:
                 print("something went wrong when hunting for valon baudrates")
+                print(r)
             
         # Hunt for, and set connection baud rate
         for baud in supportedBauds:
