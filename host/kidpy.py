@@ -56,8 +56,6 @@ main_opts = ['Upload firmware',
 
 
 #########################################################################
-
-
 def testConnection(r):
     try:
         tr = r.set('testkey', '123')
@@ -163,7 +161,6 @@ def main_opt(r, p, udp, valonsynth):
     p : redis.pubsub instance
     udp : udpcap object instance
     """
-    current_waveform = None
     while 1:
         # TODO: implement a check here to ensure we are connected to the redis server and in turn
         # the RFSOC is connected to the redis server as well
@@ -214,6 +211,7 @@ def main_opt(r, p, udp, valonsynth):
                 cmd = {"cmd": "ulWaveform", "args": [[float(__customSingleTone)]]}
                 cmdstr = json.dumps(cmd)
                 r.publish("picard", cmdstr)
+            global current_waveform # I felt bad writing this
             success, current_waveform = wait_for_reply(p, "ulWaveform", max_timeout=10)
             if success:
                 print("Wrote Waveform")
@@ -235,6 +233,7 @@ def main_opt(r, p, udp, valonsynth):
             cmd = {"cmd": "ulWaveform", "args": [fList]}
             cmdstr = json.dumps(cmd)
             r.publish("picard", cmdstr)
+            global current_waveform  # I felt bad writing this
             success, current_waveform = wait_for_reply(p, "ulWaveform", max_timeout=10)
             if success:
                 print("Wrote Waveform")
@@ -374,7 +373,7 @@ def sweep(loSource, udp, f_center, freqs, N_steps=500):
     flo_stop = f_center + tone_diff / 2.  # 256
 
     flos = np.arange(flo_start, flo_stop, flo_step)
-
+    udp.bindSocket()
     def temp(lofreq):
         # self.set_ValonLO function here
         loSource.set_frequency(valon5009.SYNTH_B, lofreq)
@@ -406,11 +405,10 @@ def sweep(loSource, udp, f_center, freqs, N_steps=500):
 
     f = np.array([flos * 1e6 + ftone for ftone in freqs]).flatten()
     sweep_Z_f = sweep_Z.T.flatten()
-
+    udp.release()
     ## SAVE f and sweep_Z_f TO LOCAL FILES
     # SHOULD BE ABLE TO SAVE TARG OR VNA
     # WITH TIMESTAMP
-
     return (f, sweep_Z_f)
 
 
