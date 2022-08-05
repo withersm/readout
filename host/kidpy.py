@@ -214,12 +214,12 @@ def main_opt(r, p, udp, valonsynth):
                 cmd = {"cmd": "ulWaveform", "args": [[float(__customSingleTone)]]}
                 cmdstr = json.dumps(cmd)
                 r.publish("picard", cmdstr)
-                success, current_waveform = wait_for_reply(p, "ulWaveform", max_timeout=10)
-                if success:
-                    print("Wrote Waveform")
-                    print(current_waveform)
-                else:
-                    print("Failed to write waveform")
+            success, current_waveform = wait_for_reply(p, "ulWaveform", max_timeout=10)
+            if success:
+                print("Wrote Waveform")
+                print(current_waveform)
+            else:
+                print("Failed to write waveform")
 
         if opt == 3:  # write stored comb
             os.system("clear")
