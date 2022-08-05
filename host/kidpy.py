@@ -30,6 +30,7 @@ import valon5009
 # Config File import settings 
 ################################################################
 import configparser
+
 config = configparser.ConfigParser()
 config.read("generalConfig.conf")
 __redis_host = config['REDIS']['host']
@@ -37,8 +38,8 @@ __customWaveform = config['DSP']['customWaveform']
 __customSingleTone = config['DSP']['singleToneFrequency']
 __saveData = config['DATA']['saveFolder']
 __ValonPorts = config['VALON']['valonSerialPorts'].split(',')
-__valon_RF1_SYS1 = int(config['VALON']['rfsoc1System1'])
-__valon_RF1_SYS2 = int(config['VALON']['rfsoc1System2'])
+__valon_RF1_SYS1 = config['VALON']['rfsoc1System1']
+__valon_RF1_SYS2 = config['VALON']['rfsoc1System2']
 #######################################################################
 # Captions and menu options for terminal interface
 caption1 = '\n\t\033[95mKID-PY2 RFSoC Readout\033[95m'
@@ -50,8 +51,10 @@ main_opts = ['Upload firmware',
              'Write stored comb from config file',
              'I <-> Q Phase offset',
              'Take Raw Data',
-             'LO Sweep'
+             'LO Sweep',
              'Exit']
+
+
 #########################################################################
 
 
@@ -62,9 +65,9 @@ def testConnection(r):
     except redis.exceptions.ConnectionError as e:
         print(e)
         return False
-        
 
-def wait_for_free(r, delay = 0.25, timeout = 10):
+
+def wait_for_free(r, delay=0.25, timeout=10):
     count = 0
     r.set("status", "busy")
     while r.get("status") != b"free":
@@ -76,7 +79,7 @@ def wait_for_free(r, delay = 0.25, timeout = 10):
     return True
 
 
-def wait_for_reply(redis_interface, cmd, max_timeout = 15):
+def wait_for_reply(redis_interface, cmd, max_timeout=15):
     """
 
     This is the eventual replacement for the waitForFree() method. 
@@ -118,11 +121,10 @@ def checkBlastCli(r, p):
     Rudamentary "is the rfsoc control software running" check. 
     """
     r.publish("ping", "hello?")
-    count = 1 
-    delay = 0.5 
+    count = 1
+    delay = 0.5
     timeout = 6
-    m = None
-    while(1):       
+    while (1):
         m = p.get_message()
         if m is not None and m['data'] == b"Hello World":
             print("redisControl is running")
@@ -133,7 +135,7 @@ def checkBlastCli(r, p):
 
         time.sleep(delay)
         count = count + 1
-       
+
 
 def menu(captions, options):
     """Creates menu for terminal interface
@@ -144,7 +146,7 @@ def menu(captions, options):
            int opt: Integer corresponding to menu option chosen by user"""
     print('\t' + captions[0] + '\n')
     for i in range(len(options)):
-        print('\t' +  '\033[32m' + str(i) + ' ..... ' '\033[0m' +  options[i] + '\n')
+        print('\t' + '\033[32m' + str(i) + ' ..... ' '\033[0m' + options[i] + '\n')
     opt = None
     try:
         opt = eval(input())
@@ -153,7 +155,7 @@ def menu(captions, options):
     return opt
 
 
-def main_opt(r, p, udp):
+def main_opt(r, p, udp, valonsynth):
     """
     Main user interface routing
 
@@ -161,24 +163,27 @@ def main_opt(r, p, udp):
     p : redis.pubsub instance
     udp : udpcap object instance
     """
+    current_waveform = None
     while 1:
-        #TODO: implement a check here to ensure we are connected to the redis server and in turn
+        # TODO: implement a check here to ensure we are connected to the redis server and in turn
         # the RFSOC is connected to the redis server as well
 
-        #TODO: implement a response routine
+        # TODO: implement a response routine
         conStatus = testConnection(r)
         if conStatus:
             print('\033[0;36m' + "\r\nConnected" + '\033[0m')
         else:
-            print('\033[0;31m' + "\r\nCouldn't connect to redis-server double check it's running and the generalConfig is correct" + '\033[0m')
-        opt = menu(captions,main_opts)
+            print('\033[0;31m' +
+                  "\r\nCouldn't connect to redis-server double check it's running and the generalConfig is correct" +
+                  '\033[0m')
+        opt = menu(captions, main_opts)
         if conStatus == False:
             resp = input("Can't connect to redis server, do you want to continue anyway? [y/n]: ")
             if resp != "y":
                 exit()
-        if opt == 0: # upload firmware
+        if opt == 0:  # upload firmware
             os.system("clear")
-            cmd = {"cmd" : "ulBitstream", "args":[]}
+            cmd = {"cmd": "ulBitstream", "args": []}
             cmdstr = json.dumps(cmd)
             r.publish("picard", cmdstr)
             r.set("status", "busy")
@@ -186,51 +191,56 @@ def main_opt(r, p, udp):
             if wait_for_free(r, 0.75, 25):
                 print("Done")
 
-
-        if opt == 1: # Init System & UDP conn.
+        if opt == 1:  # Init System & UDP conn.
             os.system("clear")
             print("Initializing System and UDP Connection")
-            cmd = {"cmd" : "initRegs", "args":[]}
+            cmd = {"cmd": "initRegs", "args": []}
             cmdstr = json.dumps(cmd)
             r.publish("picard", cmdstr)
             if wait_for_free(r, 0.5, 5):
                 print("Done")
 
-       
-        if opt == 2: # Write test comb
+        if opt == 2:  # Write test comb
             prompt = input('Full test comb? y/n ')
             os.system("clear")
             if prompt == 'y':
                 print("Waiting for the RFSOC to finish writing the full comb")
-                cmd = {"cmd" : "ulWaveform", "args":[]}
+                cmd = {"cmd": "ulWaveform", "args": []}
                 cmdstr = json.dumps(cmd)
                 r.publish("picard", cmdstr)
 
             else:
-                print("Waiting for the RFSOC to write single {} MHz Tone".format(float(__customSingleTone)/1e6))
-                cmd = {"cmd" : "ulWaveform", "args":[[float(__customSingleTone)]]}
+                print("Waiting for the RFSOC to write single {} MHz Tone".format(float(__customSingleTone) / 1e6))
+                cmd = {"cmd": "ulWaveform", "args": [[float(__customSingleTone)]]}
                 cmdstr = json.dumps(cmd)
-                r.publish("picard", cmdstr)           
-            if wait_for_free(r, 0.75, 25):
-                print("Done")
+                r.publish("picard", cmdstr)
+                success, current_waveform = wait_for_reply(r, "ulWaveform", max_timeout=10)
+                if success:
+                    print("Wrote Waveform")
+                    print(current_waveform)
+                else:
+                    print("Failed to write waveform")
 
-       
-        if opt == 3: # write stored comb
+        if opt == 3:  # write stored comb
             os.system("clear")
             print("Waiting for the RFSOC to finish writing the custom frequency list: \r\n{}".format(__customWaveform))
             fList = []
 
-            # seperate values from config and remove ',' before converting to number and
-            # sending the list of values upto the DAC
+            # separate values from config and remove ',' before converting to number and
+            # sending the list of values up to the DAC
             for value in __customWaveform.split():
                 s = value.replace(',', '')
                 fList.append(float(s))
 
-            cmd = {"cmd" : "ulWaveform", "args":[fList]}
+            cmd = {"cmd": "ulWaveform", "args": [fList]}
             cmdstr = json.dumps(cmd)
             r.publish("picard", cmdstr)
-            if wait_for_free(r, 0.75, 25):
-                print("Done")
+            success, current_waveform = wait_for_reply(r, "ulWaveform", max_timeout=10)
+            if success:
+                print("Wrote Waveform")
+                print(current_waveform)
+            else:
+                print("Failed to write waveform")
 
         if opt == 4:
             print("Not Implemented")
@@ -251,39 +261,42 @@ def main_opt(r, p, udp):
                 os.system('clear')
                 print("Binding Socket")
                 udp.bindSocket()
-                print("Capturing packets") 
+                print("Capturing packets")
                 fname = __saveData + "kidpyCaptureData{0:%Y%m%d%H%M%S}.h5".format(datetime.datetime.now())
                 print(fname)
                 if t < 60:
-                    udp.shortDataCapture(fname, 488*t)
+                    udp.shortDataCapture(fname, 488 * t)
                 else:
-                    udp.LongDataCapture(fname, 488*t)
+                    udp.LongDataCapture(fname, 488 * t)
                 print("Releasing Socket")
                 udp.release()
 
-        if opt == 6: # Lo Sweep
+        if opt == 6:  # Lo Sweep
             # valon should be connected and differentiated as part of bringing kidpy up.
             os.system("clear")
             print("LO Sweep")
-            print("")
+            loSweep(valonsynth, udp, 400, 1000)
 
             pass
 
-        if opt == 7: # get system state
-           exit()
+        if opt == 7:  # get system state
+            exit()
 
         return 0
+
 
 ############################################################################
 # Interface for snap block plotting
 plot_caption = '\n\t\033[95mKID-PY ROACH2 Snap Plots\033[95m'
-plot_opts= ['I & Q ADC input',\
-            'Firmware FFT',\
-            'Digital Down Converter Time Domain',\
-            'Downsampled Channel Magnitudes']
+plot_opts = ['I & Q ADC input',
+             'Firmware FFT',
+             'Digital Down Converter Time Domain',
+             'Downsampled Channel Magnitudes']
+
+
 #############################################################################
 
-def makePlotMenu(prompt,options):
+def makePlotMenu(prompt, options):
     """Menu for plotting interface
        inputs:
            char prompt: a menu caption
@@ -292,7 +305,7 @@ def makePlotMenu(prompt,options):
            int opt: Integer corresponding to chosen option"""
     print('\t' + prompt + '\n')
     for i in range(len(options)):
-        print('\t' +  '\033[32m' + str(i) + ' ..... ' '\033[0m' +  options[i] + '\n')
+        print('\t' + '\033[32m' + str(i) + ' ..... ' '\033[0m' + options[i] + '\n')
     print('\n' + "Run: ")
     opt = eval(input())
     return opt
@@ -312,34 +325,32 @@ def main():
         print("Failed to Subscribe redis picard_reply channel")
         exit()
 
-    # check that the RFSOC is running redisControl.py 
+    # check that the rfsoc is running redisControl.py
     os.system('clear')
     if checkBlastCli(r, p) == False:
         exit()
 
-    # Figure out what which valons which
-    # first, enumerate the specified valon ports
-    # for each port, if we get a matching serial number; delete it from the list and continue
-    valonlist = serial.tools.list_ports_linux.comports()
-    print(valonlist)
-    
-
+    # Differentiate 5009's connected to the system
+    valon = None
+    for v in __ValonPorts:
+        valon = valon5009.Synthesizer(v.replace(' ', ''))
 
 
     udp = udpcap.udpcap()
     while 1:
         try:
             upload_status = 0
-            upload_status = main_opt(r, p, udp)
+            upload_status = main_opt(r, p, udp, valon)
         except TypeError:
             pass
-    return 
+    return
+
 
 #######################################################
 # Temporary Home for DSP Functions
 # These should get a dedicated DSP python file
 #######################################################
-def loSweep(loSource, udp, f_center, freqs, N_steps = 500):
+def sweep(loSource, udp, f_center, freqs, N_steps=500):
     """
     Perform an LO Sweep using valon 5009's and save the data
 
@@ -355,12 +366,12 @@ def loSweep(loSource, udp, f_center, freqs, N_steps = 500):
         Number of steps to sweep
 
 
-    Credit to Adrian Sinclair (adriankaisinclair@gmail.com )
+    Credit: Dr. Adrian Sinclair (adriankaisinclair@gmail.com)
     """
-    tone_diff = np.diff(freqs)[0]/1e6 # MHz
-    flo_step = tone_diff/N_steps
-    flo_start = f_center - tone_diff/2. #256
-    flo_stop =  f_center + tone_diff/2. #256
+    tone_diff = np.diff(freqs)[0] / 1e6  # MHz
+    flo_step = tone_diff / N_steps
+    flo_start = f_center - tone_diff / 2.  # 256
+    flo_stop = f_center + tone_diff / 2.  # 256
 
     flos = np.arange(flo_start, flo_stop, flo_step)
 
@@ -378,10 +389,10 @@ def loSweep(loSource, udp, f_center, freqs, N_steps = 500):
             Q.append(Qt)
         I = np.array(I)
         Q = np.array(Q)
-        Imed = np.median(I,axis=0)
-        Qmed = np.median(Q,axis=0)
+        Imed = np.median(I, axis=0)
+        Qmed = np.median(Q, axis=0)
 
-        Z = Imed + 1j*Qmed
+        Z = Imed + 1j * Qmed
         Z = Z[0:len(freqs)]
 
         print(".", end="")
@@ -393,7 +404,7 @@ def loSweep(loSource, udp, f_center, freqs, N_steps = 500):
         for lofreq in flos
     ])
 
-    f = np.array([flos*1e6 + ftone for ftone in freqs]).flatten()
+    f = np.array([flos * 1e6 + ftone for ftone in freqs]).flatten()
     sweep_Z_f = sweep_Z.T.flatten()
 
     ## SAVE f and sweep_Z_f TO LOCAL FILES
@@ -403,7 +414,15 @@ def loSweep(loSource, udp, f_center, freqs, N_steps = 500):
     return (f, sweep_Z_f)
 
 
+def loSweep(freqs = [], f_center=400):
+    """
+    vnaSweep: perform a stepped frequency sweep centered at f_center and save result as s21.npy file
+    f_center: center frequency for sweep in [MHz]
+    """
+    f, sweep_Z_f = sweep(f_center, freqs)
+    np.save("s21.npy", np.array((f, sweep_Z_f)))
+    print("s21.npy saved.")
+
+
 if __name__ == "__main__":
     main()
-
-

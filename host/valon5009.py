@@ -19,7 +19,7 @@ EXT_REF = 1
 
 class Synthesizer:
     """A simple interface to the Valon 5009 synthesizer."""
-    def __init__(self, port, serialNumber = None):
+    def __init__(self, port):
         self.conn = serial.Serial(None, 115200, serial.EIGHTBITS,
                                   serial.PARITY_NONE, serial.STOPBITS_ONE, timeout = 0.500)
                                   
@@ -41,9 +41,9 @@ class Synthesizer:
             
         # Hunt for, and set connection baud rate
         for baud in supportedBauds:
-            a = idCheck(baud)
             print("Checking for baud {}".format(baud))
-            if a == True:
+            a = idCheck(baud)
+            if a:
                 print("Connected at baud {}".format(baud))
                 break
 
