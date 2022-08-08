@@ -21,7 +21,6 @@ import redis
 import json
 import configparser
 import time
-import serial.tools.list_ports_linux
 import udpcap
 import datetime
 import valon5009
@@ -106,36 +105,6 @@ def checkBlastCli(r, p):
         count = count + 1
 
 
-############################################################################
-# Interface for snap block plotting
-plot_caption = '\n\t\033[95mKID-PY ROACH2 Snap Plots\033[95m'
-plot_opts = ['I & Q ADC input',
-             'Firmware FFT',
-             'Digital Down Converter Time Domain',
-             'Downsampled Channel Magnitudes']
-
-
-#############################################################################
-
-def makePlotMenu(prompt, options):
-    """Menu for plotting interface
-       inputs:
-           char prompt: a menu caption
-           list options: List of menu options
-       outputs:
-           int opt: Integer corresponding to chosen option"""
-    print('\t' + prompt + '\n')
-    for i in range(len(options)):
-        print('\t' + '\033[32m' + str(i) + ' ..... ' '\033[0m' + options[i] + '\n')
-    print('\n' + "Run: ")
-    opt = eval(input())
-    return opt
-
-
-#######################################################
-# Temporary Home for DSP Functions
-# These should get a dedicated DSP python file
-#######################################################
 def sweep(loSource, udp, f_center, freqs, N_steps=500):
     """
     Perform an LO Sweep using valon 5009's and save the data
@@ -194,10 +163,8 @@ def sweep(loSource, udp, f_center, freqs, N_steps=500):
     f = np.array([flos * 1e6 + ftone for ftone in freqs]).flatten()
     sweep_Z_f = sweep_Z.T.flatten()
     udp.release()
-    ## SAVE f and sweep_Z_f TO LOCAL FILES
-    # SHOULD BE ABLE TO SAVE TARG OR VNA
-    # WITH TIMESTAMP
-    return (f, sweep_Z_f)
+
+    return f, sweep_Z_f
 
 
 def loSweep(loSource, udp, freqs=[], f_center=400):
@@ -265,6 +232,7 @@ class kidpy:
         self.valon = None
         for v in self.__ValonPorts:
             self.valon = valon5009.Synthesizer(v.replace(' ', ''))
+            print(self.valon.getSN())
 
         self.__udp = udpcap.udpcap()
         self.current_waveform = []
@@ -311,7 +279,7 @@ class kidpy:
                 cmdstr = json.dumps(cmd)
                 self.r.publish("picard", cmdstr)
                 self.r.set("status", "busy")
-                print("Waiting for the RFSOC to upload it's bitstream...")
+                print("Waiting for the RFSOC to upload its bitstream...")
                 if wait_for_free(self.r, 0.75, 25):
                     print("Done")
 

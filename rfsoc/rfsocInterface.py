@@ -44,7 +44,7 @@ class rfsocInterface:
         self.accum_snap = None
         self.selectedBitstream = None
 
-    def uploadOverlay(self, bitstream="/bitstreams/blastv1.3.bit"):
+    def uploadOverlay(self, bitstream="/bitstreams/blast4.2.bit"):
         # FIRMWARE UPLOAD
         self.firmware = Overlay(bitstream,ignore_version=True)
         self.selectedBitstream = bitstream
@@ -59,7 +59,7 @@ class rfsocInterface:
 
         return bitstream
     
-    def getFirmwareObjects(self, bitstream="/bitstreams/blastv1.3.bit"):
+    def getFirmwareObjects(self, bitstream="/bitstreams/blast4.2.bit"):
         self.firmware = Overlay(bitstream, ignore_version=True,download=False)
         self.bram_ADCI = self.firmware.ADC_I.BRAM_SNAP_0
         self.bram_ADCQ = self.firmware.ADC_Q.BRAM_SNAP_0
