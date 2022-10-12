@@ -35,7 +35,7 @@ class Synthesizer:
             r = self.conn.readlines()
             if not r:
                 return False
-            elif r[0] == b'ID\r\n':
+            elif r[0] == b'ID\r\n' or r[0] == b'ID\r':
                 self.conn.close()
                 return True
             else:

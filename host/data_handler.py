@@ -1,6 +1,6 @@
 """
 @author: Cody Roberson
-@date: 08/03/2022
+@date: 10/12/2022
 @file: data_handler
 @copyright: To Be Determined in the Interest of Collaboration
 @description:
@@ -10,10 +10,12 @@
 @Revisions:
 
 @Dev Notes:
-    20220803: Next step is to give the last of the other variables section their respective attributes.
-    This will be followed up with modifying these fn vars such that they become instance vars
+    10/12/2022
+    Attributes need to be finalized for the hdf5 file format
 
 """
+import multiprocessing
+
 import numpy as np
 from time import sleep
 import h5py
@@ -23,12 +25,22 @@ class DataHandler():
     def __init__(self):
         pass
 
+    def spawn_subprocess(self):
+        # todo evaluate how this will function and interact with the larger process.
+        """ manager = mproc.Manager()
+            pool = manager.Pool(1)
+            queue = manager.Queue()
+
+            pool.apply_async(ldcHelper, (queue, fname, nPackets))
+        """
+        pass
+
     def create_hdf5_file(self, filename: str, num_packets: int, num_tones: int) -> object:
         """
         Create the skeleton observation data file. Any changes to the observation data format will begin
         here and need to propogate throughout the rest of the codebase.
 
-
+        TODO: plan out how this class will be interacted with. 10/12/2022
         :param filename: full h5py datafile path
         :param num_packets: Number of packets to record.
         :param num_tones: Number of baseband tones
@@ -90,10 +102,39 @@ class DataHandler():
         oth_samplerate = data_file.create_dataset("other_variables/sample_rate", dtype=h5py.h5t.NATIVE_DOUBLE)
         oth_timenum = data_file.create_dataset("other_variables/tile_number", dtype=h5py.h5t.NATIVE_UINT32, shape=(num_tones, 1))
         oth_tonepw = data_file.create_dataset("other_variables/tone_power", dtype=h5py.h5t.NATIVE_DOUBLE, shape=(num_tones, 1))
+        oth_collectionType = data_file.create_dataset("other_variables/sample_rate", dtype=h5py.h5t.STRING)
+
+
+def __process_data_handoff(queue: multiprocessing.queues.Queue , filename: str, nPackets: int):
+    """
+    This process should run independantly to any sort of data capture processes since disk io-ops are slow.
+    The operation is as follows:
+        while running in a seperate process, check for items being placed in the queue,
+        if the queue contains object, begin copying data out of the queue and into
+        the relevant hdf5 datasets
+    :param queue:
+    :param filename:
+    :param nPackets:
+    :return:
+    """
+    dFile = h5py.File(filename, 'w')
+    data = dFile.create_dataset("PACKETS", (2052, nPackets), dtype=h5py.h5t.NATIVE_INT32, chunks=True,
+                                maxshape=(None, None))
+    active = True
+    while active:
+        rawData = queue.get()
+        if rawData is not None:
+            d, c = rawData
+            data[:, c] = d
+        else:
+            active = False
+            dFile.flush()
+    dFile.close()
 
 
 def DoTestRoutine():
     pass
+
 
 if __name__ == "__main__":
     DoTestRoutine()
