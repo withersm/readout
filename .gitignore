@@ -1,1 +1,4 @@
 .idea
+/playground/logging_test.py
+/playground/app.log
+/app.log

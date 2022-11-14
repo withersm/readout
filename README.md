@@ -2,34 +2,72 @@
 This is a pre-alpha repository for full system readout implementation. The goal is to get something going outside of
 our standard jupyter notebook flow.
 
-## File Structure
+# Documentation and Notes - Development
 
-### host
-This contains all notebooks and python files that will run on a host computer such as a server.
+## Library File Structure
+```
+kidpylib
+├── config.py
+├── devices
+│   ├── rudat.py
+│   ├── udx.py
+│   └── valon5009.py
+├── kidpy.py
+├── plot.py
+├── science
+│   └── sweeps.py
+└── udp.py
 
-* host/kidpy.py
-    This is the main tui based control of the KIDPY firmware on the rfsoc. This connects to the redis server 
-    and publishes data as a means to control the rfsoc. 
+config      //Loads configuration data from specified config file. Uses the python builtint configparser library
+rudat       //Controls MiniCircuits Rudat digitally controlled variable attenuator.
+udx         //Controls ASU/Alphacore Up-Down Converter (IF Slices)
+valon5009   //Controls Valon 5009 Digital Synthesizers
+kidpy       //Main Library interface for controlling the RFSOC
+science/    //Contains User provided Science python files. Ideally this is where a majority of kidpy will be modified
+udp         //Handles UDP Connections
+dataHander  //Handles many if not most of our data needs throughout the library.
+```
 
-* host/udpcap.py
-    data is captured and saved here from the ethernet port on the readout server. This library features two main
-    user functions of note. Short Data Capture and Long Data Capture. The short data capture runs on a single core processor however
-    the long data capture requires a multicore processor. 
 
-* host/generalConfig.conf
-    Settings are stored here such as redis server configuration, data save path, etc.
-    **Note that this assumed there is a folder in the root directory named 'data' and has it's permissions set to allow read/write from all users**
+___
+## Components
 
-### rfsoc
-This contains all notebooks and python files which will run on the RFSOC
- * rfsoc/rfsocInterface.py
-    Pynq interface for our firmware. Waveforms are generated and uploaded here. Snapshots of the various DSP components can be taken here however, this
-    file is not intended to plot or display them. Instead the data should be handed off to another process such as through redis.
+Config:
+  - what configurations would be handy to access?
+    - [ ] redis host
+    - [ ] redis port
+    - [ ] data_folder
+    - [ ] gateware image
+    - [ ] arbitrary N waveforms?
+    - [ ] arbirary M rf systems LO frequencies?
+    - [ ] something to make IF controls generic?
 
-* rfsoc/redisControl.py 
-    Connect to a redis server on some host pc / server. It shall subscribe/join command and data message channels.
-    Apon receiving for example an "upload bitstream command", it shall utilize functions in the rfsocInterface to accomplish that task.
-    This will towards later revisions be part of the startup process such that it's ready and listening for commands
+Kidpy:
+  - What would the primary function here be?
+    - Enumerate available rfsoc's
+    - Connect to the rfsocs
+      - upload bitstreams
+      - initialize their connections
+
+### TODO
+
+Data Handler: 
+- [ ] Add attributes to the misc variables section
+  - [ ] bbfreq
+  - [ ] chan mask
+  - [ ] detector xdelta
+  - [ ] detector ydelta
+  - [ ] global azimuths
+  - [ ] sample rate
+  - [ ] tilenum
+  - [ ] tonepower
+  - [ ] collectiontype
+
+- [ ] guess I have some questions to investigate
+
+
+___
+
 
 ## Run Procedure
 1. Power on the RFSOC and readout server
@@ -61,3 +99,5 @@ ifconfig \<interface> \<ip> netmask \<addr> mtu 9000 hw ether \<mac>
 
 ex: 
     ifconfig ens1f3 192.168.3.40 netmask 255.255.255.0 mtu 9000 hw ether 80:3f:5d:09:2b:b0
+
+
