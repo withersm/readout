@@ -404,6 +404,8 @@ class Synthesizer:
             return False
         else:
             return True
+
+
     
     def reset(self):
         """
