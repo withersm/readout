@@ -1,21 +1,35 @@
 """
 Main Library
 """
-
+import numpy as np
 import logging
+import kidpylib.rfsoc as rf
+import kidpylib.config as conf
 
-
-_log = logging.getLogger(__name__)
-
+log = logging.getLogger(__name__)
 
 class kidpy:
+    """
+    <kidpy docstring>
+    """
     def __init__(self):
-        logging.basicConfig(level=logging.DEBUG)
-        log = logging.getLogger(__name__)
-        log_fh = logging.FileHandler("kidpydata/kidpylib.log")
-        log_format = logging.Formatter('[%(asctime)s][%(name)s][%(levelname)s][%(funcName)s] - %(message)s')
-        log_fh.setFormatter(log_format)
-        log.addHandler(log_fh)
-        _log.info("kidpy lib object initialized")
+        log.info("kidpy init")
+        # Initialize subcomponents
+        self.g = rf.rfsoc()
+        self.c = conf.GeneralConfig("/home/cody/Desktop/myconf.ini")
 
+    def __send_cmd(self):
+        pass
+
+
+    def load_config(self):
+        pass
+
+
+    def establish_connections(self):
+        pass
+
+
+    def ping_rfsoc(self):
+        pass
 
