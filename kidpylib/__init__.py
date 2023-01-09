@@ -11,11 +11,13 @@ import sys
 import logging
 
 # Ensure compatibility
-assert (sys.version_info.major == 3), "Python 3.9 or greater required"
-assert (sys.version_info.minor >= 9), "Python 3.9 or greater required"
+assert sys.version_info.major == 3, "Python 3.9 or greater required"
+assert sys.version_info.minor >= 9, "Python 3.9 or greater required"
 
 # Setup Logging
-_log_fmt = '%(asctime)s | %(filename)s:%(lineno)d | %(levelname)s | %(name)s | %(message)s'
+_log_fmt = (
+    "%(asctime)s | %(filename)s:%(lineno)d | %(levelname)s | %(name)s | %(message)s"
+)
 logging.basicConfig(format=_log_fmt)
 _log = logging.getLogger(__name__)
 _loghandle = logging.FileHandler("./kidpylib.log")

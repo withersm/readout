@@ -1,19 +1,77 @@
-# READOUT SYSTEM
-This is a pre-alpha repository for full system readout implementation. The goal is to get something going outside of
-our standard jupyter notebook flow.
 
-# Documentation and Notes - Development
+<h2 style="text-align: center"> The Kinetic Inductance Detector Python Library </h2>
+<p style="text-align: center">
+<a href="https://github.com/psf/black"><img src="https://img.shields.io/badge/code%20style-black-000000.svg"></a>
+</p>
 
-## Library File Structure
+A library for controlling and taking data from Kinetic Inductance Detector readout electronics.
+Users will use this base library to build up an application specific to their project. The idea
+beging that most of the low level details are taken care of. Users should focus on the minutia of
+their integration and the science they would like to perform. A nominal system consists of a
+ZCU111 RFSOC connected to an Intermediate Frequency Up/Down rf converter which is in turn, 
+connected to detectors in a cryostat. 
+
+Control over ethernet is facilitated via a Redis server. 
+
+---
+
+## Installation
+
+### Virtual Environment
+It's best practice to use a virtual environmet instead of your system python installation.
+With virtual enviornments, you can ensure there are no conflicting packages or package versions
+with other projects. You can utilize Anaconda or Pythons basic `venv` package to this end.
+
+
+Create an environment `python3 -m venv kp3env`
+
+Activate the environment `source kp3env/bin/activate`
+
+### Dependency Requirements
+1. Python 3.8+
+2. Redis 6.2+ and it's build requirements
+
+#### Other Reqs
+1. Ethernet card supporting jumbo frames
+2. Ubuntu 20.04+ LTS
+
+
+Please use requirements.txt to satisfy dependencies. 
+( Instructions shall assume you are using a Python Virtual Enviornment)
+
+`pip install -r requrements.txt`
+
+---
+
+## Usage
+_how will users approach using the library to take data_
+
+
+### Contributing
+_how and what kind of contributions will be added to the library_
+
+
+### Modifications
+_How users will further implement their application within or utilizing this library_
+
+---
+
+## Documentation
+_YES, IT IS **REAL**_
+
+### Library Structure
 ```
 kidpylib
 ├── config.py
+├── data_handler.py
 ├── devices
 │   ├── rudat.py
 │   ├── udx.py
 │   └── valon5009.py
+├── __init__.py
 ├── kidpy.py
 ├── plot.py
+├── rfsoc.py
 ├── science
 │   └── sweeps.py
 └── udp.py
@@ -28,76 +86,5 @@ udp         //Handles UDP Connections
 dataHander  //Handles many if not most of our data needs throughout the library.
 ```
 
-
-___
-## Components
-
-Config:
-  - what configurations would be handy to access?
-    - [ ] redis host
-    - [ ] redis port
-    - [ ] data_folder
-    - [ ] gateware image
-    - [ ] arbitrary N waveforms?
-    - [ ] arbirary M rf systems LO frequencies?
-    - [ ] something to make IF controls generic?
-
-Kidpy:
-  - What would the primary function here be?
-    - Enumerate available rfsoc's
-    - Connect to the rfsocs
-      - upload bitstreams
-      - initialize their connections
-
-### TODO
-
-Data Handler: 
-- [ ] Add attributes to the misc variables section
-  - [ ] bbfreq
-  - [ ] chan mask
-  - [ ] detector xdelta
-  - [ ] detector ydelta
-  - [ ] global azimuths
-  - [ ] sample rate
-  - [ ] tilenum
-  - [ ] tonepower
-  - [ ] collectiontype
-
-- [ ] guess I have some questions to investigate
-
-
-___
-
-
-## Run Procedure
-1. Power on the RFSOC and readout server
-2. open up 2 terminals and ssh them both into the readout server
-3. ping the rfsoc to ensure the connection is established
-4. in terminal 0, ssh into the rfsoc `ssh xilinx@rfsoc`, password is xilinx
-5. in terminal 1, start the redis server `redis-server /etc/redis/redis.conf &`
-6. in terminal 0, navigate to /home/xilinx/readout/ and run `sudo python3 redisControl.py`
-7. Once you see the following in terminal 0, proceed to the next step
-
-```
-library loaded!
-Successfully subscribed to Captain Picard, Awaiting Commands...
-init
-Successfully subscribed to PING, Awaiting Commands...
-Starting Listener
-```
-
-8. in terminal 1, navigate to kidpy `cd ~/readout/host/`
-9. in terminal 1, activate python `py3` and run kidpy `python kidpy.py`
-10. upload the bitstream, setup udp and registers, write your waveform
-11. raw data is currently configured to save to /data/, this can be modified in generalConfig.conf in the readout
-folder.
-
-
-### READOUT SERVER NOTE
-interface config 
-ifconfig \<interface> \<ip> netmask \<addr> mtu 9000 hw ether \<mac>
-
-ex: 
-    ifconfig ens1f3 192.168.3.40 netmask 255.255.255.0 mtu 9000 hw ether 80:3f:5d:09:2b:b0
-
-
+## License
+_text here_

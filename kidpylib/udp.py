@@ -4,9 +4,13 @@ computer system
 """
 
 import logging
+
+log = logging.getLogger(__name__)
+
 import socket
 
-class DataConnection():
+
+class DataConnection:
     def __init__(self):
         pass
         self.ip = ""

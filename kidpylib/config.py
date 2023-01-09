@@ -17,11 +17,13 @@ import logging
 
 log = logging.getLogger(__name__)
 
+
 @dataclass
 class cfg:
     """
     Serves as the struct/container of our config.
     """
+
     redis_host: str = "192.168.2.10"
     redis_port: str = "6379"
     data_folder: str = "./kidpyData"
@@ -45,18 +47,22 @@ class GeneralConfig(object):
 
     In the event that the config is extended, the best practice would be to update the cfg class to include
     any desired defaults.
+
+    If
     """
+
     def __new__(cls, *args, **kwargs):
-        if not hasattr(cls, 'instance'):
+        if not hasattr(cls, "instance"):
             cls.instance = super(GeneralConfig, cls).__new__(cls)
 
-    def __init__(self, path:str):
-        log.getChild('GeneralConfig.__init__').info("Using config file {}".format(path))
+    def __init__(self, path: str):
+        log.getChild("GeneralConfig.__init__").info("Using config file {}".format(path))
         self.cfg = cfg()
         self.file_name = path
         self.__config_parser = configparser.ConfigParser()
+        self.__read_cfg()
 
-    def read_cfg(self):
+    def __read_cfg(self):
         """
         reads config data into the GeneralConfig instance.
 
@@ -72,7 +78,10 @@ class GeneralConfig(object):
             )
         else:
             # This will greedily read any property specified in the config file's DEFAULT section
-            for attr, val in self.__config_parser['DEFAULT']:
+            for attr, val in self.__config_parser["DEFAULT"].items():
+                log.getChild("GeneralConfig.read_config").debug(
+                    "read attr: {}, val: {} from config file".format(attr, val)
+                )
                 setattr(self.cfg, attr, val)
 
     def write_config(self):
@@ -80,14 +89,12 @@ class GeneralConfig(object):
         Write the current configuration to a file. Even if no configuration is specified, a default will be set.
         """
         cfg = asdict(self.cfg)
-        self.__config_parser['DEFAULT'] = cfg
+        self.__config_parser["DEFAULT"] = cfg
 
         try:
-            with open(self.file_name, 'w') as cfg_file:
+            with open(self.file_name, "w") as cfg_file:
                 self.__config_parser.write(cfg_file)
         except PermissionError as PE:
-            log.getChild('GeneralConfig.write_config').error(
-                "permission error: failed to write configuration to file specified")
-
-
-
+            log.getChild("GeneralConfig.write_config").error(
+                "permission error: failed to write configuration to file specified"
+            )

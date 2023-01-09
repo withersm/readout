@@ -1,5 +1,5 @@
 """
-Main Library
+Main kidpy library.
 """
 import numpy as np
 import logging
@@ -8,10 +8,12 @@ import kidpylib.config as conf
 
 log = logging.getLogger(__name__)
 
+
 class kidpy:
     """
     <kidpy docstring>
     """
+
     def __init__(self):
         log.info("kidpy init")
         # Initialize subcomponents
@@ -21,15 +23,11 @@ class kidpy:
     def __send_cmd(self):
         pass
 
-
     def load_config(self):
         pass
-
 
     def establish_connections(self):
         pass
 
-
     def ping_rfsoc(self):
         pass
-
