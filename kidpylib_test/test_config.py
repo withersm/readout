@@ -42,7 +42,7 @@ class TestModifiedConfig(unittest.TestCase):
     def setUp(self):
         self.conf = kplc.GeneralConfig("kidpylib_test/alternate_config.cfg")
 
-    def test_0_obj_not_none_(self):
+    def test_0_obj_not_none(self):
         self.assertIsNotNone(self.conf)
 
     def test_canary_is_pizza(self):
@@ -50,6 +50,11 @@ class TestModifiedConfig(unittest.TestCase):
 
     def test_new_ip_isset(self):
         self.assertEqual(self.conf.cfg.redis_host, "10.0.0.69")
+
+    def test_additional_attr(self):
+        self.assertEqual(
+            self.conf.cfg.gravity, "9.81"
+        )  # only defined in alternate_config
 
 
 if __name__ == "__main__":
