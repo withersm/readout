@@ -1,6 +1,6 @@
 
 <h2 style="text-align: center"> The Kinetic Inductance Detector Python Library </h2>
-<p style="text-align: center">
+<p style="text-align: center" align="center">
 <a href="https://github.com/psf/black"><img src="https://img.shields.io/badge/code%20style-black-000000.svg"></a>
 </p>
 

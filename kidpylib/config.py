@@ -15,15 +15,21 @@ import os
 from dataclasses import dataclass, asdict
 import logging
 
+__all__ = []
+__version__ = "0.1"
+__author__ = "Cody Roberson"
+__email__ = "carobers@asu.edu"
+
+
 log = logging.getLogger(__name__)
 
 
 @dataclass
-class cfg:
+class ConfigData:
     """
     Serves as the struct/container of our config.
     """
-
+    canary: str = "cat"
     redis_host: str = "192.168.2.10"
     redis_port: str = "6379"
     data_folder: str = "./kidpyData"
@@ -32,13 +38,13 @@ class cfg:
 
 
 class GeneralConfig(object):
-    """
-    Kidpy General Config.
+    """Kidpy General Config Handler.
     This is a **SINGLETON** class and as such there can only be one instance of this class runnig at a time.
     This is to ensure unity across the library. parameters are accessed through
     GeneralConfig.cfg.<parameter_here>
 
-    The configurator blindly reads all input in the configuration into the cfg class object. This allows users
+    The configurator blindly reads all input from the configuration file
+    into the ConfigData object (cfg). This allows users
     to set custom parameters however, they will not be regenerated in the event the config file is
     deleted. All config parameters will be interpreted as strings and must be checked/parsed independantly.
 
@@ -48,16 +54,16 @@ class GeneralConfig(object):
     In the event that the config is extended, the best practice would be to update the cfg class to include
     any desired defaults.
 
-    If
     """
 
     def __new__(cls, *args, **kwargs):
         if not hasattr(cls, "instance"):
             cls.instance = super(GeneralConfig, cls).__new__(cls)
+        return cls.instance
 
     def __init__(self, path: str):
         log.getChild("GeneralConfig.__init__").info("Using config file {}".format(path))
-        self.cfg = cfg()
+        self.cfg = ConfigData()
         self.file_name = path
         self.__config_parser = configparser.ConfigParser()
         self.__read_cfg()

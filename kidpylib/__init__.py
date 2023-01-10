@@ -15,6 +15,7 @@ assert sys.version_info.major == 3, "Python 3.9 or greater required"
 assert sys.version_info.minor >= 9, "Python 3.9 or greater required"
 
 # Setup Logging
+
 _log_fmt = (
     "%(asctime)s | %(filename)s:%(lineno)d | %(levelname)s | %(name)s | %(message)s"
 )
