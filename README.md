@@ -20,8 +20,9 @@ Control over ethernet is facilitated via a Redis server.
 ### Virtual Environment
 It's best practice to use a virtual environmet instead of your system python installation.
 With virtual enviornments, you can ensure there are no conflicting packages or package versions
-with other projects. You can utilize Anaconda or Pythons basic `venv` package to this end.
+with other projects. You can utilize Anaconda or Python's `venv` package to this end.
 
+Example:
 
 Create an environment `python3 -m venv kp3env`
 

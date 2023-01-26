@@ -25,14 +25,13 @@ class Kidpy:
         self.g = rf.rfsoc()
         self.c = conf.GeneralConfig("/home/cody/Desktop/myconf.ini")
 
-    def __send_cmd(self):
+    def find_rfsocs(self):
         pass
 
-    def load_config(self):
-        pass
+    def establish_rfsoc_connections(self):
+        """Find RFSOCs and establish connections
 
-    def establish_connections(self):
-        pass
-
-    def ping_rfsoc(self):
+        Enumerates rfsocs on the network and creates
+        :return:
+        """
         pass

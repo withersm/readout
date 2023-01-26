@@ -7,10 +7,30 @@ does the rfsoc class then take control of the udp connection or shall it stay se
 """
 
 import logging
+import numpy as np
+
+__all__ = []
+__version__ = "0.1"
+__author__ = "Cody Roberson"
+__email__ = "carobers@asu.edu"
 
 log = logging.getLogger(__name__)
 
 
-class rfsoc:
+class RFSOC:
+    """
+
+    """
     def __init__(self):
+        self.identifier = ""
+        self.ip_adress = ""
+
+    def upload_bitstream(self):
         pass
+
+    def set_fw_registers(self):
+        pass
+
+    def set_waveform(self):
+        pass
+

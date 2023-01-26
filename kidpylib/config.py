@@ -29,6 +29,7 @@ class ConfigData:
     """
     Serves as the struct/container of our config.
     """
+
     canary: str = "cat"
     redis_host: str = "192.168.2.10"
     redis_port: str = "6379"
