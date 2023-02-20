@@ -1,47 +1,104 @@
 """
-@author: Cody Roberson
-@date: 02/13/2023
-@file: data_handler
-@copyright: To Be Determined in the Interest of Collaboration
-@description:
-    DataHandler takes care of generating our hdf5 ovservation data files
+:author: Cody Roberson
+:date: 02/13/2023
+:file: data_handler
+:copyright: To Be Determined in the Interest of Collaboration
+:description: DataHandler takes care of generating our hdf5 ovservation data files
 
-
-@Revisions:
-
-@Dev Notes:
-    02/17/2023
+02/17/2023:
     HDF5 arrays are (row,col), scalars are (1,)
 
+----------
 """
 import logging
-import multiprocessing
-
 import numpy as np
 from time import sleep
 import h5py
 import multiprocessing as mproc
+import udpcap
+import os
+import sys
+
+
+class DataHandler:
+    """
+    Used to handle the interaction between obtaining a packet and
+    subsequently storing it.
+
+    Users shall use a DataHandler class to take some amount of packets
+    """
+    def __init__(self, udp: udpcap.udpcap):
+        self.rawdataset = []
+
+    def create_odc(self, dataroot: str):
+        """
+        Creates an Observation data collection folder with the structure specified in the
+        Implementation and Dataformat Design Document
+
+        :param dataroot:
+        :return:
+        """
+        pass
+
+    def create_odf(self):
+        """
+        create a an observation h5 file in the ODC as specified in the
+        Implementation and Dataformat Design Document
+        :return:
+        """
+        pass
+
+    def create_rawdf(self):
+        """
+        create a raw rfsoc data file in the ODC as specified in the
+        Implementation and Dataformat Design Document
+        :return:
+        """
+        pass
+
+    def record_data(self, n_samples):
+        """
+        record a specified number of data samples to hdf5 document
+        :param n_samples:
+        :return:
+        """
+        pass
+
+    def finalize(self, rawdf: list[RawDataFile], obs_df: ObservationDataFile):
+        """
+        Merges the raw data files collected during an observation period into the Observation DataFile
+
+        Interest:
+        # GD
+        attenuator_settings
+
+        # TOD
+        adc_i: n_resonator x n_sample
+        adc_q: n_resonator x n_sample
+        lo_freq: n_sample
+        timestamp: n_sample
+
+        :param rawdf:
+        :param obs_df:
+        :return:
+        """
+        pass
 
 
 class RawDataFile:
     """A raw hdf5 data file object for incoming rfsoc-UDP data streams.
 
-    udp packets containing our downsampled data streaming from the RFSOC to the readout computer
+    UDP packets containing our downsampled data streaming from the RFSOC to the readout computer
     will be captured and saved to this hdf5 filetype.
 
-    Dimmensions:
-        - **n_sample:** the number of data samples collected (i.e., sample_rate * length_of_file_in_seconds)
-        - **n_resonator:** the number of resonance tones
-        - **n_attenuator:** the number of attenuators in the IF slice or elsewhere in the system - likely = 2 for now
-
     :param path: /file/path/here/file.h5
-    :param n_sample:
-    :param n_resonator:
-    :param n_attenuator:
+    :param n_sample: The number of data samples collected (i.e., sample_rate * length_of_file_in_seconds)
+
+    :param n_resonator: The number of resonance tones
+    :param n_attenuator: The number of attenuators in the IF slice or elsewhere in the system - likely = 2 for now
     """
 
     def __init__(self, path: str, n_sample: int, n_resonator: int, n_attenuator: int):
-        """"""
         self.filename = path
         self.fh = None
         try:
@@ -54,9 +111,24 @@ class RawDataFile:
             raise
         except Exception as except_rdf:  # TODO: REFINE EXCEPTION CASES
             raise except_rdf
-        # ********************* DATAFIELD ***********************
 
-        # Global Data
+        # ********************************* Dimensions *******************************
+        self.dimm_n_sample = self.fh.create_dataset(
+            "Dimension/n_sample",
+            (1,),
+            dtype=h5py.h5t.NATIVE_UINT64,
+        )
+        self.dimm_n_resonator = self.fh.create_dataset(
+            "Dimension/n_resonator",
+            (1,),
+            dtype=h5py.h5t.NATIVE_UINT64,
+        )
+        self.dimm_n_attenuator = self.fh.create_dataset(
+            "Dimension/n_attenuator",
+            (1,),
+            dtype=h5py.h5t.NATIVE_UINT64,
+        )
+        # ******************************** Global Data ******************************
         self.attenuator_settings = self.fh.create_dataset(
             "global_data/attenuator_settings",
             (1, n_attenuator),
@@ -77,11 +149,16 @@ class RawDataFile:
         self.rfsoc_number = self.fh.create_dataset(
             "global_data/rfsoc_number", (1,), dtype=h5py.h5t.NATIVE_INT32
         )
+        self.chan_number = self.fh.create_dataset(
+            "global_data/chan_number", (1,), dtype=h5py.h5t.NATIVE_INT32
+        )
+        self.chan_number.attrs.create("info", "possibility of multiple raw files per channel per RFSOC")
+
         self.ifslice_number = self.fh.create_dataset(
             "global_data/ifslice_number", (1,), dtype=h5py.h5t.NATIVE_INT32
         )
 
-        # Time Ordered Data
+        # ****************************** Time Ordered Data *****************************
         self.adc_i = self.fh.create_dataset(
             "time_ordered_data/adc_i",
             (n_resonator, n_sample),
@@ -110,41 +187,28 @@ class RawDataFile:
 
 
 class ObservationDataFile:
-    """The main Observation datafile which will encompass the data gatherd during an observation
-    period. raw rfsoc data is migrated into this data file after the observation has concluded.
     """
+        The main Observation datafile which will encompass the data gatherd during an observation
+    period. raw rfsoc data is migrated into this data file after the observation has concluded.
 
+    :param n_rfsoc: the number of RFSOCs that will be merged together
+    :param n_sample: the number of data samples collected
+    :param n_sample_lo: the number of data samples collected during the LO sweep prior to the observation
+    :param n_resonator:  the total number of resonances spanning all RFSOCs
+    :param n_attenuator: the number of attenuators on each RFSOC -
+    """
     def __init__(
-        self,
-        n_rfsoc: int,
-        n_sample: int,
-        n_sample_lo: int,
-        n_resonator: int,
-        n_attenuator: str,
+            self,
+            n_rfsoc: int,
+            n_sample: int,
+            n_sample_lo: int,
+            n_resonator: int,
+            n_attenuator: str,
     ):
-        """
-        Initialize the DataFile object. Captures given parameters in to instance variables
-        and passes them to internal file template method
-
-        n_rfsoc:
-        n_sample:
-        n_sample_lo:
-        n_resonator:
-        n_attenuator:
-            i.e., not the total number of attenuators spanning all RFSOCs
-        :param n_rfsoc: the number of RFSOCs that will be merged together
-        :param n_sample: the number of data samples collected
-        :param n_sample_lo: the number of data samples collected during the LO sweep prior to the observation
-        :param n_resonator:  the total number of resonances spanning all RFSOCs
-        :param n_attenuator: the number of attenuators on each RFSOC -
-        """
-
-        DETECTOR_DATA_LENGTH = 2052  # CONST
 
         self.df = h5py.File(filename, "w")
 
-        # Time Ordered data
-
+        # ***************************** Time Ordered data *************************************
         self.adc_i = self.df.create_dataset(
             "time_ordered_data/adc_i",
             (n_resonator, n_sample),
@@ -210,7 +274,7 @@ class ObservationDataFile:
             (n_rfsoc, n_sample),
             dtype=h5py.h5t.NATIVE_UINT64,
         )
-        # ****************  GLOBAL DATA ***********************
+        # *********************************  GLOBAL DATA ****************************************
 
         self.attenuator_settings = self.df.create_dataset(
             "global_data/attenuator_settings",
@@ -287,48 +351,31 @@ class ObservationDataFile:
         self.ifslice_number = self.df.create_dataset(
             "global_data/ifslice_number", (1, n_resonator), dtype=h5py.h5t.NATIVE_UINT32
         )
-
-
-class DataHandler:
-    def __process_data_handoff(
-        queue: multiprocessing.queues.Queue, filename: str, nPackets: int
-    ):
-        """
-        This process should run independantly to any sort of data capture processes
-        since disk io-ops are slow. The operation is as follows:
-
-            while running in a seperate process,
-                check for items being placed in the queue,
-                    if the queue contains object, begin copying data out of the queue and into
-                    the relevant hdf5 datasets.
-        :param queue: Multiprocessing queue containing our data relayed from the depacketizer
-        :param filename: (DEPRECATED)
-        :param nPackets:
-        :return:
-        """
-        dFile = h5py.File(filename, "w")
-        data = dFile.create_dataset(
-            "PACKETS",
-            (2052, nPackets),
-            dtype=h5py.h5t.NATIVE_INT32,
-            chunks=True,
-            maxshape=(None, None),
+        # ********************************** Dimensions ****************************************
+        # Dimensions
+        self.dimm_n_rfsoc = self.fh.create_dataset(
+            "Dimension/n_rfsoc",
+            (1,),
+            dtype=h5py.h5t.NATIVE_UINT64,
         )
-        active = True
-        while active:
-            rawData = queue.get()
-            if rawData is not None:
-                d, c = rawData
-                data[:, c] = d
-            else:
-                active = False
-                dFile.flush()
-        dFile.close()
+        self.dimm_n_sample = self.fh.create_dataset(
+            "Dimension/n_sample",
+            (1,),
+            dtype=h5py.h5t.NATIVE_UINT64,
+        )
+        self.dimm_n_sample_lo = self.fh.create_dataset(
+            "Dimension/n_sample_lo",
+            (1,),
+            dtype=h5py.h5t.NATIVE_UINT64,
+        )
+        self.dimm_n_resonator = self.fh.create_dataset(
+            "Dimension/n_resonator",
+            (1,),
+            dtype=h5py.h5t.NATIVE_UINT64,
+        )
+        self.dimm_n_attenuator = self.fh.create_dataset(
+            "Dimension/n_attenuator",
+            (1,),
+            dtype=h5py.h5t.NATIVE_UINT64,
+        )
 
-
-def DoTestRoutine():
-    pass
-
-
-if __name__ == "__main__":
-    DoTestRoutine()
