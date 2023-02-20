@@ -32,5 +32,5 @@ class RFSOC:
         pass
 
     def set_waveform(self):
-        pass
+        passx
 

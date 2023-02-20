@@ -28,7 +28,7 @@ import valon5009
 
 def testConnection(r):
     try:
-        tr = r.set('testkey', '123')
+        tr = r.set("testkey", "123")
         return True
     except redis.exceptions.ConnectionError as e:
         print(e)
@@ -50,11 +50,11 @@ def wait_for_free(r, delay=0.25, timeout=10):
 def wait_for_reply(redis_pubsub, cmd, max_timeout=15):
     """
 
-    This is the eventual replacement for the waitForFree() method. 
-    We want to have smarter replies that can ferry data back from the RFSOC. 
-  
+    This is the eventual replacement for the waitForFree() method.
+    We want to have smarter replies that can ferry data back from the RFSOC.
+
     Once a command is sent out, listen for a reply on the <cmd_reply> channel
-        Format for replying to commands from redis 
+        Format for replying to commands from redis
             message = {
                 'cmd' : 'relay command',
                 'status' : 'OK'|'FAIL',
@@ -72,29 +72,31 @@ def wait_for_reply(redis_pubsub, cmd, max_timeout=15):
     current_time = 0
     while current_time < max_timeout:
         m = redis_pubsub.get_message()
-        if m is not None and m['channel'] == b"picard_reply":
-            msg = m['data'].decode("ASCII")
+        if m is not None and m["channel"] == b"picard_reply":
+            msg = m["data"].decode("ASCII")
             data = json.loads(msg)
-            if data['cmd'] == cmd and data['status'] == "OK":
-                return True, data['data']
+            if data["cmd"] == cmd and data["status"] == "OK":
+                return True, data["data"]
             else:
-                return False, data['data']
+                return False, data["data"]
         time.sleep(1)
         current_time = current_time + 1
-    print("WARINNG: TIMED OUT WAITING FOR REPLY -->  def waitForReply(redisIF, cmd, maxTimeout = 15):")
+    print(
+        "WARINNG: TIMED OUT WAITING FOR REPLY -->  def waitForReply(redisIF, cmd, maxTimeout = 15):"
+    )
 
 
 def checkBlastCli(r, p):
     """
-    Rudamentary "is the rfsoc control software running" check. 
+    Rudamentary "is the rfsoc control software running" check.
     """
     r.publish("ping", "hello?")
     count = 1
     delay = 0.5
     timeout = 6
-    while (1):
+    while 1:
         m = p.get_message()
-        if m is not None and m['data'] == b"Hello World":
+        if m is not None and m["data"] == b"Hello World":
             print("redisControl is running")
             return True
         if count >= timeout:
@@ -117,7 +119,7 @@ def sweep(loSource, udp, f_center, freqs, N_steps=500):
         List of Baseband Frequencies returned from rfsocInterface.py's writeWaveform()
     udp : udpcap.udpcap object instance
         udp data capture utility. This is our bread and butter for taking data from ethernet
-    N_steps : int 
+    N_steps : int
         Number of steps to sweep
 
 
@@ -125,8 +127,8 @@ def sweep(loSource, udp, f_center, freqs, N_steps=500):
     """
     tone_diff = np.diff(freqs)[0] / 1e6  # MHz
     flo_step = tone_diff / N_steps
-    flo_start = f_center - tone_diff / 2.  # 256
-    flo_stop = f_center + tone_diff / 2.  # 256
+    flo_start = f_center - tone_diff / 2.0  # 256
+    flo_stop = f_center + tone_diff / 2.0  # 256
 
     flos = np.arange(flo_start, flo_stop, flo_step)
     udp.bindSocket()
@@ -149,16 +151,13 @@ def sweep(loSource, udp, f_center, freqs, N_steps=500):
         Qmed = np.median(Q, axis=0)
 
         Z = Imed + 1j * Qmed
-        Z = Z[0:len(freqs)]
+        Z = Z[0 : len(freqs)]
 
         print(".", end="")
 
         return Z
 
-    sweep_Z = np.array([
-        temp(lofreq)
-        for lofreq in flos
-    ])
+    sweep_Z = np.array([temp(lofreq) for lofreq in flos])
 
     f = np.array([flos * 1e6 + ftone for ftone in freqs]).flatten()
     sweep_Z_f = sweep_Z.T.flatten()
@@ -180,14 +179,14 @@ def loSweep(loSource, udp, freqs=[], f_center=400):
 
 def menu(captions, options):
     """Creates menu for terminal interface
-       inputs:
-           list captions: List of menu captions
-           list options: List of menu options
-       outputs:
-           int opt: Integer corresponding to menu option chosen by user"""
-    print('\t' + captions[0] + '\n')
+    inputs:
+        list captions: List of menu captions
+        list options: List of menu options
+    outputs:
+        int opt: Integer corresponding to menu option chosen by user"""
+    print("\t" + captions[0] + "\n")
     for i in range(len(options)):
-        print('\t' + '\033[32m' + str(i) + ' ..... ' '\033[0m' + options[i] + '\n')
+        print("\t" + "\033[32m" + str(i) + " ..... " "\033[0m" + options[i] + "\n")
     opt = None
     try:
         opt = eval(input())
@@ -201,52 +200,54 @@ class kidpy:
         # Pull config
         config = configparser.ConfigParser()
         config.read("generalConfig.conf")
-        self.__redis_host = config['REDIS']['host']
-        self.__customWaveform = config['DSP']['customWaveform']
-        self.__customSingleTone = config['DSP']['singleToneFrequency']
-        self.__saveData = config['DATA']['saveFolder']
-        self.__ValonPorts = config['VALON']['valonSerialPorts'].split(',')
-        self.__valon_RF1_SYS2 = config['VALON']['rfsoc1System2']
-        self.__valon_RF1_SYS1 = config['VALON']['rfsoc1System1']
+        self.__redis_host = config["REDIS"]["host"]
+        self.__customWaveform = config["DSP"]["customWaveform"]
+        self.__customSingleTone = config["DSP"]["singleToneFrequency"]
+        self.__saveData = config["DATA"]["saveFolder"]
+        self.__ValonPorts = config["VALON"]["valonSerialPorts"].split(",")
+        self.__valon_RF1_SYS2 = config["VALON"]["rfsoc1System2"]
+        self.__valon_RF1_SYS1 = config["VALON"]["rfsoc1System1"]
 
         # setup redis
         self.r = redis.Redis(self.__redis_host)
         self.p = self.r.pubsub()
         self.p.subscribe("ping")
         time.sleep(1)
-        if self.p.get_message()['data'] != 1:
+        if self.p.get_message()["data"] != 1:
             print("Failed to Subscribe to redis Ping Channel")
             exit()
         self.p.subscribe("picard_reply")
         time.sleep(1)
-        if self.p.get_message()['data'] != 2:
+        if self.p.get_message()["data"] != 2:
             print("Failed to Subscribe redis picard_reply channel")
             exit()
 
         # check that the rfsoc is running redisControl.py
-        os.system('clear')
+        os.system("clear")
         if not checkBlastCli(self.r, self.p):
             exit()
 
         # Differentiate 5009's connected to the system
         self.valon = None
         for v in self.__ValonPorts:
-            self.valon = valon5009.Synthesizer(v.replace(' ', ''))
+            self.valon = valon5009.Synthesizer(v.replace(" ", ""))
             print(self.valon.getSN())
 
         self.__udp = udpcap.udpcap()
         self.current_waveform = []
-        caption1 = '\n\t\033[95mKID-PY2 RFSoC Readout\033[95m'
+        caption1 = "\n\t\033[95mKID-PY2 RFSoC Readout\033[95m"
         self.captions = [caption1]
 
-        self.__main_opts = ['Upload firmware',
-                            'Initialize system & UDP conn',
-                            'Write test comb (single or multitone)',
-                            'Write stored comb from config file',
-                            'I <-> Q Phase offset',
-                            'Take Raw Data',
-                            'LO Sweep',
-                            'Exit']
+        self.__main_opts = [
+            "Upload firmware",
+            "Initialize system & UDP conn",
+            "Write test comb (single or multitone)",
+            "Write stored comb from config file",
+            "I <-> Q Phase offset",
+            "Take Raw Data",
+            "LO Sweep",
+            "Exit",
+        ]
 
     def begin_ui(self):
         pass
@@ -263,14 +264,18 @@ class kidpy:
 
             conStatus = testConnection(self.r)
             if conStatus:
-                print('\033[0;36m' + "\r\nConnected" + '\033[0m')
+                print("\033[0;36m" + "\r\nConnected" + "\033[0m")
             else:
-                print('\033[0;31m' +
-                      "\r\nCouldn't connect to redis-server double check it's running and the generalConfig is correct" +
-                      '\033[0m')
+                print(
+                    "\033[0;31m"
+                    + "\r\nCouldn't connect to redis-server double check it's running and the generalConfig is correct"
+                    + "\033[0m"
+                )
             opt = menu(self.captions, self.__main_opts)
             if conStatus == False:
-                resp = input("Can't connect to redis server, do you want to continue anyway? [y/n]: ")
+                resp = input(
+                    "Can't connect to redis server, do you want to continue anyway? [y/n]: "
+                )
                 if resp != "y":
                     exit()
             if opt == 0:  # upload firmware
@@ -293,22 +298,30 @@ class kidpy:
                     print("Done")
 
             if opt == 2:  # Write test comb
-                prompt = input('Full test comb? y/n ')
+                prompt = input("Full test comb? y/n ")
                 os.system("clear")
-                if prompt == 'y':
+                if prompt == "y":
                     print("Waiting for the RFSOC to finish writing the full comb")
                     cmd = {"cmd": "ulWaveform", "args": []}
                     cmdstr = json.dumps(cmd)
                     self.r.publish("picard", cmdstr)
 
                 else:
-                    print("Waiting for the RFSOC to write single {} MHz Tone".format(
-                        float(self.__customSingleTone) / 1e6))
-                    cmd = {"cmd": "ulWaveform", "args": [[float(self.__customSingleTone)]]}
+                    print(
+                        "Waiting for the RFSOC to write single {} MHz Tone".format(
+                            float(self.__customSingleTone) / 1e6
+                        )
+                    )
+                    cmd = {
+                        "cmd": "ulWaveform",
+                        "args": [[float(self.__customSingleTone)]],
+                    }
                     cmdstr = json.dumps(cmd)
                     self.r.publish("picard", cmdstr)
 
-                success, self.current_waveform = wait_for_reply(self.p, "ulWaveform", max_timeout=10)
+                success, self.current_waveform = wait_for_reply(
+                    self.p, "ulWaveform", max_timeout=10
+                )
                 if success:
                     print("Wrote Waveform")
                     print(self.current_waveform)
@@ -317,20 +330,25 @@ class kidpy:
 
             if opt == 3:  # write stored comb
                 os.system("clear")
-                print("Waiting for the RFSOC to finish writing the custom frequency list: \r\n{}".format(
-                    self.customWaveform))
+                print(
+                    "Waiting for the RFSOC to finish writing the custom frequency list: \r\n{}".format(
+                        self.customWaveform
+                    )
+                )
                 fList = []
 
                 # separate values from config and remove ',' before converting to number and
                 # sending the list of values up to the DAC
                 for value in self.__customWaveform.split():
-                    s = value.replace(',', '')
+                    s = value.replace(",", "")
                     fList.append(float(s))
 
                 cmd = {"cmd": "ulWaveform", "args": [fList]}
                 cmdstr = json.dumps(cmd)
                 self.r.publish("picard", cmdstr)
-                success, self.current_waveform = wait_for_reply(self.p, "ulWaveform", max_timeout=10)
+                success, self.current_waveform = wait_for_reply(
+                    self.p, "ulWaveform", max_timeout=10
+                )
                 if success:
                     print("Wrote Waveform")
                     print(self.current_waveform)
@@ -353,11 +371,16 @@ class kidpy:
                 if t <= 0:
                     print("Can't sample 0 seconds")
                 else:
-                    os.system('clear')
+                    os.system("clear")
                     print("Binding Socket")
                     self.__udp.bindSocket()
                     print("Capturing packets")
-                    fname = self.__saveData + "kidpyCaptureData{0:%Y%m%d%H%M%S}.h5".format(datetime.datetime.now())
+                    fname = (
+                        self.__saveData
+                        + "kidpyCaptureData{0:%Y%m%d%H%M%S}.h5".format(
+                            datetime.datetime.now()
+                        )
+                    )
                     print(fname)
                     if t < 60:
                         self.__udp.shortDataCapture(fname, 488 * t)
