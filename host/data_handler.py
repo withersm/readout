@@ -7,7 +7,14 @@
 
 02/17/2023:
     HDF5 arrays are (row,col), scalars are (1,)
-
+02/21/2023
+    while hdf datasets can have infinite dimensions, they do need to be resized:
+        dataset (1,4) to store [0,1,2,3]
+    then dataset.resize((2,4))
+        dataset (2,4) to store [0,1,2,3], [4,8,12,16] becomes possible
+    While it would be nice to dynamically allocate n_samples as needed, the hdf5 lib implementation
+    makes a call to emalloc which leads to speculation that a mem copy takes place and the same inefficiencies
+    of array copies takes place under the hood. This is problematic for large, efficient, datasets.
 ----------
 """
 import logging
@@ -30,6 +37,14 @@ class DataHandler:
     def __init__(self, udp: udpcap.udpcap):
         self.rawdataset = []
 
+        # Polulated int he create_odc
+        self.raw_data_folder = None
+        self.housekeeping_folder = None
+        self.plots_folder = None
+        self.raw_data_dirfile = None
+        self.obs_df = None # observation file
+        self.raw_dfs = [] # raw data files
+
     def create_odc(self, dataroot: str):
         """
         Creates an Observation data collection folder with the structure specified in the
@@ -38,14 +53,35 @@ class DataHandler:
         :param dataroot:
         :return:
         """
-        pass
+        # create folder structure:
+        self.data_root_folder = dataroot+"/observation_" + datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        dr = self.data_root_folder
 
-    def create_odf(self):
+        self.raw_data_folder = dr + "/raw_data/"
+        self.housekeeping_folder = dr + "/housekeeping/"
+        self.plots_folder = dr + "/plots/"
+        self.raw_data_dirfile = dr + "/raw_data_dirfile/"
+
+        try:
+            os.mkdir(self.data_root_folder)
+            os.mkdir(self.raw_data_folder)
+            os.mkdir(self.housekeeping_folder)
+            os.mkdir(self.plots_folder)
+            os.mkdir(self.raw_data_dirfile)
+        except IOError:
+            print("Failed to write directory")
+        except PermissionError:
+            print("failed to create data folder: Permission denied.")
+
+
+
+    def create_odf(self, n_rfsoc: int, n_sample: int, n_sample_lo: int, n_resonator: int, n_attenuator: str):
         """
         create a an observation h5 file in the ODC as specified in the
         Implementation and Dataformat Design Document
         :return:
         """
+        self.obs_df = ObservationDataFile(n_rfsoc, n_sample, n_sample_lo, n_resonator, n_attenuator)
         pass
 
     def create_rawdf(self):
