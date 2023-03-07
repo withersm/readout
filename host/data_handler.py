@@ -27,100 +27,6 @@ import os
 import sys
 
 
-class DataHandler:
-    """
-    Used to handle the interaction between obtaining a packet and
-    subsequently storing it.
-
-    Users shall use a DataHandler class to take some amount of packets
-    """
-    def __init__(self, udp: udpcap.udpcap):
-        self.rawdataset = []
-
-        # Polulated int he create_odc
-        self.raw_data_folder = None
-        self.housekeeping_folder = None
-        self.plots_folder = None
-        self.raw_data_dirfile = None
-        self.obs_df = None # observation file
-        self.raw_dfs = [] # raw data files
-
-    def create_odc(self, dataroot: str):
-        """
-        Creates an Observation data collection folder with the structure specified in the
-        Implementation and Dataformat Design Document
-
-        :param dataroot:
-        :return:
-        """
-        # create folder structure:
-        self.data_root_folder = dataroot+"/observation_" + datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-        dr = self.data_root_folder
-
-        self.raw_data_folder = dr + "/raw_data/"
-        self.housekeeping_folder = dr + "/housekeeping/"
-        self.plots_folder = dr + "/plots/"
-        self.raw_data_dirfile = dr + "/raw_data_dirfile/"
-
-        try:
-            os.mkdir(self.data_root_folder)
-            os.mkdir(self.raw_data_folder)
-            os.mkdir(self.housekeeping_folder)
-            os.mkdir(self.plots_folder)
-            os.mkdir(self.raw_data_dirfile)
-        except IOError:
-            print("Failed to write directory")
-        except PermissionError:
-            print("failed to create data folder: Permission denied.")
-
-
-
-    def create_odf(self, n_rfsoc: int, n_sample: int, n_sample_lo: int, n_resonator: int, n_attenuator: str):
-        """
-        create a an observation h5 file in the ODC as specified in the
-        Implementation and Dataformat Design Document
-        :return:
-        """
-        self.obs_df = ObservationDataFile(n_rfsoc, n_sample, n_sample_lo, n_resonator, n_attenuator)
-        pass
-
-    def create_rawdf(self):
-        """
-        create a raw rfsoc data file in the ODC as specified in the
-        Implementation and Dataformat Design Document
-        :return:
-        """
-        pass
-
-    def record_data(self, n_samples):
-        """
-        record a specified number of data samples to hdf5 document
-        :param n_samples:
-        :return:
-        """
-        pass
-
-    def finalize(self, rawdf: list[RawDataFile], obs_df: ObservationDataFile):
-        """
-        Merges the raw data files collected during an observation period into the Observation DataFile
-
-        Interest:
-        # GD
-        attenuator_settings
-
-        # TOD
-        adc_i: n_resonator x n_sample
-        adc_q: n_resonator x n_sample
-        lo_freq: n_sample
-        timestamp: n_sample
-
-        :param rawdf:
-        :param obs_df:
-        :return:
-        """
-        pass
-
-
 class RawDataFile:
     """A raw hdf5 data file object for incoming rfsoc-UDP data streams.
 
@@ -149,17 +55,17 @@ class RawDataFile:
             raise except_rdf
 
         # ********************************* Dimensions *******************************
-        self.dimm_n_sample = self.fh.create_dataset(
+        self.dim_n_sample = self.fh.create_dataset(
             "Dimension/n_sample",
             (1,),
             dtype=h5py.h5t.NATIVE_UINT64,
         )
-        self.dimm_n_resonator = self.fh.create_dataset(
+        self.dim_n_resonator = self.fh.create_dataset(
             "Dimension/n_resonator",
             (1,),
             dtype=h5py.h5t.NATIVE_UINT64,
         )
-        self.dimm_n_attenuator = self.fh.create_dataset(
+        self.dim_n_attenuator = self.fh.create_dataset(
             "Dimension/n_attenuator",
             (1,),
             dtype=h5py.h5t.NATIVE_UINT64,
@@ -188,7 +94,9 @@ class RawDataFile:
         self.chan_number = self.fh.create_dataset(
             "global_data/chan_number", (1,), dtype=h5py.h5t.NATIVE_INT32
         )
-        self.chan_number.attrs.create("info", "possibility of multiple raw files per channel per RFSOC")
+        self.chan_number.attrs.create(
+            "info", "possibility of multiple raw files per channel per RFSOC"
+        )
 
         self.ifslice_number = self.fh.create_dataset(
             "global_data/ifslice_number", (1,), dtype=h5py.h5t.NATIVE_INT32
@@ -209,7 +117,7 @@ class RawDataFile:
             "time_ordered_data/lo_freq", (1, n_sample), dtype=h5py.h5t.NATIVE_INT32
         )
         timestamp_compound_datatype = [
-            ("time_ms", h5py.h5t.NATIVE_UINT64),
+            ("time_us", h5py.h5t.NATIVE_UINT64),
             ("packet_number", h5py.h5t.NATIVE_UINT64),
         ]
         self.timestamp = self.fh.create_dataset(
@@ -233,15 +141,19 @@ class ObservationDataFile:
     :param n_resonator:  the total number of resonances spanning all RFSOCs
     :param n_attenuator: the number of attenuators on each RFSOC -
     """
-    def __init__(
-            self,
-            n_rfsoc: int,
-            n_sample: int,
-            n_sample_lo: int,
-            n_resonator: int,
-            n_attenuator: str,
-    ):
 
+    def __init__(self):
+        pass
+
+    @overload
+    def __init__(
+        self,
+        n_rfsoc: int,
+        n_sample: int,
+        n_sample_lo: int,
+        n_resonator: int,
+        n_attenuator: str,
+    ):
         self.df = h5py.File(filename, "w")
 
         # ***************************** Time Ordered data *************************************
@@ -389,29 +301,145 @@ class ObservationDataFile:
         )
         # ********************************** Dimensions ****************************************
         # Dimensions
-        self.dimm_n_rfsoc = self.fh.create_dataset(
+        self.dim_n_rfsoc = self.fh.create_dataset(
             "Dimension/n_rfsoc",
             (1,),
             dtype=h5py.h5t.NATIVE_UINT64,
         )
-        self.dimm_n_sample = self.fh.create_dataset(
+        self.dim_n_sample = self.fh.create_dataset(
             "Dimension/n_sample",
             (1,),
             dtype=h5py.h5t.NATIVE_UINT64,
         )
-        self.dimm_n_sample_lo = self.fh.create_dataset(
+        self.dim_n_sample_lo = self.fh.create_dataset(
             "Dimension/n_sample_lo",
             (1,),
             dtype=h5py.h5t.NATIVE_UINT64,
         )
-        self.dimm_n_resonator = self.fh.create_dataset(
+        self.dim_n_resonator = self.fh.create_dataset(
             "Dimension/n_resonator",
             (1,),
             dtype=h5py.h5t.NATIVE_UINT64,
         )
-        self.dimm_n_attenuator = self.fh.create_dataset(
+        self.dim_n_attenuator = self.fh.create_dataset(
             "Dimension/n_attenuator",
             (1,),
             dtype=h5py.h5t.NATIVE_UINT64,
         )
 
+
+class DataHandler:
+    """
+    Used to handle the interaction between obtaining a packet and
+    subsequently storing it.
+
+    Users shall use a DataHandler class to take some amount of packets
+    """
+
+    def __init__(self, udp: udpcap.udpcap):
+        self.rawdataset = []
+
+        # Polulated int he create_odc
+        self.raw_data_folder = None
+        self.housekeeping_folder = None
+        self.plots_folder = None
+        self.raw_data_dirfile = None
+        self.obs_df = None  # observation file
+        self.raw_dfs = []  # raw data files
+
+    def create_odc(self, dataroot: str):
+        """
+        Creates an Observation data collection folder with the structure specified in the
+        Implementation and Dataformat Design Document
+
+        :param dataroot:
+        :return:
+        """
+        # create folder structure:
+        self.data_root_folder = (
+            dataroot
+            + "/observation_"
+            + datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        )
+        dr = self.data_root_folder
+
+        self.raw_data_folder = dr + "/raw_data/"
+        self.housekeeping_folder = dr + "/housekeeping/"
+        self.plots_folder = dr + "/plots/"
+        self.raw_data_dirfile = dr + "/raw_data_dirfile/"
+
+        try:
+            os.mkdir(self.data_root_folder)
+            os.mkdir(self.raw_data_folder)
+            os.mkdir(self.housekeeping_folder)
+            os.mkdir(self.plots_folder)
+            os.mkdir(self.raw_data_dirfile)
+        except IOError:
+            print("Failed to write directory")
+            raise
+        except PermissionError:
+            print("failed to create data folder: Permission denied.")
+            raise
+
+    def create_odf(
+        self,
+        n_rfsoc: int,
+        n_sample: int,
+        n_sample_lo: int,
+        n_resonator: int,
+        n_attenuator: str,
+    ):
+        """
+        create a an observation h5 file in the ODC as specified in the
+        Implementation and Dataformat Design Document
+        :return:
+        """
+        self.obs_df = ObservationDataFile(
+            n_rfsoc, n_sample, n_sample_lo, n_resonator, n_attenuator
+        )
+
+        # todo: replace later with appropriate dynamic file allocation and datasample size
+        self.raw_dfs.append(
+            RawDataFile(
+                self.raw_data_dirfile
+                + "RFSOC1_RAW.h5"
+                + datetime.datetime.now().strftime("%Y%m%d_%H%M%S"),
+                n_sample,
+                n_resonator,
+                n_attenuator,
+            )
+        )
+
+    def extend_datalen(self):
+        """
+        Extends the available dataspace in *ALL* dof the data files
+        :return:
+        """
+
+    def record_data(self, n_samples):
+        """
+        record a specified number of data samples to hdf5 document
+        :param n_samples:
+        :return:
+        """
+        pass
+
+    def finalize(self, rawdf: list[RawDataFile], obs_df: ObservationDataFile):
+        """
+        Merges the raw data files collected during an observation period into the Observation DataFile
+
+        Interest:
+        # GD
+        attenuator_settings
+
+        # TOD
+        adc_i: n_resonator x n_sample
+        adc_q: n_resonator x n_sample
+        lo_freq: n_sample
+        timestamp: n_sample
+
+        :param rawdf:
+        :param obs_df:
+        :return:
+        """
+        pass
