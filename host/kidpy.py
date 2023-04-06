@@ -25,10 +25,9 @@ import udpcap
 import datetime
 import valon5009
 
-
 def testConnection(r):
     try:
-        tr = r.set("testkey", "123")
+        r.set("testkey", "123")
         return True
     except redis.exceptions.ConnectionError as e:
         print(e)
@@ -139,7 +138,7 @@ def sweep(loSource, udp, f_center, freqs, N_steps=500):
         # Read values and trash initial read, suspecting linear delay is cause..
         Naccums = 5
         I, Q = [], []
-        for i in range(Naccums):
+        for _ in range(Naccums):
             d = udp.parse_packet()
             It = d[::2]
             Qt = d[1::2]
@@ -205,8 +204,6 @@ class kidpy:
         self.__customSingleTone = config["DSP"]["singleToneFrequency"]
         self.__saveData = config["DATA"]["saveFolder"]
         self.__ValonPorts = config["VALON"]["valonSerialPorts"].split(",")
-        self.__valon_RF1_SYS2 = config["VALON"]["rfsoc1System2"]
-        self.__valon_RF1_SYS1 = config["VALON"]["rfsoc1System1"]
 
         # setup redis
         self.r = redis.Redis(self.__redis_host)
@@ -261,7 +258,6 @@ class kidpy:
         udp : udpcap object instance
         """
         while 1:
-
             conStatus = testConnection(self.r)
             if conStatus:
                 print("\033[0;36m" + "\r\nConnected" + "\033[0m")

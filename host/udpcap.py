@@ -12,7 +12,6 @@ DEFAULT_UDP_PORT = 4096
 
 
 def ldcHelper(queue, filename, nPackets):
-
     """
     ldcHelper is a helper method intended to be used in the udpcap.LongDataCapture method.
     This method runs asynchronously to udpcap.LongDataCapture in order to seperate

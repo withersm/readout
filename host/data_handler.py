@@ -44,7 +44,7 @@ class RawDataFile:
         self.filename = path
         self.fh = None
         try:
-            self.fh = h5py.File(filename, "w")
+            self.fh = h5py.File(self.filename, "w")
         except IOError:
             print(
                 "FATA: Could not create hdf5 file, please check the path exists and"
@@ -142,10 +142,6 @@ class ObservationDataFile:
     :param n_attenuator: the number of attenuators on each RFSOC -
     """
 
-    def __init__(self):
-        pass
-
-    @overload
     def __init__(
         self,
         n_rfsoc: int,
@@ -153,6 +149,7 @@ class ObservationDataFile:
         n_sample_lo: int,
         n_resonator: int,
         n_attenuator: str,
+        filename
     ):
         self.df = h5py.File(filename, "w")
 
@@ -443,3 +440,10 @@ class DataHandler:
         :return:
         """
         pass
+
+
+def merge_data_file(of: ObservationDataFile, rdfiles: list[RawDataFile]):
+    """Merges the raw data files into one main observation file in the order the list presents"""
+    for raw in rdfiles:
+        pass
+    pass

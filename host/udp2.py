@@ -10,10 +10,11 @@ import data_handler
 
 
 @dataclass
-class Connection:
+class Connection: 
+    raw_df: data_handler.RawDataFile
     ip_addr: str = ""
     port: int = 0000
-    raw_df: data_handler.RawDataFile
+
 
 
 def data_writer(raw_df: data_handler.RawDataFile, queue):
@@ -39,8 +40,7 @@ def data_writer(raw_df: data_handler.RawDataFile, queue):
             raw_df.timestamp[1, i] = 12345678
         else:
             active = False
-            dFile.flush()
-
+            raw_df.fh.flush()
 
 def receive_udp(conn: Connection, n_samples: int):
     """
@@ -60,7 +60,7 @@ def receive_udp(conn: Connection, n_samples: int):
     port = conn.port
 
     try:
-        sock.bind(host, port)
+        sock.bind((host, port))
     except socket.timeout:
         logging.getLogger(__name__).error(
             f"socket.timeout -> Could not bind to the socket for {host}:{port}"
@@ -71,10 +71,10 @@ def receive_udp(conn: Connection, n_samples: int):
         )
 
     # create an async datawriter process
-    manager = mlpr.Manager()
+    manager = mproc.Manager()
     pool = manager.Pool(1)
     queue = manager.Queue()
-    pool.apply_async(data_writer, (queue, fname, nPackets))
+    pool.apply_async(data_writer, (conn.raw_df, queue))
 
     # Lets get to work grabbing data
     i = 0

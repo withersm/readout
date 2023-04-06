@@ -31,9 +31,7 @@ class ConfigData:
     Serves as the struct/container of our config.
     """
 
-    rfsoscs: str = (
-        "11111111-2222-3333-4444-555555555555, 66666666-7777-3333-4444-555555555555"
-    )
+    uuid: str = "11111111-2222-3333-4444-555555555555"
     canary: str = "cat"
     redis_host: str = "192.168.2.10"
     redis_port: str = "6379"
