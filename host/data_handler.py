@@ -42,7 +42,6 @@ class RawDataFile:
 
     def __init__(self, path: str, n_sample: int, n_resonator: int, n_attenuator: int):
         self.filename = path
-        self.fh = None
         try:
             self.fh = h5py.File(self.filename, "w")
         except IOError:
@@ -149,7 +148,7 @@ class ObservationDataFile:
         n_sample_lo: int,
         n_resonator: int,
         n_attenuator: str,
-        filename
+        filename,
     ):
         self.df = h5py.File(filename, "w")
 

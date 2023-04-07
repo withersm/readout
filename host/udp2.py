@@ -9,11 +9,10 @@ import data_handler
 
 
 @dataclass
-class Connection: 
+class Connection:
     raw_df: data_handler.RawDataFile
     ip_addr: str = ""
     port: int = 0000
-
 
 
 def data_writer(raw_df: data_handler.RawDataFile, queue):
@@ -40,6 +39,7 @@ def data_writer(raw_df: data_handler.RawDataFile, queue):
         else:
             active = False
             raw_df.fh.flush()
+
 
 def receive_udp(conn: Connection, n_samples: int):
     """
