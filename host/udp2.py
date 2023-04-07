@@ -3,7 +3,6 @@ import multiprocessing as mlpr
 import logging
 import socket
 from dataclasses import dataclass
-import h5py
 import numpy as np
 import time
 import data_handler
@@ -71,8 +70,8 @@ def receive_udp(conn: Connection, n_samples: int):
         )
 
     # create an async datawriter process
-    manager = mproc.Manager()
-    pool = manager.Pool(1)
+    manager = mlpr.Manager()
+    pool = mlpr.Pool(1)
     queue = manager.Queue()
     pool.apply_async(data_writer, (conn.raw_df, queue))
 
@@ -100,6 +99,6 @@ def capture(connection_list: list[Connection], n_samples: int):
     :return: None
     """
     # create subprocesses for each udp connection.
-    with concurrent.futures.ProcessPoolExecutor as executor:
+    with concurrent.futures.ProcessPoolExecutor() as executor:
         for con in connection_list:
-            executor.submit(receive_udp, con)
+            executor.submit(receive_udp, con, n_samples)
