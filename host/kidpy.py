@@ -106,6 +106,13 @@ def checkBlastCli(r, p):
         time.sleep(delay)
         count = count + 1
 
+def check_datarate(): 
+    """
+    Check that the application is receiving UDP data at an appropriate rate;
+
+    A failure of this check will result in unreliable sweep and measurement data
+    """
+    pass
 
 def sweep(loSource, udp, f_center, freqs, N_steps=500):
     """
@@ -164,6 +171,42 @@ def sweep(loSource, udp, f_center, freqs, N_steps=500):
     udp.release()
 
     return f, sweep_Z_f
+
+
+def losweep(lostart: float, lostop:float, n_averages: int, n_steps: int, current_waveform, udp: udpcap.udpcap, loSource: valon5009.Synthesizer):
+    flos = np.arange(lostart, lostop, n_steps)
+    udp.bindSocket()
+
+    def td(lofreq): # parse and seperate data from udp
+        # self.set_ValonLO function here
+        loSource.set_frequency(valon5009.SYNTH_B, lofreq)
+        # Read values and trash initial read, suspecting linear delay is cause..
+        Naccums = n_averages
+        I, Q = [], []
+        for _ in range(Naccums):
+            d = udp.parse_packet()
+            It = d[::2]
+            Qt = d[1::2]
+            I.append(It)
+            Q.append(Qt)
+        I = np.array(I)
+        Q = np.array(Q)
+        Imed = np.median(I, axis=0)
+        Qmed = np.median(Q, axis=0)
+
+        Z = Imed + 1j * Qmed
+        Z = Z[0 : len(current_waveform)]
+
+        print(".", end="")
+        
+        sweep_Z = np.array([td(f) for f in flos])
+        sweep_Z_f = sweep_Z.T.flatten()
+        udp.release()
+        return sweep_Z_f
+
+
+    return flos
+
 
 
 def loSweep(loSource, udp, freqs=[], f_center=400):
@@ -226,7 +269,6 @@ class kidpy:
             exit()
 
         # Differentiate 5009's connected to the system
-        self.valon = None
         for v in self.__ValonPorts:
             self.valon = valon5009.Synthesizer(v.replace(" ", ""))
             print(self.valon.getSN())
@@ -391,10 +433,24 @@ class kidpy:
                 os.system("clear")
                 print("LO Sweep")
                 loSweep(self.valon, self.__udp, self.current_waveform, 400)
-
                 pass
+            
+            if opt == 7: # Alternative LO Sweep with custom parameters
+                os.system("clear")
+                print("Lo Sweep custom parameters")
+                lostart = float(input("lo start freq?"))
+                lostop = float(input("lo stop freq?"))
+                n_averages = int(input("number of averages?"))
+                n_steps = int(input("number of steps?"))
 
-            if opt == 7:  # get system state
+                losweep(lostart, lostop, n_averages, n_steps, self.current_waveform, self.__udp, self.valon)
+
+
+                
+
+
+
+            if opt == 99:  # get system state
                 exit()
 
             return 0

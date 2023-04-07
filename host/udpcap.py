@@ -58,11 +58,11 @@ class udpcap:
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.sock.bind((self.UDP_IP, self.UDP_PORT))
 
-    def parse_packet(self):
+    def parse_packet(self)->np.ndarray:
         data = self.sock.recv(8208 * 1)
         if len(data) < 8000:
             print("invalid packet recieved")
-            return
+            return np.array([0])
         datarray = bytearray(data)
 
         # now allow a shift of the bytes
