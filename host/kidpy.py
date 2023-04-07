@@ -174,11 +174,28 @@ def sweep(loSource, udp, f_center, freqs, N_steps=500):
 
 
 def losweep(lostart: float, lostop:float, n_averages: int, n_steps: int, current_waveform, udp: udpcap.udpcap, loSource: valon5009.Synthesizer):
+    """performs a parameterized LO Sweep
+
+    This function allows the user to perform a completely custom parameterized sweep
+    whereas the other preforms a default sweep assuming 1000 tones were written to baseband
+
+    :param lostart: Sweep Start Frequency
+    :param lostop: Sweep Stop Frequency
+    :param n_averages: Number of averages per LO frequency
+    :param n_steps: Number of steps to take between stop and start frequencies
+    :param current_waveform: List of Baseband Frequencies
+    :param udp: udp interface
+    :param loSource:LO source for control 
+
+    """
     flos = np.arange(lostart, lostop, n_steps)
     udp.bindSocket()
 
-    def td(lofreq): # parse and seperate data from udp
-        # self.set_ValonLO function here
+    def td(lofreq): 
+        """Samples and averages data obtained from the UDP downlink
+
+        Function sets the LO frequency, takes and averages the 'spectra' 
+        """
         loSource.set_frequency(valon5009.SYNTH_B, lofreq)
         # Read values and trash initial read, suspecting linear delay is cause..
         Naccums = n_averages
@@ -198,14 +215,14 @@ def losweep(lostart: float, lostop:float, n_averages: int, n_steps: int, current
         Z = Z[0 : len(current_waveform)]
 
         print(".", end="")
-        
-        sweep_Z = np.array([td(f) for f in flos])
-        sweep_Z_f = sweep_Z.T.flatten()
-        udp.release()
         return sweep_Z_f
 
+    # sample the spectra for each lo freq then flatten them into one giant array
+    sweep_Z = np.array([td(f) for f in flos]) 
+    sweep_Z_f = sweep_Z.T.flatten()
+    udp.release()
 
-    return flos
+    return None
 
 
 
@@ -286,6 +303,8 @@ class kidpy:
             "I <-> Q Phase offset",
             "Take Raw Data",
             "LO Sweep",
+            "Parameterized LO Sweep",
+            "UDP datarate TEST (requires bitstream and initialization)"
             "Exit",
         ]
 
@@ -446,7 +465,22 @@ class kidpy:
                 losweep(lostart, lostop, n_averages, n_steps, self.current_waveform, self.__udp, self.valon)
 
 
-                
+            if opt == 8:
+                os.system("clear")
+                print("Checking UDP datarate, expect 488 packets in 1 second")
+
+                print("Binding Socket")
+                self.__udp.bindSocket()
+                t1 = time.perf_counter()
+                data = np.zeros((488, 2048))
+                for c in range(488):
+                    data[c] = self.__udp.parse_packet()
+                t2 = time.perf_counter()
+                t = t2-t1
+                if t > 1.1:
+                    print(f"'\033[91m'UDP datarate: FAIL'\033[0m' t={t}")
+                else:
+                    print(f"'\033[92m'UDP datarate: PASS'\033[0m' t={t}")
 
 
 
