@@ -15,17 +15,15 @@
     While it would be nice to dynamically allocate n_samples as needed, the hdf5 lib implementation
     makes a call to emalloc which leads to speculation that a mem copy takes place and the same inefficiencies
     of array copies takes place under the hood. This is problematic for large, efficient, datasets.
+04/11/23
+
+    Data organization:
 ----------
 """
-import logging
-import numpy as np
-from time import sleep
-import h5py
-import multiprocessing as mproc
-import udpcap
-import os
-import sys
 
+import h5py
+import os
+import datetime
 
 class RawDataFile:
     """A raw hdf5 data file object for incoming rfsoc-UDP data streams.
@@ -297,27 +295,27 @@ class ObservationDataFile:
         )
         # ********************************** Dimensions ****************************************
         # Dimensions
-        self.dim_n_rfsoc = self.fh.create_dataset(
+        self.dim_n_rfsoc = self.df.create_dataset(
             "Dimension/n_rfsoc",
             (1,),
             dtype=h5py.h5t.NATIVE_UINT64,
         )
-        self.dim_n_sample = self.fh.create_dataset(
+        self.dim_n_sample = self.df.create_dataset(
             "Dimension/n_sample",
             (1,),
             dtype=h5py.h5t.NATIVE_UINT64,
         )
-        self.dim_n_sample_lo = self.fh.create_dataset(
+        self.dim_n_sample_lo = self.df.create_dataset(
             "Dimension/n_sample_lo",
             (1,),
             dtype=h5py.h5t.NATIVE_UINT64,
         )
-        self.dim_n_resonator = self.fh.create_dataset(
+        self.dim_n_resonator = self.df.create_dataset(
             "Dimension/n_resonator",
             (1,),
             dtype=h5py.h5t.NATIVE_UINT64,
         )
-        self.dim_n_attenuator = self.fh.create_dataset(
+        self.dim_n_attenuator = self.df.create_dataset(
             "Dimension/n_attenuator",
             (1,),
             dtype=h5py.h5t.NATIVE_UINT64,
@@ -332,7 +330,7 @@ class DataHandler:
     Users shall use a DataHandler class to take some amount of packets
     """
 
-    def __init__(self, udp: udpcap.udpcap):
+    def __init__(self):
         self.rawdataset = []
 
         # Polulated int he create_odc
@@ -343,7 +341,7 @@ class DataHandler:
         self.obs_df = None  # observation file
         self.raw_dfs = []  # raw data files
 
-    def create_odc(self, dataroot: str):
+    def create_odh(self, dataroot: str):
         """
         Creates an Observation data collection folder with the structure specified in the
         Implementation and Dataformat Design Document
@@ -362,49 +360,17 @@ class DataHandler:
         self.raw_data_folder = dr + "/raw_data/"
         self.housekeeping_folder = dr + "/housekeeping/"
         self.plots_folder = dr + "/plots/"
-        self.raw_data_dirfile = dr + "/raw_data_dirfile/"
 
         try:
             os.mkdir(self.data_root_folder)
             os.mkdir(self.raw_data_folder)
             os.mkdir(self.housekeeping_folder)
             os.mkdir(self.plots_folder)
-            os.mkdir(self.raw_data_dirfile)
         except IOError:
             print("Failed to write directory")
             raise
-        except PermissionError:
-            print("failed to create data folder: Permission denied.")
-            raise
+        
 
-    def create_odf(
-        self,
-        n_rfsoc: int,
-        n_sample: int,
-        n_sample_lo: int,
-        n_resonator: int,
-        n_attenuator: str,
-    ):
-        """
-        create a an observation h5 file in the ODC as specified in the
-        Implementation and Dataformat Design Document
-        :return:
-        """
-        self.obs_df = ObservationDataFile(
-            n_rfsoc, n_sample, n_sample_lo, n_resonator, n_attenuator
-        )
-
-        # todo: replace later with appropriate dynamic file allocation and datasample size
-        self.raw_dfs.append(
-            RawDataFile(
-                self.raw_data_dirfile
-                + "RFSOC1_RAW.h5"
-                + datetime.datetime.now().strftime("%Y%m%d_%H%M%S"),
-                n_sample,
-                n_resonator,
-                n_attenuator,
-            )
-        )
 
     def extend_datalen(self):
         """
@@ -440,9 +406,3 @@ class DataHandler:
         """
         pass
 
-
-def merge_data_file(of: ObservationDataFile, rdfiles: list[RawDataFile]):
-    """Merges the raw data files into one main observation file in the order the list presents"""
-    for raw in rdfiles:
-        pass
-    pass

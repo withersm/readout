@@ -1,5 +1,6 @@
 \documentclass[11pt,letterpaper]{article}
 \usepackage[utf8]{inputenc}
+\usepackage{array}
 \usepackage{amsmath}
 \usepackage{amssymb}
 \usepackage{color}
@@ -19,6 +20,30 @@
 \tableofcontents
 \newpage
 \noindent
+\section{Requirements}
+Highly detailed sofware design is currently not necessary since the most valuable components will be data organization and networking.
+Once a design need is identified, a new issue in the repository is opened. Within the issue, labels are asigned relevant to its situation and details
+such as requirements and behavior are documented there. Requirement numbers shall consist of a github issue number followed by the requirement number. 
+\newpage
+\begin{center}
+\begin{tabular}{|c|c|c|c|}
+	\hline
+	requirement & desc & prio & status \\
+	\hline
+	14.1 & I am morgan freeman. I can smell you. I have evolved the power of invisibility.  & low & incomplete \\
+	\hline
+\end{tabular}
+
+\begin{tabular}{|c|>{\centering\arraybackslash}m{3cm}|c|c|}
+	\hline
+	a & b & c & d \\
+	\hline
+	14.1 & I am morgan freeman. I can smell you. I have evolved the power of invisibility.  & low & incomplete  \\
+	\hline
+\end{tabular}
+\end{center}
+
+
 \section{System Configurations and Settngs}
 \subsection{redis-server}
 \subsubsection{configuration}
