@@ -106,13 +106,15 @@ def checkBlastCli(r, p):
         time.sleep(delay)
         count = count + 1
 
-def check_datarate(): 
+
+def check_datarate():
     """
     Check that the application is receiving UDP data at an appropriate rate;
 
     A failure of this check will result in unreliable sweep and measurement data
     """
     pass
+
 
 def sweep(loSource, udp, f_center, freqs, N_steps=500):
     """
@@ -173,7 +175,15 @@ def sweep(loSource, udp, f_center, freqs, N_steps=500):
     return f, sweep_Z_f
 
 
-def losweep(lostart: float, lostop:float, n_averages: int, n_steps: int, current_waveform, udp: udpcap.udpcap, loSource: valon5009.Synthesizer):
+def losweep(
+    lostart: float,
+    lostop: float,
+    n_averages: int,
+    n_steps: int,
+    current_waveform,
+    udp: udpcap.udpcap,
+    loSource: valon5009.Synthesizer,
+):
     """performs a parameterized LO Sweep
 
     This function allows the user to perform a completely custom parameterized sweep
@@ -185,16 +195,16 @@ def losweep(lostart: float, lostop:float, n_averages: int, n_steps: int, current
     :param n_steps: Number of steps to take between stop and start frequencies
     :param current_waveform: List of Baseband Frequencies
     :param udp: udp interface
-    :param loSource:LO source for control 
+    :param loSource:LO source for control
 
     """
     flos = np.arange(lostart, lostop, n_steps)
     udp.bindSocket()
 
-    def td(lofreq): 
+    def td(lofreq):
         """Samples and averages data obtained from the UDP downlink
 
-        Function sets the LO frequency, takes and averages the 'spectra' 
+        Function sets the LO frequency, takes and averages the 'spectra'
         """
         loSource.set_frequency(valon5009.SYNTH_B, lofreq)
         # Read values and trash initial read, suspecting linear delay is cause..
@@ -218,12 +228,11 @@ def losweep(lostart: float, lostop:float, n_averages: int, n_steps: int, current
         return sweep_Z_f
 
     # sample the spectra for each lo freq then flatten them into one giant array
-    sweep_Z = np.array([td(f) for f in flos]) 
+    sweep_Z = np.array([td(f) for f in flos])
     sweep_Z_f = sweep_Z.T.flatten()
     udp.release()
 
     return None
-
 
 
 def loSweep(loSource, udp, freqs=[], f_center=400):
@@ -304,8 +313,7 @@ class kidpy:
             "Take Raw Data",
             "LO Sweep",
             "Parameterized LO Sweep",
-            "UDP datarate TEST (requires bitstream and initialization)"
-            "Exit",
+            "UDP datarate TEST (requires bitstream and initialization)" "Exit",
         ]
 
     def begin_ui(self):
@@ -319,7 +327,7 @@ class kidpy:
         p : redis.pubsub instance
         udp : udpcap object instance
         """
-        while 1:
+        while 1 == 1:
             conStatus = testConnection(self.r)
             if conStatus:
                 print("\033[0;36m" + "\r\nConnected" + "\033[0m")
@@ -453,8 +461,8 @@ class kidpy:
                 print("LO Sweep")
                 loSweep(self.valon, self.__udp, self.current_waveform, 400)
                 pass
-            
-            if opt == 7: # Alternative LO Sweep with custom parameters
+
+            if opt == 7:  # Alternative LO Sweep with custom parameters
                 os.system("clear")
                 print("Lo Sweep custom parameters")
                 lostart = float(input("lo start freq?"))
@@ -462,8 +470,15 @@ class kidpy:
                 n_averages = int(input("number of averages?"))
                 n_steps = int(input("number of steps?"))
 
-                losweep(lostart, lostop, n_averages, n_steps, self.current_waveform, self.__udp, self.valon)
-
+                losweep(
+                    lostart,
+                    lostop,
+                    n_averages,
+                    n_steps,
+                    self.current_waveform,
+                    self.__udp,
+                    self.valon,
+                )
 
             if opt == 8:
                 os.system("clear")
@@ -476,14 +491,19 @@ class kidpy:
                 for c in range(488):
                     data[c] = self.__udp.parse_packet()
                 t2 = time.perf_counter()
-                t = t2-t1
+                t = t2 - t1
                 if t > 1.1:
                     print(f"'\033[91m'UDP datarate: FAIL'\033[0m' t={t}")
                 else:
                     print(f"'\033[92m'UDP datarate: PASS'\033[0m' t={t}")
 
-
-
+            if opt == 9:
+                os.system("clear")
+                # create a new dataset
+                try:
+                    pass
+                except Exception as exceptionyBoi:
+                    pass
             if opt == 99:  # get system state
                 exit()
 
