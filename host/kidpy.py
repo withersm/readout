@@ -26,15 +26,6 @@ import datetime
 import valon5009
 
 
-def testConnection(r):
-    try:
-        r.set("testkey", "123")
-        return True
-    except redis.exceptions.ConnectionError as e:
-        print(e)
-        return False
-
-
 def wait_for_free(r, delay=0.25, timeout=10):
     count = 0
     r.set("status", "busy")
@@ -146,7 +137,7 @@ def sweep(loSource, udp, f_center, freqs, N_steps=500):
         # self.set_ValonLO function here
         loSource.set_frequency(valon5009.SYNTH_B, lofreq)
         # Read values and trash initial read, suspecting linear delay is cause..
-        Naccums = 5
+        Naccums = 10
         I, Q = [], []
         for _ in range(Naccums):
             d = udp.parse_packet()
@@ -286,7 +277,7 @@ class kidpy:
         self.p.subscribe("picard_reply")
         time.sleep(1)
         if self.p.get_message()["data"] != 2:
-            print("Failed to Subscribe redis picard_reply channel")
+                           print("Failed to Subscribe redis picard_reply channel")
             exit()
 
         # check that the rfsoc is running redisControl.py
@@ -316,6 +307,12 @@ class kidpy:
             "UDP datarate TEST (requires bitstream and initialization)" "Exit",
         ]
 
+    def testConnection(self):
+        """
+        Send a command 'ping' 
+        
+        """
+
     def begin_ui(self):
         pass
 
@@ -328,7 +325,7 @@ class kidpy:
         udp : udpcap object instance
         """
         while 1 == 1:
-            conStatus = testConnection(self.r)
+            conStatus = self.testConnection()
             if conStatus:
                 print("\033[0;36m" + "\r\nConnected" + "\033[0m")
             else:
