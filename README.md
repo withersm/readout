@@ -60,32 +60,5 @@ _How users will further implement their application within or utilizing this lib
 ## Documentation
 _YES, IT IS **REAL**_
 
-### Library Structure
-```
-kidpylib
-├── config.py
-├── data_handler.py
-├── devices
-│   ├── rudat.py
-│   ├── udx.py
-│   └── valon5009.py
-├── __init__.py
-├── kidpy.py
-├── plot.py
-├── rfsoc.py
-├── science
-│   └── sweeps.py
-└── udp.py
-
-config      //Loads configuration data from specified config file. Uses the python builtint configparser library
-rudat       //Controls MiniCircuits Rudat digitally controlled variable attenuator.
-udx         //Controls ASU/Alphacore Up-Down Converter (IF Slices)
-valon5009   //Controls Valon 5009 Digital Synthesizers
-kidpy       //Main Library interface for controlling the RFSOC
-science/    //Contains User provided Science python files. Ideally this is where a majority of kidpy will be modified
-udp         //Handles UDP Connections
-dataHander  //Handles many if not most of our data needs throughout the library.
-```
-
 ## License
 _text here_
