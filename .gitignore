@@ -1,0 +1,7 @@
+.idea
+/playground/logging_test.py
+/playground/app.log
+/app.log
+__pycache__
+kidpylib/__pycache__
+kidpylib.log

@@ -1,0 +1,4 @@
+#!/bin/bash
+
+python -m unittest discover -s kidpylib_test -v
+rm -f kidpylib_test/not_a_real_config_file.cfg
