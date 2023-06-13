@@ -1,17 +1,11 @@
-"""
-@author Cody Roberson, Adrian Sinclair, Ryan Stephenson, Philip Mauskopf
-@date 2022-06-09
-@description Handles interfacing with hardware on the RFSOC through
-the XILILX PYNQ framework
-
-@revisons:
-    2022-06-09
-    - Merge changes from fast-bram-design_asu-fixed-phil-adrian-cody-GOLDEN_RECOMPILED.ipynb
-    - Added ROOT user permissions check
-    2022-06-15
-    - Completed conversion from notebook.
-    - Modified bitstream management such that the bitstream loaded can be passed as a parameter.
-"""
+# @file rfsocInterface.py
+# @brief Handles interfacing with hardware on the RFSOC.
+# @author Cody Roberson, Adrian Sinclair, Ryan Stephenson, Philip Mauskopf
+# @date 2023-06-12
+#
+# @section todo_rfsocInterface
+# - UDP registers need to get their data from a config file
+#
 # user check since we can't run without root priviliges
 import getpass
 
@@ -19,56 +13,70 @@ if getpass.getuser() != "root":
     print("rfsocInterface.py: root priviliges are required, please run as root.")
     exit()
 
-import os
 from pynq import Overlay
 from pynq import Xlnk
 from pynq import MMIO
 import xrfclk
 import xrfdc
-import struct
 from time import sleep
-from matplotlib import pyplot as plt
 import numpy as np
-import ipywidgets as ipw
-from ipywidgets import interact, interactive, fixed, interact_manual
-from scipy import signal
 
 
 class rfsocInterface:
     def __init__(self):
         print("init")
-        self.firmware = None
+        # self.firmware = None
         self.bram_ADCI = None
         self.bram_ADCQ = None
         self.pfbIQ = None
         self.ddc_snap = None
         self.accum_snap = None
         self.selectedBitstream = None
+        self.__bitf_loaded = False
 
-    def uploadOverlay(self, bitstream="/bitstreams/blast4.2.bit"):
+    def uploadOverlay(
+        self, bitstream="202306091243_silver_blast_fixedeth.bit", reload_bitf=False
+    ):
         # FIRMWARE UPLOAD
-        self.firmware = Overlay(bitstream, ignore_version=True)
+
+        self.firmware = Overlay(bitstream, ignore_version=True, download=False)
+        if reload_bitf or (not self.__bitf_loaded):
+            self.firmware.download()
+            self.__bitf_loaded = True
+
+        xrfclk.set_all_ref_clks(409.6)  # MHz
+        print("firmware uploaded and pll set")
+
         self.selectedBitstream = bitstream
         # INITIALIZING LMK04208 CLOCK
-        xrfclk.set_all_ref_clks(409.6)  # MHz
-        print("Firmware uploaded and pll set")
-        self.bram_ADCI = self.firmware.ADC_I.BRAM_SNAP_0
-        self.bram_ADCQ = self.firmware.ADC_Q.BRAM_SNAP_0
+        self.dst_mac_reg = (
+            self.firmware.IP_MAC_gpio_hier.dst_mac
+        )  # 48 bits, offset 0x00 bottom 32bits, 0x08 top 16 bits
+        self.src_mac_reg = (
+            self.firmware.IP_MAC_gpio_hier.src_mac
+        )  # 48 bits, offset 0x00 bottom 32bits, 0x08 top 16 bits
+        self.ip_reg = (
+            self.firmware.IP_MAC_gpio_hier.ip
+        )  # offset 0x00 src ip, offset 0x08 dst ip
+        self.eth_delay_reg = (
+            self.firmware.eth_delay
+        )  # programmable delay for eth byte shift
+        self.data_in_mux = self.firmware.data_in_mux
+        self.bram_ADC_I = self.firmware.ADC_I.BRAM_SNAP_0
+        self.bram_ADC_Q = self.firmware.ADC_Q.BRAM_SNAP_0
         self.pfbIQ = self.firmware.PFB_SNAP_SYNC.BRAM_SNAPIII_0
         self.ddc_snap = self.firmware.DDC_SNAP_SYNC.BRAM_SNAPIII_0
         self.accum_snap = self.firmware.ACCUM_SNAP_SYNC.BRAM_SNAPIII_0
-
+        self.fft_shift_and_load_bins = (
+            self.firmware.gpio1.axi_gpio_0
+        )  # 0x00 fft shift, 0x08 load bins
+        self.accum_and_bin_idx = (
+            self.firmware.gpio2.axi_gpio_0
+        )  # 0x00 bins, 0x08 0b-23b accum len, 24b accum rst, 26b sync in
+        self.dds_shift = (
+            self.firmware.gpio3.axi_gpio_0
+        )  # DDS SHIFT offset = 0x00, 0x08 is open
         return bitstream
-
-    def getFirmwareObjects(self, bitstream="/bitstreams/blast4.2.bit"):
-        self.firmware = Overlay(bitstream, ignore_version=True, download=False)
-        self.bram_ADCI = self.firmware.ADC_I.BRAM_SNAP_0
-        self.bram_ADCQ = self.firmware.ADC_Q.BRAM_SNAP_0
-        self.pfbIQ = self.firmware.PFB_SNAP_SYNC.BRAM_SNAPIII_0
-        self.ddc_snap = self.firmware.DDC_SNAP_SYNC.BRAM_SNAPIII_0
-        self.accum_snap = self.firmware.ACCUM_SNAP_SYNC.BRAM_SNAPIII_0
-
-        return self.firmware
 
     def initRegs(self):
         if self.firmware == None:
@@ -88,7 +96,8 @@ class rfsocInterface:
         )  # offset 0x00 src ip, offset 0x08 dst ip
         eth_delay_reg = self.firmware.eth_delay  # programmable delay for eth byte shift
         data_in_mux = self.firmware.data_in_mux
-        # setting ips
+
+        # setting ips  TODO::GET DATA FROM CONFIG FILE
         src_ip_int32 = int("c0a80329", 16)
         dst_ip_int32 = int("c0a80328", 16)
         src_mac0_int32 = int("deadbeef", 16)
@@ -118,41 +127,34 @@ class rfsocInterface:
             0x08, (509) + ((8189) << 16)
         )  # ethernet max write count and max read count
 
-    def set_dd_shift(shift):
-        pass
-
     def norm_wave(self, ts, max_amp=2**15 - 1):
         """
         Re-configure generated data values to fit LUT
         """
-        Imax = max(abs(ts.real))
-        Qmax = max(abs(ts.imag))
         norm = max(abs(ts))
         dacI = ((ts.real / norm) * max_amp).astype("int16")
         dacQ = ((ts.imag / norm) * max_amp).astype("int16")
         return dacI, dacQ
 
-    def surfsUpDude(self, freq_list, vna=False, verbose=False):
+    def _surfsUpDude(
+        self,
+        freq_list: np.ndarray,
+        amplitudes: np.ndarray,
+        vna: bool = False,
+        verbose=False,
+    ):
+        """! Generates a normalized timestream provided a frequency list
+
+        @param freq_list    A list of desired baseband frequencies from -256MHz to 256MHZ
+        @param amplitudes   A list of desired amplitudes for the given freq_list
+        @param vna          (optional) Generate 1000 Tones from -251.0e6 to -1e6, 2.25e6, 252.25e6
+        @param verbose      (optional) Deprecated, Does Nothing
+
+        @return DACI, DACQ, DDCI, DDCQ, freqs_actual
         """
-        surfsUpDude Takes a list of specified frequencies and generates....gnarly lookup tables and
-        ditigal down conversion broah.
-        Then we'll have totally ripped waves bruh, for shreddin the gnar.
-
-        params
-            freqlist: np.array
-                list of tones to generate
-            vna: bool
-                When falst, uploads given frequency list, otherwise upload 1k tones from
-                -256 Mhz to 256 MHz
-            verbose: bool
-                enable / disable printing (and or) plotting of data
-
-        """
-        if self.firmware == None:
-            print("Overlay must be uploaded first")
-            return -1
-            # BRAM driver code for bram v0.42
-
+        assert (
+            amplitudes.shape == freq_list.shape
+        ), "Requires array of N amplitudes for N tones in freq_list"
         #####################################################
         # HARDCODED LUT PARAMS
         #####################################################
@@ -166,10 +168,12 @@ class rfsocInterface:
         #  SET FREQ for LUT
         #####################################################
         if vna:
-            N = 1000  # number of tones to make
-            freqs_up = 1 * C * np.linspace(-251e6, -1e6, N / 2)
-            freqs_lw = 1 * C * np.linspace(2.25e6, 252.25e6, N / 2)
+            Nover2 = 500  # number of tones to make
+            freqs_up = -1.0 * C * np.linspace(251.0e6, 1.0e6, Nover2)
+            freqs_lw = 1.0 * C * np.linspace(2.25e6, 252.25e6, Nover2)
             freqs = np.append(freqs_up, freqs_lw)
+            if amplitudes == None:
+                amplitudes = np.ones_like(freqs)
         else:
             freqs = C * freq_list  # equally spaced tones
         phases = np.random.uniform(-np.pi, np.pi, len(freqs))
@@ -177,10 +181,8 @@ class rfsocInterface:
         ######################################################
         # DAC Params
         ######################################################
-        A = 2**15 - 1  # 16 bit D/A, expecting signed values.
         freq_res = fs / data_p  # Hz
         fftbin_bw = 500e3  # Hz for effective bandwidth of 512MHz/1024 point fft on adc
-        print(freq_res)
 
         ######################################################
         # GENERATE LUT WAVEFORM FROM FREQ LIST
@@ -188,10 +190,11 @@ class rfsocInterface:
         freqs = np.round(freqs / (freq_res)) * freq_res
         delta = np.zeros(data_p, dtype="complex")  # empty array of deltas
         fft_bin_nums = np.zeros(len(freqs), dtype=int)  # array of all dac bin index
+
         for i in range(len(freqs)):
             bin_num = np.round((freqs[i] / freq_res)).astype("int")
             fft_bin_nums[i] = (np.round((freqs[i] / fftbin_bw / C)).astype("int")) * C
-            delta[bin_num] = np.exp(1j * phases[i])
+            delta[bin_num] = np.exp(1j * phases[i]) * amplitudes[i]
         ts = np.fft.ifft(delta)
 
         # GENERATE DDC WAVEFORM FROM BEAT FREQS
@@ -218,11 +221,10 @@ class rfsocInterface:
             if i < len(freqs):
                 wave_ddc[i::1024] = beat_ddc[i]
             else:
-                wave_ddc[i::1024] = 0  # beat_ddc[0]
+                wave_ddc[i::1024] = 0
 
         dacI, dacQ = self.norm_wave(ts)
         ddcI, ddcQ = self.norm_wave(wave_ddc, max_amp=(2**13) - 1)
-
         return dacI, dacQ, ddcI, ddcQ, freqs
 
     def load_DAC(self, wave_real, wave_imag):
@@ -292,10 +294,6 @@ class rfsocInterface:
         accum_and_bin_idx = (
             self.firmware.gpio2.axi_gpio_0
         )  # 0x00 bins, 0x08 0-23 accum len, 24 accum rst, 25 sync in
-        # initialization
-        sync_in = 2**26
-        accum_rst = 2**24  # (active low)
-        accum_length = (2**19) - 1
 
         ################################################
         # Load DDC bins
@@ -339,40 +337,36 @@ class rfsocInterface:
         else:
             fft_shift = 1 * ((2**5) - 1)  # (2**7)-1 # CHANGED FOR NEW GPIO
 
-        fft_shift_and_load_bins = self.firmware.gpio1.axi_gpio_0
-        dds_shift = (
-            self.firmware.gpio3.axi_gpio_0
-        )  # DDS SHIFT offset = 0x00, 0x08 is open
-        dds_shift.write(0x00, 234)  # WRITING TO DDS SHIFT
-        accum_and_bin_idx = (
-            self.firmware.gpio2.axi_gpio_0
-        )  # 0x00 bins, 0x08 0b-23b accum len, 24b accum rst, 26b sync in
-        accum_and_bin_idx.write(0x08, 1 * accum_length)  # 100
+        # DDS SHIFT offset = 0x00, 0x08 is open
+        self.dds_shift.write(0x00, 234)  # WRITING TO DDS SHIFT
+        # 0x00 bins, 0x08 0b-23b accum len, 24b accum rst, 26b sync in
+        self.accum_and_bin_idx.write(0x08, 1 * accum_length)  # 100
 
         # accum reset low then high
-        fft_shift_and_load_bins.write(0x00, 2**11)  # reset DAC/DDS counter
+        self.fft_shift_and_load_bins.write(0x00, 2**11)  # reset DAC/DDS counter
 
-        accum_and_bin_idx.write(
+        self.accum_and_bin_idx.write(
             0x08, 1 * accum_length + 0 * sync_in + 1 * accum_rst
         )  # 101
 
         self.load_DAC(dac_r, dac_i)
         self.load_DDS(dds_r, dds_i)
         sleep(0.5)
-        fft_shift_and_load_bins.write(
+        self.fft_shift_and_load_bins.write(
             0x00, fft_shift + 2**10
         )  # enable DAC/DDS counter
-        accum_and_bin_idx.write(
+        self.accum_and_bin_idx.write(
             0x08, 1 * accum_length + 1 * sync_in + 0 * accum_rst
         )  # 110 -- STARTS DSP FIRMWARE
         sleep(0.5)
-        accum_and_bin_idx.write(
+        self.accum_and_bin_idx.write(
             0x08, 1 * accum_length + 1 * sync_in + 1 * accum_rst
         )  # 111
 
         return 0
 
-    def __get_adc_data_helper(self, snap):
+    # ADC
+    def get_snap_data(self, snap):
         snap.write(0x04, 0)  #
         snap.write(0x04, 2**31)  # toggling sync clear
         snap.write(0x04, 2**29)  #
@@ -395,16 +389,12 @@ class rfsocInterface:
         d2[1::2] = snap_data_0
         return d2
 
-    def get_adc_data(self):
-        Q = self.__get_adc_data_helper(self.bram_ADCQ)
-        I = self.__get_adc_data_helper(self.bram_ADCI)
-        return I, Q
-
-    def get_pfb_data(self):  # make sure to toggle sync (gpio) first
-        snap = self.pfbIQ
+    # PFB
+    def get_pfb_data(self, snap):  # make sure to toggle sync (gpio) first
         snap.write(0x04, 0)  #
         snap.write(0x04, 2**31)  # toggling sync clear
         snap.write(0x04, 2**29)  #
+
         d = np.zeros(4 * 2**11)  # bram data
 
         for i in range(2**11):
@@ -418,9 +408,8 @@ class rfsocInterface:
         snap_data = snap_data << 14
         return snap_data
 
-    def get_ddc_data(self):
-        snap = self.ddc_snap
-        snap.write(0x04, 0)
+    def get_ddc_data(self, snap):
+        snap.write(0x04, 0)  #
         snap.write(0x04, 2**31)  # toggling sync clear
         snap.write(0x04, 2**29)  #
         d = np.zeros(4 * 2**11)  # bram data
@@ -431,12 +420,12 @@ class rfsocInterface:
                 snap.write(0x04, j << 19)
                 data = snap.read(0x08)
                 d[i * 4 + j] = data
-        snap_data = np.array(d).astype("uint32")
 
+        snap_data = np.array(d).astype("uint32")
         return snap_data << 13
 
-    def get_accum_data(self, slp=0.3):
-        snap = self.accum_snap
+    # DDC
+    def get_accum_data(self, snap, slp=0.3):
         snap.write(0x04, 0)  #
         snap.write(0x04, (2**29) + (2**31))  # toggling sync clear
         snap.write(0x04, 2**29)  #
@@ -453,28 +442,28 @@ class rfsocInterface:
         snap_data = np.array(d)  # .astype("int32")
         return snap_data
 
-    def writeWaveform(self, waveform, vna=False, verbose=False):
+    def writeWaveform(
+        self,
+        bbfreq_list: np.ndarray,
+        bb_amplitudes: np.ndarray,
+        vna: bool = False,
+        verbose: bool = False,
+    ):
+        """! Generate a waveform from the RFSOC
+
+        @param bbfreq_list      List of bb tones to generate
+        @param bb_amplitudes    List of amplitudes paired with with bbfreq_list
+        @param vna              (optional) Generate 1000 Tones from -251.0e6 to -1e6, 2.25e6, 252.25e6
+        @param verbose          (DEPRECATED) -> Enabled various print statements, most of which have been removed.
+
+        @returns The list of calculated (ACTUAL) baseband tones.
+
         """
-        writeWaveform: Exports a given waveform to the DAC's on board. This is the
-        primary function that should be exposed to the user.
 
-        waveform : numpy.array
-            List of Desired Frequencies in Hz units. Note that users must account for this unit
-            and use 10eN notation. eg: 10e6 for 10 MHz
-
-            Example usage:
-                writeWaveform(np.array([10e6, 13e6, 16e6, 200e6]))
-        vna : boolean
-            If enabled, sets the waveform to be 1000 equally spaced tones from -256 to +256 MHz
-            or 500MHz Bandwidth
-
-        verbose : boolean
-            (DEPRECATED) -> Enabled various print statements, most of which have been removed.
-        """
-
-        LUT_I, LUT_Q, DDS_I, DDS_Q, freqs = self.surfsUpDude(
-            waveform, vna=vna, verbose=verbose
+        LUT_I, LUT_Q, DDS_I, DDS_Q, freqs = self._surfsUpDude(
+            bbfreq_list, bb_amplitudes, vna=vna, verbose=verbose
         )
         self.load_bin_list(freqs)
         self.load_waveform_into_mem(freqs, LUT_I, LUT_Q, DDS_I, DDS_Q)
-        return freqs
+        # divide by 2 due to Interpolation within the DAC
+        return freqs / 2

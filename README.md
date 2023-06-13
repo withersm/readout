@@ -42,6 +42,12 @@ Please use requirements.txt to satisfy dependencies.
 
 `pip install -r requrements.txt`
 
+### bitstream
+
+Git does not include the bitstream required by the software.  
+[Please download it here](https://www.dropbox.com/sh/qfvqqmvdilf0ns5/AAABydR8LkrhBDKrPnm2Io4_a?dl=0)
+ and unzip it into ./rfsoc/  before uploading the folder to the RFSOC.
+
 ---
 
 ## Usage
@@ -58,7 +64,15 @@ _How users will further implement their application within or utilizing this lib
 ---
 
 ## Documentation
-_YES, IT IS **REAL**_
 
 ## License
 _text here_
+
+## Development Notes
+
+1. rfsocInterface:writeWaveform Function signature has changed, breaks rfsoc/rediscontrol 20230612-1857
+
+
+
+
+
