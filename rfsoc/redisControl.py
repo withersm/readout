@@ -1,6 +1,6 @@
 """
 @author: Cody Roberson
-@date: March 9 2023
+@date: July 16, 2023
 @file: redisControl.py
 @description:
 This is a prototype redis message listener and command dispatcher. 
@@ -25,6 +25,8 @@ message = {
     'data' : 'nil' | <arbitrary data>
 }
 
+Some portions of this code is 'borrowed' from 
+    https://github.com/TheJabur/CCATpHive/blob/main/alcove.py
 """
 
 # user check since we can't run without root priviliges
@@ -34,112 +36,139 @@ if getpass.getuser() != "root":
     print("rfsocInterface.py: root priviliges are required, please run as root.")
     exit()
 
-
 import redis
 import rfsocInterface
 import numpy as np
 import json
 from time import sleep
 import config
+import logging
+
+# setup logging config, stolen from https://github.com/TheJabur/CCATpHive/blob/main/queen.py
+logging.basicConfig(
+    filename="ops.log",
+    level=logging.DEBUG,
+    style="{",
+    datefmt="%Y-%m-%d %H:%M:%S",
+    format="{asctime} {levelname} {filename}:{lineno}: {message}",
+)
 
 
 class Cli:
-    def __init__(
-        self,
-        host="192.168.2.10",
-        port=6379,
-        uuid="66666666-7777-3333-4444-555555555555",
-    ):
-        self.r = redis.Redis(host=host)
-        self.p = self.r.pubsub()
-        self.uuid = uuid
+    def __init__(self):
+        # Get data from argparser
+        self.conf = config.GeneralConfig("rfsocconfig.cfg")
+        host = self.conf.cfg.redis_host
+        port = int(self.conf.cfg.redis_port)
 
-        self.p.subscribe(uuid)  # subscribe to uuid.
+        self.rcli = redis.Redis(host=host, port=port)
+        # self.r = redis.Redis(host=host)
+        self.pubsub = self.rcli.pubsub()
+        self.name = self.conf.cfg.rfsocName
+        self.pubsub.subscribe(self.name)
+        self.rfsoc = rfsocInterface.rfsocInterface()
 
-        sleep(1)
-        if self.p.get_message()["data"] == 1:
-            print("Successfully subscribed to Command Channel, Awaiting Commands...")
-            self.rfsoc = rfsocInterface.rfsocInterface()  # create interface object
-        else:
-            print("Failed to Subscribe to Command Channel")
+    def reply(self, cmd, ret):
+        message = {"cmd": cmd, "data": ret}
+        jd = json.dumps(message)
+        self.rcli.publish(self.name + "_reply", jd)
 
-    def listen(self):
-        print("Starting Listener")
-        try:
-            for message in self.p.listen():
-                if message["type"] != "message":
-                    continue
-                # Here was expect to have a valid message
-                chan = message["channel"]
-                if chan == bytes(self.uuid, "ascii"):
-                    # command parsing goes here
-                    cmd = "nil"
-                    try:
-                        data = message["data"].decode("ASCII")
-                        cmd = json.loads(data)
-                    except json.JSONDecodeError:
-                        print("JSON FORMAT PARSE ERROR")
-                        return
+    def run(self):
+        logging.info("Starting Listener")
+        for msg in self.pubsub.listen():
+            if msg["type"] != "message":
+                continue
+            #            chan = msg['channel'].decode('utf-8')
+            data = msg["data"].decode("utf-8")
+            data = json.loads(data)
+            cmd = data["cmd"]
+            args = data["args"]
 
-                    # Upload Bitstream
-                    if cmd["cmd"] == "ulBitstream":
-                        if len(cmd["args"]) == 0:
-                            print("Writing default bitstream")
-                            self.rfsoc.uploadOverlay()
-                            print("Done")
-                        else:
-                            print("Writing Specified bitstream")
-                            print(cmd["args"][0])
-                            self.rfsoc.uploadOverlay(bitsream=cmd["args"][0])
-                            print("Done")
-                        self.r.set("status", "free")
+            func = getattr(self.rfsoc, cmd)
+            try:
+                ret = func(*args)
+                self.reply(cmd, ret)
+            except Exception as e:
+                template = "An exception of type {0} occurred. Arguments:\n{1!r}"
+                message = template.format(type(e).__name__, e.args)
+                logging.error(message)
 
-                    elif cmd["cmd"] == "initRegs":
-                        print("Initializing Registers")
-                        self.rfsoc.initRegs()
-                        print("Done")
-                        self.r.set("status", "free")
+    # def listen(self):
+    #     print("Starting Listener")
+    #     try:
+    #         for message in self.p.listen():
+    #             if message["type"] != "message":
+    #                 continue
+    #             # Here was expect to have a valid message
+    #             chan = message["channel"]
+    #             if chan == bytes(self.uuid, "ascii"):
+    #                 # command parsing goes here
+    #                 cmd = "nil"
+    #                 try:
+    #                     data = message["data"].decode("ASCII")
+    #                     cmd = json.loads(data)
+    #                 except json.JSONDecodeError:
+    #                     print("JSON FORMAT PARSE ERROR")
+    #                     return
 
-                    elif cmd["cmd"] == "ulWaveform":
-                        if len(cmd["args"]) == 0:
-                            print("Writing Full Comb")
-                            freqs = self.rfsoc.writeWaveform(None, vna=True)
-                            reply = {
-                                "cmd": "ulWaveform",
-                                "status": "OK",
-                                "data": freqs.tolist(),
-                            }
-                            self.r.publish("picard_reply", json.dumps(reply))
-                            print("Done")
-                        else:
-                            print("Writing Specified Waveform")
-                            print(cmd["args"][0])
-                            freqs = self.rfsoc.writeWaveform(
-                                np.array(cmd["args"][0]), vna=False
-                            )
-                            reply = {
-                                "cmd": "ulWaveform",
-                                "status": "OK",
-                                "data": freqs.tolist(),
-                            }
-                            self.r.publish("picard_reply", json.dumps(reply))
-                            print("Done")
-                        self.r.set("status", "free")
-                    elif cmd["cmd"] == "exit":
-                        print("Exiting as Commanded")
-                        return
-                    else:
-                        print("Command Not Recognized")
+    #                 # Upload Bitstream
+    #                 if cmd["cmd"] == "ulBitstream":
+    #                     if len(cmd["args"]) == 0:
+    #                         print("Writing default bitstream")
+    #                         self.rfsoc.uploadOverlay()
+    #                         print("Done")
+    #                     else:
+    #                         print("Writing Specified bitstream")
+    #                         print(cmd["args"][0])
+    #                         self.rfsoc.uploadOverlay(bitsream=cmd["args"][0])
+    #                         print("Done")
+    #                     self.r.set("status", "free")
 
-        except KeyboardInterrupt:
-            print("Exiting")
-            return
+    #                 elif cmd["cmd"] == "initRegs":
+    #                     print("Initializing Registers")
+    #                     self.rfsoc.initRegs()
+    #                     print("Done")
+    #                     self.r.set("status", "free")
+
+    #                 elif cmd["cmd"] == "ulWaveform":
+    #                     if len(cmd["args"]) == 0:
+    #                         print("Writing Full Comb")
+    #                         freqs = self.rfsoc.writeWaveform(None, vna=True)
+    #                         reply = {
+    #                             "cmd": "ulWaveform",
+    #                             "status": "OK",
+    #                             "data": freqs.tolist(),
+    #                         }
+    #                         self.r.publish("picard_reply", json.dumps(reply))
+    #                         print("Done")
+    #                     else:
+    #                         print("Writing Specified Waveform")
+    #                         print(cmd["args"][0])
+    #                         freqs = self.rfsoc.writeWaveform(
+    #                             np.array(cmd["args"][0]), vna=False
+    #                         )
+    #                         reply = {
+    #                             "cmd": "ulWaveform",
+    #                             "status": "OK",
+    #                             "data": freqs.tolist(),
+    #                         }
+    #                         self.r.publish("picard_reply", json.dumps(reply))
+    #                         print("Done")
+    #                     self.r.set("status", "free")
+    #                 elif cmd["cmd"] == "exit":
+    #                     print("Exiting as Commanded")
+    #                     return
+    #                 else:
+    #                     print("Command Not Recognized")
+
+    #     except KeyboardInterrupt:
+    #         print("Exiting")
+    #         return
 
 
 def main():
-    conf = config.GeneralConfig("./general_config.cfg")
-    client = Cli(conf.cfg.redis_host, conf.cfg.redis_port, conf.cfg.uuid)
-    client.listen()
+    client = Cli()
+    Cli.run()
 
 
 if __name__ == "__main__":

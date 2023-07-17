@@ -10,8 +10,6 @@ credit: Alexandra Zaharia on Python Configuration and Data Classes.
 
 """
 import configparser
-import numpy as np
-import os
 from dataclasses import dataclass, asdict
 import logging
 import uuid
@@ -31,13 +29,16 @@ class ConfigData:
     Serves as the struct/container of our config.
     """
 
-    uuid: str = "11111111-2222-3333-4444-555555555555"
+    rfsocName: str = "rfsocDev"
     canary: str = "cat"
     redis_host: str = "192.168.2.10"
     redis_port: str = "6379"
     data_folder: str = "./kidpyData"
     singletone_freq: str = "100e6"
-    synthesizer: str = "valon"
+    dstmac_msb: str = "803f"
+    dstmac_lsb: str = "5d096b1a"
+    src_ipaddr: str = "c0a80329"
+    dst_ipaddr: str = "c0a80328"
 
 
 class GeneralConfig(object):

@@ -78,7 +78,9 @@ class rfsocInterface:
         )  # DDS SHIFT offset = 0x00, 0x08 is open
         return bitstream
 
-    def initRegs(self):
+    def initRegs(
+        self, dstmac_msb: str, dstmac_lsb: str, src_ipaddr: str, dst_ipaddr: str
+    ):
         if self.firmware == None:
             print("Overlay must be uploaded first")
             return -1
@@ -98,12 +100,12 @@ class rfsocInterface:
         data_in_mux = self.firmware.data_in_mux
 
         # setting ips  TODO::GET DATA FROM CONFIG FILE
-        src_ip_int32 = int("c0a80329", 16)
-        dst_ip_int32 = int("c0a80328", 16)
+        src_ip_int32 = int(src_ipaddr, 16)
+        dst_ip_int32 = int(dst_ipaddr, 16)
         src_mac0_int32 = int("deadbeef", 16)
         src_mac1_int16 = int("feed", 16)
-        dst_mac0_int32 = int("5d092bb0", 16)  #  startech dongle 80:3f:5d:09:6b:1d
-        dst_mac1_int16 = int("803f", 16)
+        dst_mac0_int32 = int(dstmac_lsb, 16)  #  startech dongle 80:3f:5d:09:6b:1d
+        dst_mac1_int16 = int(dstmac_msb, 16)
 
         # write values
         ip_reg.write(0x00, src_ip_int32)
@@ -444,8 +446,8 @@ class rfsocInterface:
 
     def writeWaveform(
         self,
-        bbfreq_list: np.ndarray,
-        bb_amplitudes: np.ndarray,
+        bbfreq_list: list,
+        bb_amplitudes: list,
         vna: bool = False,
         verbose: bool = False,
     ):
@@ -459,11 +461,16 @@ class rfsocInterface:
         @returns The list of calculated (ACTUAL) baseband tones.
 
         """
+        bbfreq = np.array(bbfreq_list)
+        bbamp = np.array(bb_amplitudes)
 
         LUT_I, LUT_Q, DDS_I, DDS_Q, freqs = self._surfsUpDude(
-            bbfreq_list, bb_amplitudes, vna=vna, verbose=verbose
+            bbfreq, bbamp, vna=vna, verbose=verbose
         )
         self.load_bin_list(freqs)
         self.load_waveform_into_mem(freqs, LUT_I, LUT_Q, DDS_I, DDS_Q)
         # divide by 2 due to Interpolation within the DAC
         return freqs / 2
+
+    def ping(self):
+        return True
