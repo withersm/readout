@@ -33,8 +33,9 @@ Activate the environment `source kp3env/bin/activate`
 2. Redis 6.2+ and it's build requirements
 
 #### Other Reqs
-1. Ethernet card supporting jumbo frames
+1. Ethernet card supporting jumbo frames of 8208 bytes or more
 2. Ubuntu 20.04+ LTS
+3. Ubuntu network configured for a mtu of 9000
 
 
 Please use requirements.txt to satisfy dependencies. 
@@ -45,7 +46,7 @@ Please use requirements.txt to satisfy dependencies.
 ### bitstream
 
 Git does not include the bitstream required by the software.  
-[Please download it here](https://www.dropbox.com/sh/qfvqqmvdilf0ns5/AAABydR8LkrhBDKrPnm2Io4_a?dl=0)
+[Please download it here](https://www.dropbox.com/s/sogkt112b25eoxk/202306091243_silver_blast_fixedeth_vivado2020.2_bit.zip?dl=1)
  and unzip it into ./rfsoc/  before uploading the folder to the RFSOC.
 
 ---

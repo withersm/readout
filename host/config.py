@@ -31,15 +31,18 @@ class ConfigData:
     Serves as the struct/container of our config.
     """
 
-    rfsoscs: str = (
-        "11111111-2222-3333-4444-555555555555, 66666666-7777-3333-4444-555555555555"
-    )
+    rfsoscs: str = "rfsocDev"
     canary: str = "cat"
     redis_host: str = "192.168.2.10"
     redis_port: str = "6379"
     data_folder: str = "./kidpyData"
     singletone_freq: str = "100e6"
     synthesizer: str = "valon"
+
+    rfsocDev_srcip: str = "c0a80330"
+    rfsocDev_dstip: str = "c0a80328"
+    rfsocDev_macmsb: str = "681c"
+    rfsocDev_maclsb: str = "a2123651"
 
 
 class GeneralConfig(object):
