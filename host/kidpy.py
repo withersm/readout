@@ -1,19 +1,15 @@
 """
-This software is a work in progress. It is a console interface designed 
-to operate the BLAST RFSOC firmware. 
-
-Copyright (C) 2022 <Authors listed below>
-Author: Cody Roberson, Ryan Stephenson Adrian Sinclair, Philip Mauskopf
-      (carobers@asu.edu)
-
-subscribe message Out[6]: {'type': 'subscribe', 'pattern': None, 'channel': b'picard', 'data': 1}
-
- ******  REVISIONS *****
-2022-07-25
-    - Began overhaul of command <-> repsonse. Previously we only had a busy please wait approach
-        however now we will be utilizing pub-sub to facilitate replys with data payloads.
-        Write waveform for instance shall now reply back with the written baseband frequencies.
-
+:Date: 2023-07-20
+:Version: 2.0.0
+:Authors: - Cody Roberson
+          - Adrian Sinclair
+          - Ryan Stephenson
+          - Philip Mauskopf
+          - Jack Sayers
+:Indentation: Since the field marker may be quite long, the second
+   and subsequent lines of the field body do not have to line up
+   with the first line, but they must be indented relative to the
+   field name marker, and they must line up with each other.
 """
 
 import numpy as np
