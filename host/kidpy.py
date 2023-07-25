@@ -116,7 +116,9 @@ def checkBlastCli(r, p):
     """
     Rudamentary "is the rfsoc control software running" check.
     """
-    r.publish("ping", "hello?")
+    cmd = {"cmd": "ping", "args": []}
+    cmd = json.dumps(cmd)
+    r.publish("picard", cmd)
     count = 1
     delay = 0.5
     timeout = 6

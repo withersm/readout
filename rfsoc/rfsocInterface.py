@@ -32,7 +32,7 @@ class rfsocInterface:
         self.ddc_snap = None
         self.accum_snap = None
         self.selectedBitstream = None
-        self.__bitf_loaded = False
+        self.bitf_loaded = False
 
     def uploadOverlay(
         self, bitstream="202306091243_silver_blast_fixedeth.bit", reload_bitf=False
@@ -40,9 +40,17 @@ class rfsocInterface:
         # FIRMWARE UPLOAD
 
         self.firmware = Overlay(bitstream, ignore_version=True, download=False)
-        if reload_bitf or (not self.__bitf_loaded):
+        if reload_bitf:
             self.firmware.download()
-            self.__bitf_loaded = True
+            self.bitf_loaded = True
+            print("reloading bitfile, reload_bitf=True")
+        elif not self.bitf_loaded:
+            self.firmware.download()
+            self.bitf_loaded = True
+            print("bitfile not loaded, loading bitf_loaded=False")
+        else:
+            pass
+
 
         xrfclk.set_all_ref_clks(409.6)  # MHz
         print("firmware uploaded and pll set")
@@ -459,14 +467,16 @@ class rfsocInterface:
 
         bbfreq = np.array(bb_freqs)
         bbamp = np.array(bb_amplitudes)
-
         if vna:
             freqs = -1.0 * np.linspace(251.0e6, 1.0e6, 500)
             freqs = np.append(freqs, (1.0 * np.linspace(2.25e6, 252.25e6, 500)))
             bbfreq = freqs
-            if bbamp.shape == ():
+            if bb_amplitudes == []:
+                print("empty amplitude list")
                 bbamp = np.ones_like(bbfreq)
         if bbamp.shape != bbfreq.shape:
+            print(bbamp.shape)
+            print(bbfreq.shape)
             raise ValueError(
                 "Write Waveform Error: Amplitudes and Frequency list must be same length"
             )

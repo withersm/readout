@@ -80,7 +80,10 @@ class Cli:
                         return
 
                     # Upload Bitstream
-                    if cmd["cmd"] == "ulBitstream":
+                    if cmd["cmd"] == "ping":
+                        print("received ping")
+                        self.r.publish("ping", "Hello World")
+                    elif cmd["cmd"] == "ulBitstream":
                         if len(cmd["args"]) == 0:
                             print("Writing default bitstream")
                             self.rfsoc.uploadOverlay()
