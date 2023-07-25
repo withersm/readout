@@ -154,9 +154,6 @@ class rfsocInterface:
 
         @return DACI, DACQ, DDCI, DDCQ, freqs_actual
         """
-        assert (
-            amplitudes.shape == freq_list.shape
-        ), "Requires array of N amplitudes for N tones in freq_list"
         #####################################################
         # HARDCODED LUT PARAMS
         #####################################################
@@ -174,8 +171,6 @@ class rfsocInterface:
             freqs_up = -1.0 * C * np.linspace(251.0e6, 1.0e6, Nover2)
             freqs_lw = 1.0 * C * np.linspace(2.25e6, 252.25e6, Nover2)
             freqs = np.append(freqs_up, freqs_lw)
-            if amplitudes == None:
-                amplitudes = np.ones_like(freqs)
         else:
             freqs = C * freq_list  # equally spaced tones
         phases = np.random.uniform(-np.pi, np.pi, len(freqs))
@@ -446,7 +441,7 @@ class rfsocInterface:
 
     def writeWaveform(
         self,
-        bbfreq_list: list,
+        bb_freqs: list,
         bb_amplitudes: list,
         vna: bool = False,
         verbose: bool = False,
@@ -461,11 +456,23 @@ class rfsocInterface:
         @returns The list of calculated (ACTUAL) baseband tones.
 
         """
-        bbfreq = np.array(bbfreq_list)
+
+        bbfreq = np.array(bb_freqs)
         bbamp = np.array(bb_amplitudes)
 
+        if vna:
+            freqs = -1.0 * np.linspace(251.0e6, 1.0e6, 500)
+            freqs = np.append(freqs, (1.0 * np.linspace(2.25e6, 252.25e6, 500)))
+            bbfreq = freqs
+            if bbamp.shape == ():
+                bbamp = np.ones_like(bbfreq)
+        if bbamp.shape != bbfreq.shape:
+            raise ValueError(
+                "Write Waveform Error: Amplitudes and Frequency list must be same length"
+            )
+
         LUT_I, LUT_Q, DDS_I, DDS_Q, freqs = self._surfsUpDude(
-            bbfreq, bbamp, vna=vna, verbose=verbose
+            bbfreq, bbamp, vna=False, verbose=verbose
         )
         self.load_bin_list(freqs)
         self.load_waveform_into_mem(freqs, LUT_I, LUT_Q, DDS_I, DDS_Q)

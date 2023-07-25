@@ -34,6 +34,10 @@ class ConfigData:
     redis_host: str = "192.168.2.10"
     redis_port: str = "6379"
     data_folder: str = "./kidpyData"
+    dstmac_msb: str = "803f"
+    dstmac_lsb: str = "5d092bb0"
+    src_ipaddr: str = "c0a80329"
+    dst_ipaddr: str = "c0a80328"
 
 
 class GeneralConfig(object):

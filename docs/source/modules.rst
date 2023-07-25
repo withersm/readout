@@ -4,6 +4,7 @@ host
 .. toctree::
    :maxdepth: 4
 
+   Sweeps
    config
    data_handler
    kidpy

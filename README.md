@@ -56,7 +56,9 @@ _how will users approach using the library to take data_
 
 
 ### Contributing
-_how and what kind of contributions will be added to the library_
+Contributions should be documented using reStructuredText Markup. This is 
+for the future to help keep things clearer in terms of documentation. Examples
+for documention functions and classes are placed in the docs folder.
 
 
 ### Modifications
