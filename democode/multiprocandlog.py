@@ -17,6 +17,8 @@ import concurrent.futures as cf
 import time
 import logging
 
+import modlogging
+
 ### Logging ###
 # Configures the logger such that it prints to a screen and file including the format
 __LOGFMT = "%(asctime)s|%(levelname)s|%(filename)s|%(lineno)d|%(funcName)s|%(message)s"
@@ -24,7 +26,7 @@ __LOGFMT = "%(asctime)s|%(levelname)s|%(filename)s|%(lineno)d|%(funcName)s|%(mes
 logging.basicConfig(format=__LOGFMT, level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 __logh = logging.FileHandler("./app.log")
-logger.addHandler(__logh)
+logging.root.addHandler(__logh)
 logger.log(100, __LOGFMT)
 __logh.flush()
 __logh.setFormatter(logging.Formatter(__LOGFMT))
@@ -62,6 +64,8 @@ def main():
     log.warning("This is a warning")
     log.error("This is an error")
     log.critical("this is critical, the world may be on fire!")
+
+    modlogging.someFunction()
 
 
 if __name__ == "__main__":
