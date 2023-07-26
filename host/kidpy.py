@@ -27,7 +27,8 @@ import udpcap
 import datetime
 import valon5009
 import Sweeps
-
+import udp2
+import data_handler
 # from datetime import date
 # from datetime import datetime
 import pdb
@@ -528,26 +529,26 @@ class kidpy:
 
                         if onr_opt == 6:
                             # open a new terminal to move the telescope
-                            termcmd = (
-                                "python /home/onrkids/onrkidpy/onr_motor_control.py 12"
-                            )
-                            new_term = subprocess.Popen(
-                                ["gnome-terminal", "--", "bash", "-c", termcmd],
-                                stdin=subprocess.PIPE,
-                                stdout=subprocess.PIPE,
-                                stderr=subprocess.STDOUT,
-                            )
+                            #open a new terminal to move the telescope
+                            termcmd = 'python3 /home/onrkids/onrkidpy/onr_motor_control.py 12'
+                            new_term = subprocess.Popen(['gnome-terminal','--','bash','-c',termcmd],stdin = subprocess.PIPE, \
+                                                        stdout = subprocess.PIPE,stderr = subprocess.STDOUT)
 
                             # then collect the KID data
                             t = 10
+                            NSAMP = 488*t
                             os.system("clear")
-                            self.__udp.bindSocket()
+                            # print("pretending to collect data")
                             savefile = onrkidpy.get_filename(type="TOD") + ".hd5"
-                            if t < 60:
-                                self.__udp.shortDataCapture(savefile, 488 * t)
-                            else:
-                                self.__udp.LongDataCapture(savefile, 488 * t)
-                            self.__udp.release()
+                            rawFile = data_handler.RawDataFile(savefile, NSAMP, 1000, 2)
+                            rfsoc1 = udp2.Connection(rawFile, "192.168.5.40", "4096")
+                            udp2.capture([rfsoc1], NSAMP) 
+                            #savefile = onrkidpy.get_filename(type="TOD") + ".hd5"
+                            #if t < 60:
+                            #    self.__udp.shortDataCapture(savefile, 488 * t)
+                            #else:
+                            #    self.__udp.LongDataCapture(savefile, 488 * t)
+                            #self.__udp.release()
 
                         if onr_opt == 7:  # Exit
                             onr_loop = False

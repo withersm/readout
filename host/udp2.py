@@ -91,7 +91,7 @@ def receive_udp(conn: Connection, n_samples: int):
     pool.close()
 
 
-def capture(connection_list: list[Connection], n_samples: int):
+def capture(connection_list: list, n_samples: int):
     """
     Capture Data. Spawns N connection receive_udp processes for data taking
     :param connection_list: List of Connections
@@ -101,4 +101,5 @@ def capture(connection_list: list[Connection], n_samples: int):
     # create subprocesses for each udp connection.
     with concurrent.futures.ProcessPoolExecutor() as executor:
         for con in connection_list:
+            print("spawning process...")
             executor.submit(receive_udp, con, n_samples)

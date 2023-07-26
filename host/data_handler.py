@@ -386,7 +386,7 @@ class DataHandler:
         """
         pass
 
-    def finalize(self, rawdf: list[RawDataFile], obs_df: ObservationDataFile):
+    def finalize(self, rawdf, obs_df: ObservationDataFile):
         """
         Merges the raw data files collected during an observation period into the Observation DataFile
 
