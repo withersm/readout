@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>kidpy module &mdash; mKID Readout - KIDPY3 2.0.0 documentation</title>
+      <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="_static/jquery.js"></script>
+        <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+        <script src="_static/doctools.js"></script>
+        <script src="_static/sphinx_highlight.js"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="udp2 module" href="udp2.html" />
+    <link rel="prev" title="data_handler module" href="data_handler.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            mKID Readout - KIDPY3
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="modules.html">host</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="Sweeps.html">Sweeps module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="config.html">config module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="data_handler.html">data_handler module</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">kidpy module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#kidpy.checkBlastCli"><code class="docutils literal notranslate"><span class="pre">checkBlastCli()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#kidpy.get_tone_list"><code class="docutils literal notranslate"><span class="pre">get_tone_list()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#kidpy.kidpy"><code class="docutils literal notranslate"><span class="pre">kidpy</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#kidpy.kidpy.begin_ui"><code class="docutils literal notranslate"><span class="pre">kidpy.begin_ui()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#kidpy.kidpy.main_opt"><code class="docutils literal notranslate"><span class="pre">kidpy.main_opt()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#kidpy.main"><code class="docutils literal notranslate"><span class="pre">main()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#kidpy.menu"><code class="docutils literal notranslate"><span class="pre">menu()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#kidpy.testConnection"><code class="docutils literal notranslate"><span class="pre">testConnection()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#kidpy.wait_for_free"><code class="docutils literal notranslate"><span class="pre">wait_for_free()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#kidpy.wait_for_reply"><code class="docutils literal notranslate"><span class="pre">wait_for_reply()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#kidpy.write_fList"><code class="docutils literal notranslate"><span class="pre">write_fList()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="udp2.html">udp2 module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="valon5009.html">valon5009 module</a></li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">mKID Readout - KIDPY3</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="modules.html">host</a></li>
+      <li class="breadcrumb-item active">kidpy module</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/kidpy.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="module-kidpy">
+<span id="kidpy-module"></span><h1>kidpy module<a class="headerlink" href="#module-kidpy" title="Permalink to this heading"></a></h1>
+<dl class="field-list simple">
+<dt class="field-odd">Date<span class="colon">:</span></dt>
+<dd class="field-odd"><p>2023-07-20</p>
+</dd>
+<dt class="field-even">Version<span class="colon">:</span></dt>
+<dd class="field-even"><p>2.0.0</p>
+</dd>
+<dt class="field-odd">Authors<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p>Cody Roberson</p></li>
+<li><p>Adrian Sinclair</p></li>
+<li><p>Ryan Stephenson</p></li>
+<li><p>Philip Mauskopf</p></li>
+<li><p>Jack Sayers</p></li>
+</ul>
+</dd>
+</dl>
+<p>kidpy is where users can interact with the mkid readout system. Simply launch with
+.. codeblock:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">python</span> <span class="n">kidpy</span><span class="o">.</span><span class="n">py</span>
+</pre></div>
+</div>
+<p>When an operation is selected, a command is created and published on a redis
+pubsub channel. Any listening RFSOC(s) would then parse and execute the specified command</p>
+<dl class="py function">
+<dt class="sig sig-object py" id="kidpy.checkBlastCli">
+<span class="sig-prename descclassname"><span class="pre">kidpy.</span></span><span class="sig-name descname"><span class="pre">checkBlastCli</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">r</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">p</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/kidpy.html#checkBlastCli"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#kidpy.checkBlastCli" title="Permalink to this definition"></a></dt>
+<dd><p>Rudamentary “is the rfsoc control software running” check.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="kidpy.get_tone_list">
+<span class="sig-prename descclassname"><span class="pre">kidpy.</span></span><span class="sig-name descname"><span class="pre">get_tone_list</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">self</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/kidpy.html#get_tone_list"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#kidpy.get_tone_list" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="kidpy.kidpy">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">kidpy.</span></span><span class="sig-name descname"><span class="pre">kidpy</span></span><a class="reference internal" href="_modules/kidpy.html#kidpy"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#kidpy.kidpy" title="Permalink to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="kidpy.kidpy.begin_ui">
+<span class="sig-name descname"><span class="pre">begin_ui</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/kidpy.html#kidpy.begin_ui"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#kidpy.kidpy.begin_ui" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="kidpy.kidpy.main_opt">
+<span class="sig-name descname"><span class="pre">main_opt</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/kidpy.html#kidpy.main_opt"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#kidpy.kidpy.main_opt" title="Permalink to this definition"></a></dt>
+<dd><p>Main user interface routing</p>
+<p>r : redis Server instance
+p : redis.pubsub instance
+udp : udpcap object instance</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="kidpy.main">
+<span class="sig-prename descclassname"><span class="pre">kidpy.</span></span><span class="sig-name descname"><span class="pre">main</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/kidpy.html#main"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#kidpy.main" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="kidpy.menu">
+<span class="sig-prename descclassname"><span class="pre">kidpy.</span></span><span class="sig-name descname"><span class="pre">menu</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">captions</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">options</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/kidpy.html#menu"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#kidpy.menu" title="Permalink to this definition"></a></dt>
+<dd><p>Creates menu for terminal interface
+inputs:</p>
+<blockquote>
+<div><p>list captions: List of menu captions
+list options: List of menu options</p>
+</div></blockquote>
+<dl class="simple">
+<dt>outputs:</dt><dd><p>int opt: Integer corresponding to menu option chosen by user</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="kidpy.testConnection">
+<span class="sig-prename descclassname"><span class="pre">kidpy.</span></span><span class="sig-name descname"><span class="pre">testConnection</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">r</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/kidpy.html#testConnection"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#kidpy.testConnection" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="kidpy.wait_for_free">
+<span class="sig-prename descclassname"><span class="pre">kidpy.</span></span><span class="sig-name descname"><span class="pre">wait_for_free</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">r</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">delay</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.25</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">timeout</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">10</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/kidpy.html#wait_for_free"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#kidpy.wait_for_free" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="kidpy.wait_for_reply">
+<span class="sig-prename descclassname"><span class="pre">kidpy.</span></span><span class="sig-name descname"><span class="pre">wait_for_reply</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">redis_pubsub</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cmd</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_timeout</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">15</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/kidpy.html#wait_for_reply"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#kidpy.wait_for_reply" title="Permalink to this definition"></a></dt>
+<dd><p>This is the eventual replacement for the waitForFree() method.
+We want to have smarter replies that can ferry data back from the RFSOC.</p>
+<dl>
+<dt>Once a command is sent out, listen for a reply on the &lt;cmd_reply&gt; channel</dt><dd><dl>
+<dt>Format for replying to commands from redis</dt><dd><dl class="simple">
+<dt>message = {</dt><dd><p>‘cmd’ : ‘relay command’,
+‘status’ : ‘OK’|’FAIL’,
+‘data’ : ‘nil’ | &lt;arbitrary data&gt;</p>
+</dd>
+</dl>
+<p>}</p>
+</dd>
+</dl>
+</dd>
+</dl>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>max_timeout</strong> – int :
+time in seconds to wait for the RFSOC to reply. If it fails in this time,
+this should indicate a failure of some kind has occured</p></li>
+<li><p><strong>cmd</strong> – str :
+Command sent out</p></li>
+<li><p><strong>redis_pubsub</strong> – redis.Redis.pubsub :
+reference to a Redis pubsub object that has already subscribed to relevant channels</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="kidpy.write_fList">
+<span class="sig-prename descclassname"><span class="pre">kidpy.</span></span><span class="sig-name descname"><span class="pre">write_fList</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">self</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fList</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ampList</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/kidpy.html#write_fList"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#kidpy.write_fList" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="data_handler.html" class="btn btn-neutral float-left" title="data_handler module" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="udp2.html" class="btn btn-neutral float-right" title="udp2 module" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, Arizona State University.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

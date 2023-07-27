@@ -7,9 +7,10 @@
           - Philip Mauskopf
           - Jack Sayers
 
-kidpy is where users can interact with the mkid readout 
-system. Simply launch with::
+kidpy is where users can interact with the mkid readout system. Simply launch with
+.. codeblock::
     python kidpy.py
+
 
 When an operation is selected, a command is created and published on a redis
 pubsub channel. Any listening RFSOC(s) would then parse and execute the specified command
@@ -27,11 +28,28 @@ import udpcap
 import datetime
 import valon5009
 import Sweeps
+import udp2
+import data_handler
 
 # from datetime import date
-# from datetime import datetime
+# from datetime import datetime
 import pdb
 import glob
+import logging
+
+### Logging ###
+# Configures the logger such that it prints to a screen and file including the format
+__LOGFMT = "%(asctime)s|%(levelname)s|%(filename)s|%(lineno)d|%(funcName)s|%(message)s"
+
+logging.basicConfig(format=__LOGFMT, level=logging.DEBUG)
+logger = logging.getLogger(__name__)
+__logh = logging.FileHandler("./kidpy.log")
+logging.root.addHandler(__logh)
+logger.log(100, __LOGFMT)
+__logh.flush()
+__logh.setFormatter(logging.Formatter(__LOGFMT))
+################
+
 
 default_f_center = 400.0
 
@@ -528,8 +546,9 @@ class kidpy:
 
                         if onr_opt == 6:
                             # open a new terminal to move the telescope
+                            # open a new terminal to move the telescope
                             termcmd = (
-                                "python /home/onrkids/onrkidpy/onr_motor_control.py 12"
+                                "python3 /home/onrkids/onrkidpy/onr_motor_control.py 12"
                             )
                             new_term = subprocess.Popen(
                                 ["gnome-terminal", "--", "bash", "-c", termcmd],
@@ -540,14 +559,19 @@ class kidpy:
 
                             # then collect the KID data
                             t = 10
+                            NSAMP = 488 * t
                             os.system("clear")
-                            self.__udp.bindSocket()
+                            # print("pretending to collect data")
                             savefile = onrkidpy.get_filename(type="TOD") + ".hd5"
-                            if t < 60:
-                                self.__udp.shortDataCapture(savefile, 488 * t)
-                            else:
-                                self.__udp.LongDataCapture(savefile, 488 * t)
-                            self.__udp.release()
+                            rawFile = data_handler.RawDataFile(savefile, NSAMP, 1000, 2)
+                            rfsoc1 = udp2.Connection(rawFile, "192.168.5.40", "4096")
+                            udp2.capture([rfsoc1], NSAMP)
+                            # savefile = onrkidpy.get_filename(type="TOD") + ".hd5"
+                            # if t < 60:
+                            #    self.__udp.shortDataCapture(savefile, 488 * t)
+                            # else:
+                            #    self.__udp.LongDataCapture(savefile, 488 * t)
+                            # self.__udp.release()
 
                         if onr_opt == 7:  # Exit
                             onr_loop = False

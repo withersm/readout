@@ -1,7 +1,7 @@
-udpcap module
-=============
+kidpy module
+============
 
-.. automodule:: udpcap
+.. automodule:: kidpy
    :members:
    :undoc-members:
    :show-inheritance:
