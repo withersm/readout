@@ -1,29 +1,51 @@
 """
-:author: Cody Roberson
-:date: 02/13/2023
-:file: data_handler
-:copyright: To Be Determined in the Interest of Collaboration
-:description: DataHandler takes care of generating our hdf5 ovservation data files
+Overview
+________
 
-02/17/2023:
-    HDF5 arrays are (row,col), scalars are (1,)
-02/21/2023
-    while hdf datasets can have infinite dimensions, they do need to be resized:
-        dataset (1,4) to store [0,1,2,3]
-    then dataset.resize((2,4))
-        dataset (2,4) to store [0,1,2,3], [4,8,12,16] becomes possible
-    While it would be nice to dynamically allocate n_samples as needed, the hdf5 lib implementation
-    makes a call to emalloc which leads to speculation that a mem copy takes place and the same inefficiencies
-    of array copies takes place under the hood. This is problematic for large, efficient, datasets.
-04/11/23
+data_handler defines an interface with whichi readout data is obtained, stored, and manipulated.
+The format specified here is a standard 
 
-    Data organization:
-----------
+:Authors: - Cody
+          - Jack Sayers
+          - Daniel Cunnane
+:Date: 2023-07-26
+:Version: 1.0.0
 """
 
 import h5py
 import os
 import datetime
+import logging
+from dataclasses import dataclass
+
+logger = logging.getLogger(__name__)
+
+if __name__ == "__main__":
+    # Configures the logger such that it prints to a screen and file including the format
+    __LOGFMT = (
+        "%(asctime)s|%(levelname)s|%(filename)s|%(lineno)d|%(funcName)s|%(message)s"
+    )
+
+    logging.basicConfig(format=__LOGFMT, level=logging.DEBUG)
+    logger = logging.getLogger(__name__)
+    __logh = logging.FileHandler("./data_handler.log")
+    logging.root.addHandler(__logh)
+    logger.log(100, __LOGFMT)
+    __logh.flush()
+    __logh.setFormatter(logging.Formatter(__LOGFMT))
+    ################
+
+
+@dataclass
+class RFChannel:
+    raw_filename: str = ""  # HDF5 file to open/create
+    ip: str = ""  # udp ip to listen on
+    port: int = 0000  # udp port to listen on
+    name: str = ""  # Friendly Name to call the channel
+    n_sample: int = 488
+    n_resonator: int = 1000
+    n_attenuator: int = 1
+
 
 class RawDataFile:
     """A raw hdf5 data file object for incoming rfsoc-UDP data streams.
@@ -38,31 +60,42 @@ class RawDataFile:
     :param n_attenuator: The number of attenuators in the IF slice or elsewhere in the system - likely = 2 for now
     """
 
-    def __init__(self, path: str, n_sample: int, n_resonator: int, n_attenuator: int):
-        self.filename = path
-        try:
-            self.fh = h5py.File(self.filename, "w")
-        except IOError:
-            print(
-                "FATA: Could not create hdf5 file, please check the path exists and"
-                "that read/write permissions are allowed"
-            )
-            raise
-        except Exception as except_rdf:  # TODO: REFINE EXCEPTION CASES
-            raise except_rdf
+    def __init__(self, path):
+        log = logger.getChild(__name__)
 
+        self.filename = path
+        if not os.path.isfile(path):
+            log.debug("File not found, creating file...")
+            try:
+                self.fh = h5py.File(self.filename, "w")
+            except Exception as e:
+                log.error(e)
+                raise
+        else:
+            log.debug("File exists, attempting to load")
+            try:
+                self.fh = h5py.File(self.filename, "a")
+            except Exception as e:
+                log.error(e)
+                raise
+            self.read()
+
+    def format(self, n_sample: int, n_resonator: int, n_attenuator: int):
+        """
+        When called, populates the hdf5 file with our desired datasets
+        """
         # ********************************* Dimensions *******************************
-        self.dim_n_sample = self.fh.create_dataset(
+        self.n_sample = self.fh.create_dataset(
             "Dimension/n_sample",
             (1,),
             dtype=h5py.h5t.NATIVE_UINT64,
         )
-        self.dim_n_resonator = self.fh.create_dataset(
+        self.n_resonator = self.fh.create_dataset(
             "Dimension/n_resonator",
             (1,),
             dtype=h5py.h5t.NATIVE_UINT64,
         )
-        self.dim_n_attenuator = self.fh.create_dataset(
+        self.n_attenuator = self.fh.create_dataset(
             "Dimension/n_attenuator",
             (1,),
             dtype=h5py.h5t.NATIVE_UINT64,
@@ -77,7 +110,7 @@ class RawDataFile:
             "global_data/baseband_freq", (1, n_resonator), dtype=h5py.h5t.NATIVE_DOUBLE
         )
         self.sample_rate = self.fh.create_dataset(
-            "global_data/sample_Rate", (1,), dtype=h5py.h5t.NATIVE_DOUBLE
+            "global_data/sample_rate", (1,), dtype=h5py.h5t.NATIVE_DOUBLE
         )
         self.tile_number = self.fh.create_dataset(
             "global_data/tile_number", (1, n_resonator), dtype=h5py.h5t.NATIVE_INT32
@@ -123,13 +156,47 @@ class RawDataFile:
             dtype=timestamp_compound_datatype,
         )
 
+    def read(self):
+        """
+        When called, the hdf5 file is read into this class instances variables to give them a nicer handle to work with.
+        read() is called when a RawDataFile object is initialized and a datafile bearing the same name exists. That file may not
+        have the same data or be from an older version of this file in which case an error may occur. Future iterations should be made
+        more robust.
+
+        The code used below to read the datasets from the RawDataFile was actually generated from gen_read given a blank RawDataFile.
+
+        .. warning::
+            changes to the name of a dataset must be identical to the instance variable identifier with which that dataset belongs.
+            self.identifier = self.fh["/some/path/here/identifier"]
+        """
+        log = logger.getChild(__name__)
+
+        try:
+            self.n_attenuator = self.fh["/Dimension/n_attenuator"]
+            self.n_resonator = self.fh["/Dimension/n_resonator"]
+            self.n_sample = self.fh["/Dimension/n_sample"]
+            self.attenuator_settings = self.fh["/global_data/attenuator_settings"]
+            self.baseband_freq = self.fh["/global_data/baseband_freq"]
+            self.chan_number = self.fh["/global_data/chan_number"]
+            self.ifslice_number = self.fh["/global_data/ifslice_number"]
+            self.rfsoc_number = self.fh["/global_data/rfsoc_number"]
+            self.sample_rate = self.fh["/global_data/sample_rate"]
+            self.tile_number = self.fh["/global_data/tile_number"]
+            self.tone_power = self.fh["/global_data/tone_power"]
+            self.adc_i = self.fh["/time_ordered_data/adc_i"]
+            self.adc_q = self.fh["/time_ordered_data/adc_q"]
+            self.lo_freq = self.fh["/time_ordered_data/lo_freq"]
+            self.timestamp = self.fh["/time_ordered_data/timestamp"]
+        except Exception as e:
+            log.error(e)
+
     def close(self):
         self.fh.close()
 
 
 class ObservationDataFile:
     """
-        The main Observation datafile which will encompass the data gatherd during an observation
+    The main Observation datafile which will encompass the data gatherd during an observation
     period. raw rfsoc data is migrated into this data file after the observation has concluded.
 
     :param n_rfsoc: the number of RFSOCs that will be merged together
@@ -322,87 +389,50 @@ class ObservationDataFile:
         )
 
 
-class DataHandler:
+def gen_read(h5: str):
     """
-    Used to handle the interaction between obtaining a packet and
-    subsequently storing it.
+    Cheat function. Reads an hdf5 file and generates read statements to then be pasted back into
+    the class. This method worked because the dataset name was the same as the instance variable name.
 
-    Users shall use a DataHandler class to take some amount of packets
+    that is /group/group/adc_i translates to self.fh.adc_i
     """
+    f = h5py.File(h5, "r")
 
-    def __init__(self):
-        self.rawdataset = []
+    def somefunc(name, object):
+        if isinstance(object, h5py.Dataset):
+            prop = object.name.split("/").pop()
+            print(f"self.{prop} = self.fh['{object.name}']")
 
-        # Polulated int he create_odc
-        self.raw_data_folder = None
-        self.housekeeping_folder = None
-        self.plots_folder = None
-        self.raw_data_dirfile = None
-        self.obs_df = None  # observation file
-        self.raw_dfs = []  # raw data files
-
-    def create_odh(self, dataroot: str):
-        """
-        Creates an Observation data collection folder with the structure specified in the
-        Implementation and Dataformat Design Document
-
-        :param dataroot:
-        :return:
-        """
-        # create folder structure:
-        self.data_root_folder = (
-            dataroot
-            + "/observation_"
-            + datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-        )
-        dr = self.data_root_folder
-
-        self.raw_data_folder = dr + "/raw_data/"
-        self.housekeeping_folder = dr + "/housekeeping/"
-        self.plots_folder = dr + "/plots/"
-
-        try:
-            os.mkdir(self.data_root_folder)
-            os.mkdir(self.raw_data_folder)
-            os.mkdir(self.housekeeping_folder)
-            os.mkdir(self.plots_folder)
-        except IOError:
-            print("Failed to write directory")
-            raise
-        
+    for k, v in f.items():
+        if isinstance(v, h5py.Dataset):
+            print(f"self.{k} = self.fh['{k}']")
+        elif isinstance(v, h5py.Group):
+            v.visititems(somefunc)
 
 
-    def extend_datalen(self):
-        """
-        Extends the available dataspace in *ALL* dof the data files
-        :return:
-        """
+if __name__ == "__main__":
+    log = logger.getChild(__name__)
+    log.info("create a RawDataFile instance")
 
-    def record_data(self, n_samples):
-        """
-        record a specified number of data samples to hdf5 document
-        :param n_samples:
-        :return:
-        """
-        pass
+    f = "SomeMadeUpName.h5"
+    rdf = RawDataFile(f)
 
-    def finalize(self, rawdf, obs_df: ObservationDataFile):
-        """
-        Merges the raw data files collected during an observation period into the Observation DataFile
+    log.info(
+        "file was created as it didn't exist, but if it's reread: an exeception will be caught"
+    )
+    rdf = RawDataFile(f)
 
-        Interest:
-        # GD
-        attenuator_settings
+    log.info("this time, setting the format before next read...")
+    rdf.format(488, 1000, 1)
+    rdf.close()
 
-        # TOD
-        adc_i: n_resonator x n_sample
-        adc_q: n_resonator x n_sample
-        lo_freq: n_sample
-        timestamp: n_sample
+    del rdf
 
-        :param rawdf:
-        :param obs_df:
-        :return:
-        """
-        pass
+    rdf = RawDataFile(f)
+    log.info(f"n_resonator is currently {rdf.n_resonator[0]}")
+    rdf.n_resonator[0] = 15
+    rdf.close()
+    del rdf
+    rdf = RawDataFile(f)
 
+    log.info(f"after write and close, n_resonator is now {rdf.n_resonator[0]}")

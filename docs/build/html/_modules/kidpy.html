@@ -1,0 +1,696 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>kidpy &mdash; mKID Readout - KIDPY3 2.0.0 documentation</title>
+      <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../_static/jquery.js"></script>
+        <script src="../_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
+        <script src="../_static/doctools.js"></script>
+        <script src="../_static/sphinx_highlight.js"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            mKID Readout - KIDPY3
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../modules.html">host</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">mKID Readout - KIDPY3</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="index.html">Module code</a></li>
+      <li class="breadcrumb-item active">kidpy</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for kidpy</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">:Date: 2023-07-20</span>
+<span class="sd">:Version: 2.0.0</span>
+<span class="sd">:Authors: - Cody Roberson</span>
+<span class="sd">          - Adrian Sinclair</span>
+<span class="sd">          - Ryan Stephenson</span>
+<span class="sd">          - Philip Mauskopf</span>
+<span class="sd">          - Jack Sayers</span>
+
+<span class="sd">kidpy is where users can interact with the mkid readout system. Simply launch with</span>
+<span class="sd">.. codeblock::</span>
+<span class="sd">    python kidpy.py</span>
+
+
+<span class="sd">When an operation is selected, a command is created and published on a redis</span>
+<span class="sd">pubsub channel. Any listening RFSOC(s) would then parse and execute the specified command</span>
+<span class="sd">    </span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">sys</span><span class="o">,</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">redis</span>
+<span class="kn">import</span> <span class="nn">json</span>
+<span class="kn">import</span> <span class="nn">configparser</span>
+<span class="kn">import</span> <span class="nn">time</span>
+<span class="kn">import</span> <span class="nn">serial.tools.list_ports_linux</span>
+<span class="kn">import</span> <span class="nn">udpcap</span>
+<span class="kn">import</span> <span class="nn">datetime</span>
+<span class="kn">import</span> <span class="nn">valon5009</span>
+<span class="kn">import</span> <span class="nn">Sweeps</span>
+<span class="kn">import</span> <span class="nn">udp2</span>
+<span class="kn">import</span> <span class="nn">data_handler</span>
+
+<span class="c1"># from datetime import date</span>
+<span class="c1"># from datetime import datetime</span>
+<span class="kn">import</span> <span class="nn">pdb</span>
+<span class="kn">import</span> <span class="nn">glob</span>
+<span class="kn">import</span> <span class="nn">logging</span>
+
+<span class="c1">### Logging ###</span>
+<span class="c1"># Configures the logger such that it prints to a screen and file including the format</span>
+<span class="n">__LOGFMT</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">%(asctime)s</span><span class="s2">|</span><span class="si">%(levelname)s</span><span class="s2">|</span><span class="si">%(filename)s</span><span class="s2">|</span><span class="si">%(lineno)d</span><span class="s2">|</span><span class="si">%(funcName)s</span><span class="s2">|</span><span class="si">%(message)s</span><span class="s2">&quot;</span>
+
+<span class="n">logging</span><span class="o">.</span><span class="n">basicConfig</span><span class="p">(</span><span class="nb">format</span><span class="o">=</span><span class="n">__LOGFMT</span><span class="p">,</span> <span class="n">level</span><span class="o">=</span><span class="n">logging</span><span class="o">.</span><span class="n">DEBUG</span><span class="p">)</span>
+<span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+<span class="n">__logh</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">FileHandler</span><span class="p">(</span><span class="s2">&quot;./kidpy.log&quot;</span><span class="p">)</span>
+<span class="n">logging</span><span class="o">.</span><span class="n">root</span><span class="o">.</span><span class="n">addHandler</span><span class="p">(</span><span class="n">__logh</span><span class="p">)</span>
+<span class="n">logger</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="mi">100</span><span class="p">,</span> <span class="n">__LOGFMT</span><span class="p">)</span>
+<span class="n">__logh</span><span class="o">.</span><span class="n">flush</span><span class="p">()</span>
+<span class="n">__logh</span><span class="o">.</span><span class="n">setFormatter</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">Formatter</span><span class="p">(</span><span class="n">__LOGFMT</span><span class="p">))</span>
+<span class="c1">################</span>
+
+
+<span class="n">default_f_center</span> <span class="o">=</span> <span class="mf">400.0</span>
+
+<span class="c1"># for the ONR features</span>
+<span class="n">onr_repo_dir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">expanduser</span><span class="p">(</span><span class="s2">&quot;~&quot;</span><span class="p">)</span> <span class="o">+</span> <span class="s2">&quot;/onrkidpy&quot;</span>
+<span class="n">onr_check</span> <span class="o">=</span> <span class="n">glob</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="n">onr_repo_dir</span><span class="p">)</span>
+<span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="n">onr_check</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+    <span class="n">onr_flag</span> <span class="o">=</span> <span class="kc">False</span>
+<span class="k">else</span><span class="p">:</span>
+    <span class="n">onr_flag</span> <span class="o">=</span> <span class="kc">True</span>
+<span class="k">if</span> <span class="n">onr_flag</span><span class="p">:</span>
+    <span class="n">sys</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">onr_repo_dir</span><span class="p">)</span>
+    <span class="kn">import</span> <span class="nn">onrkidpy</span>
+    <span class="kn">import</span> <span class="nn">onr_fit_lo_sweeps</span> <span class="k">as</span> <span class="nn">fit_lo</span>
+    <span class="kn">import</span> <span class="nn">onr_motor_control</span>
+    <span class="kn">import</span> <span class="nn">subprocess</span>
+
+    <span class="n">motor</span> <span class="o">=</span> <span class="n">onr_motor_control</span><span class="o">.</span><span class="n">SKPR_Motor_Control</span><span class="p">()</span>
+
+
+<div class="viewcode-block" id="testConnection"><a class="viewcode-back" href="../kidpy.html#kidpy.testConnection">[docs]</a><span class="k">def</span> <span class="nf">testConnection</span><span class="p">(</span><span class="n">r</span><span class="p">):</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">tr</span> <span class="o">=</span> <span class="n">r</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="s2">&quot;testkey&quot;</span><span class="p">,</span> <span class="s2">&quot;123&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="kc">True</span>
+    <span class="k">except</span> <span class="n">redis</span><span class="o">.</span><span class="n">exceptions</span><span class="o">.</span><span class="n">ConnectionError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="n">e</span><span class="p">)</span>
+        <span class="k">return</span> <span class="kc">False</span></div>
+
+
+<div class="viewcode-block" id="wait_for_free"><a class="viewcode-back" href="../kidpy.html#kidpy.wait_for_free">[docs]</a><span class="k">def</span> <span class="nf">wait_for_free</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="n">delay</span><span class="o">=</span><span class="mf">0.25</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="mi">10</span><span class="p">):</span>
+    <span class="n">count</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">r</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="s2">&quot;status&quot;</span><span class="p">,</span> <span class="s2">&quot;busy&quot;</span><span class="p">)</span>
+    <span class="k">while</span> <span class="n">r</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;status&quot;</span><span class="p">)</span> <span class="o">!=</span> <span class="sa">b</span><span class="s2">&quot;free&quot;</span><span class="p">:</span>
+        <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="n">delay</span><span class="p">)</span>
+        <span class="n">count</span> <span class="o">=</span> <span class="n">count</span> <span class="o">+</span> <span class="mi">1</span>
+        <span class="k">if</span> <span class="n">count</span> <span class="o">==</span> <span class="n">timeout</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;TIMED OUT WHILE WAITING FOR RFSOC&quot;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="kc">False</span>
+    <span class="k">return</span> <span class="kc">True</span></div>
+
+
+<div class="viewcode-block" id="wait_for_reply"><a class="viewcode-back" href="../kidpy.html#kidpy.wait_for_reply">[docs]</a><span class="k">def</span> <span class="nf">wait_for_reply</span><span class="p">(</span><span class="n">redis_pubsub</span><span class="p">,</span> <span class="n">cmd</span><span class="p">,</span> <span class="n">max_timeout</span><span class="o">=</span><span class="mi">15</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+
+<span class="sd">    This is the eventual replacement for the waitForFree() method.</span>
+<span class="sd">    We want to have smarter replies that can ferry data back from the RFSOC.</span>
+
+<span class="sd">    Once a command is sent out, listen for a reply on the &lt;cmd_reply&gt; channel</span>
+<span class="sd">        Format for replying to commands from redis</span>
+<span class="sd">            message = {</span>
+<span class="sd">                &#39;cmd&#39; : &#39;relay command&#39;,</span>
+<span class="sd">                &#39;status&#39; : &#39;OK&#39;|&#39;FAIL&#39;,</span>
+<span class="sd">                &#39;data&#39; : &#39;nil&#39; | &lt;arbitrary data&gt;</span>
+<span class="sd">            }</span>
+
+<span class="sd">    :param max_timeout: int :</span>
+<span class="sd">        time in seconds to wait for the RFSOC to reply. If it fails in this time,</span>
+<span class="sd">        this should indicate a failure of some kind has occured</span>
+<span class="sd">    :param cmd: str :</span>
+<span class="sd">        Command sent out</span>
+<span class="sd">    :param redis_pubsub: redis.Redis.pubsub :</span>
+<span class="sd">        reference to a Redis pubsub object that has already subscribed to relevant channels</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">current_time</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="k">while</span> <span class="n">current_time</span> <span class="o">&lt;</span> <span class="n">max_timeout</span><span class="p">:</span>
+        <span class="n">m</span> <span class="o">=</span> <span class="n">redis_pubsub</span><span class="o">.</span><span class="n">get_message</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">m</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">m</span><span class="p">[</span><span class="s2">&quot;channel&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="sa">b</span><span class="s2">&quot;picard_reply&quot;</span><span class="p">:</span>
+            <span class="n">msg</span> <span class="o">=</span> <span class="n">m</span><span class="p">[</span><span class="s2">&quot;data&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="s2">&quot;ASCII&quot;</span><span class="p">)</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">data</span><span class="p">[</span><span class="s2">&quot;cmd&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="n">cmd</span> <span class="ow">and</span> <span class="n">data</span><span class="p">[</span><span class="s2">&quot;status&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;OK&quot;</span><span class="p">:</span>
+                <span class="k">return</span> <span class="kc">True</span><span class="p">,</span> <span class="n">data</span><span class="p">[</span><span class="s2">&quot;data&quot;</span><span class="p">]</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">return</span> <span class="kc">False</span><span class="p">,</span> <span class="n">data</span><span class="p">[</span><span class="s2">&quot;data&quot;</span><span class="p">]</span>
+        <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">current_time</span> <span class="o">=</span> <span class="n">current_time</span> <span class="o">+</span> <span class="mi">1</span>
+    <span class="nb">print</span><span class="p">(</span>
+        <span class="s2">&quot;WARINNG: TIMED OUT WAITING FOR REPLY --&gt;  def waitForReply(redisIF, cmd, maxTimeout = 15):&quot;</span>
+    <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="checkBlastCli"><a class="viewcode-back" href="../kidpy.html#kidpy.checkBlastCli">[docs]</a><span class="k">def</span> <span class="nf">checkBlastCli</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="n">p</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Rudamentary &quot;is the rfsoc control software running&quot; check.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">cmd</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;cmd&quot;</span><span class="p">:</span> <span class="s2">&quot;ping&quot;</span><span class="p">,</span> <span class="s2">&quot;args&quot;</span><span class="p">:</span> <span class="p">[]}</span>
+    <span class="n">cmd</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">cmd</span><span class="p">)</span>
+    <span class="n">r</span><span class="o">.</span><span class="n">publish</span><span class="p">(</span><span class="s2">&quot;picard&quot;</span><span class="p">,</span> <span class="n">cmd</span><span class="p">)</span>
+    <span class="n">count</span> <span class="o">=</span> <span class="mi">1</span>
+    <span class="n">delay</span> <span class="o">=</span> <span class="mf">0.5</span>
+    <span class="n">timeout</span> <span class="o">=</span> <span class="mi">6</span>
+    <span class="k">while</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="n">m</span> <span class="o">=</span> <span class="n">p</span><span class="o">.</span><span class="n">get_message</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">m</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">m</span><span class="p">[</span><span class="s2">&quot;data&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="sa">b</span><span class="s2">&quot;Hello World&quot;</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;redisControl is running&quot;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="kc">True</span>
+        <span class="k">if</span> <span class="n">count</span> <span class="o">&gt;=</span> <span class="n">timeout</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;RFSOC didn&#39;t reply, is it running redisControl?&quot;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="kc">False</span>
+
+        <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="n">delay</span><span class="p">)</span>
+        <span class="n">count</span> <span class="o">=</span> <span class="n">count</span> <span class="o">+</span> <span class="mi">1</span></div>
+
+
+<div class="viewcode-block" id="write_fList"><a class="viewcode-back" href="../kidpy.html#kidpy.write_fList">[docs]</a><span class="k">def</span> <span class="nf">write_fList</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">fList</span><span class="p">,</span> <span class="n">ampList</span><span class="p">):</span>
+    <span class="c1"># simple function to write a list of tones</span>
+    <span class="k">if</span> <span class="n">fList</span> <span class="o">==</span> <span class="p">[]:</span>
+        <span class="n">cmd</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;cmd&quot;</span><span class="p">:</span> <span class="s2">&quot;ulWaveform&quot;</span><span class="p">,</span> <span class="s2">&quot;args&quot;</span><span class="p">:</span> <span class="p">[]}</span>
+    <span class="k">elif</span> <span class="n">fList</span> <span class="o">!=</span> <span class="p">[]</span> <span class="ow">and</span> <span class="n">ampList</span> <span class="o">==</span> <span class="p">[]:</span>
+        <span class="c1"># in the case that amps are not provided, do default.</span>
+        <span class="n">ampList</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">fList</span><span class="p">))</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+        <span class="n">cmd</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;cmd&quot;</span><span class="p">:</span> <span class="s2">&quot;ulWaveform&quot;</span><span class="p">,</span> <span class="s2">&quot;args&quot;</span><span class="p">:</span> <span class="p">[</span><span class="n">fList</span><span class="p">,</span> <span class="n">ampList</span><span class="p">]}</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">cmd</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;cmd&quot;</span><span class="p">:</span> <span class="s2">&quot;ulWaveform&quot;</span><span class="p">,</span> <span class="s2">&quot;args&quot;</span><span class="p">:</span> <span class="p">[</span><span class="n">fList</span><span class="p">,</span> <span class="n">ampList</span><span class="p">]}</span>
+
+    <span class="n">cmdstr</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">cmd</span><span class="p">)</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">publish</span><span class="p">(</span><span class="s2">&quot;picard&quot;</span><span class="p">,</span> <span class="n">cmdstr</span><span class="p">)</span>
+    <span class="n">success</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">current_waveform</span> <span class="o">=</span> <span class="n">wait_for_reply</span><span class="p">(</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="p">,</span> <span class="s2">&quot;ulWaveform&quot;</span><span class="p">,</span> <span class="n">max_timeout</span><span class="o">=</span><span class="mi">10</span>
+    <span class="p">)</span>
+    <span class="k">if</span> <span class="n">success</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Wrote Waveform&quot;</span><span class="p">)</span>
+    <span class="c1">#        print(self.current_waveform)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Failed to write waveform&quot;</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="get_tone_list"><a class="viewcode-back" href="../kidpy.html#kidpy.get_tone_list">[docs]</a><span class="k">def</span> <span class="nf">get_tone_list</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="n">lo_freq</span> <span class="o">=</span> <span class="n">valon5009</span><span class="o">.</span><span class="n">Synthesizer</span><span class="o">.</span><span class="n">get_frequency</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">valon</span><span class="p">,</span> <span class="n">valon5009</span><span class="o">.</span><span class="n">SYNTH_B</span><span class="p">)</span>
+    <span class="n">tones</span> <span class="o">=</span> <span class="n">lo_freq</span> <span class="o">*</span> <span class="mf">1.0e6</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">current_waveform</span><span class="p">)</span> <span class="o">/</span> <span class="mf">2.0</span>
+    <span class="k">return</span> <span class="n">tones</span></div>
+
+
+<div class="viewcode-block" id="menu"><a class="viewcode-back" href="../kidpy.html#kidpy.menu">[docs]</a><span class="k">def</span> <span class="nf">menu</span><span class="p">(</span><span class="n">captions</span><span class="p">,</span> <span class="n">options</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Creates menu for terminal interface</span>
+<span class="sd">    inputs:</span>
+<span class="sd">        list captions: List of menu captions</span>
+<span class="sd">        list options: List of menu options</span>
+<span class="sd">    outputs:</span>
+<span class="sd">        int opt: Integer corresponding to menu option chosen by user&quot;&quot;&quot;</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\t</span><span class="s2">&quot;</span> <span class="o">+</span> <span class="n">captions</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">options</span><span class="p">)):</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\t</span><span class="s2">&quot;</span> <span class="o">+</span> <span class="s2">&quot;</span><span class="se">\033</span><span class="s2">[32m&quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">i</span><span class="p">)</span> <span class="o">+</span> <span class="s2">&quot; ..... &quot;</span> <span class="s2">&quot;</span><span class="se">\033</span><span class="s2">[0m&quot;</span> <span class="o">+</span> <span class="n">options</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">+</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="n">opt</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">opt</span> <span class="o">=</span> <span class="nb">eval</span><span class="p">(</span><span class="nb">input</span><span class="p">())</span>
+    <span class="k">except</span> <span class="ne">KeyboardInterrupt</span><span class="p">:</span>
+        <span class="n">exit</span><span class="p">()</span>
+    <span class="k">return</span> <span class="n">opt</span></div>
+
+
+<div class="viewcode-block" id="kidpy"><a class="viewcode-back" href="../kidpy.html#kidpy.kidpy">[docs]</a><span class="k">class</span> <span class="nc">kidpy</span><span class="p">:</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="c1"># Pull config</span>
+        <span class="n">config</span> <span class="o">=</span> <span class="n">configparser</span><span class="o">.</span><span class="n">ConfigParser</span><span class="p">()</span>
+        <span class="n">config</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="s2">&quot;generalConfig.conf&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__redis_host</span> <span class="o">=</span> <span class="n">config</span><span class="p">[</span><span class="s2">&quot;REDIS&quot;</span><span class="p">][</span><span class="s2">&quot;host&quot;</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__customWaveform</span> <span class="o">=</span> <span class="n">config</span><span class="p">[</span><span class="s2">&quot;DSP&quot;</span><span class="p">][</span><span class="s2">&quot;customWaveform&quot;</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__customSingleTone</span> <span class="o">=</span> <span class="n">config</span><span class="p">[</span><span class="s2">&quot;DSP&quot;</span><span class="p">][</span><span class="s2">&quot;singleToneFrequency&quot;</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__saveData</span> <span class="o">=</span> <span class="n">config</span><span class="p">[</span><span class="s2">&quot;DATA&quot;</span><span class="p">][</span><span class="s2">&quot;saveFolder&quot;</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__ValonPorts</span> <span class="o">=</span> <span class="n">config</span><span class="p">[</span><span class="s2">&quot;VALON&quot;</span><span class="p">][</span><span class="s2">&quot;valonSerialPorts&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;,&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__valon_RF1_SYS2</span> <span class="o">=</span> <span class="n">config</span><span class="p">[</span><span class="s2">&quot;VALON&quot;</span><span class="p">][</span><span class="s2">&quot;rfsoc1System2&quot;</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__valon_RF1_SYS1</span> <span class="o">=</span> <span class="n">config</span><span class="p">[</span><span class="s2">&quot;VALON&quot;</span><span class="p">][</span><span class="s2">&quot;rfsoc1System1&quot;</span><span class="p">]</span>
+
+        <span class="c1"># setup redis</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">r</span> <span class="o">=</span> <span class="n">redis</span><span class="o">.</span><span class="n">Redis</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">__redis_host</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">p</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">pubsub</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">subscribe</span><span class="p">(</span><span class="s2">&quot;ping&quot;</span><span class="p">)</span>
+        <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">get_message</span><span class="p">()[</span><span class="s2">&quot;data&quot;</span><span class="p">]</span> <span class="o">!=</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Failed to Subscribe to redis Ping Channel&quot;</span><span class="p">)</span>
+            <span class="n">exit</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">subscribe</span><span class="p">(</span><span class="s2">&quot;picard_reply&quot;</span><span class="p">)</span>
+        <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">get_message</span><span class="p">()[</span><span class="s2">&quot;data&quot;</span><span class="p">]</span> <span class="o">!=</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Failed to Subscribe redis picard_reply channel&quot;</span><span class="p">)</span>
+            <span class="n">exit</span><span class="p">()</span>
+
+        <span class="c1"># check that the rfsoc is running redisControl.py</span>
+        <span class="n">os</span><span class="o">.</span><span class="n">system</span><span class="p">(</span><span class="s2">&quot;clear&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">checkBlastCli</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="p">):</span>
+            <span class="n">exit</span><span class="p">()</span>
+
+        <span class="c1"># Differentiate 5009&#39;s connected to the system</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">valon</span> <span class="o">=</span> <span class="n">valon5009</span><span class="o">.</span><span class="n">Synthesizer</span><span class="p">(</span><span class="s2">&quot;/dev/IF2System1LO&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">valon</span><span class="o">.</span><span class="n">set_frequency</span><span class="p">(</span><span class="n">valon5009</span><span class="o">.</span><span class="n">SYNTH_B</span><span class="p">,</span> <span class="n">default_f_center</span><span class="p">)</span>
+        <span class="c1"># for v in self.__ValonPorts:</span>
+        <span class="c1">#    self.valon = valon5009.Synthesizer(v.replace(&#39; &#39;, &#39;&#39;))</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">__udp</span> <span class="o">=</span> <span class="n">udpcap</span><span class="o">.</span><span class="n">udpcap</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">current_waveform</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">caption1</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="se">\n\t\033</span><span class="s2">[95mKID-PY2 RFSoC Readout</span><span class="se">\033</span><span class="s2">[95m&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">captions</span> <span class="o">=</span> <span class="p">[</span><span class="n">caption1</span><span class="p">]</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">__main_opts</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="s2">&quot;Upload firmware&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Initialize system &amp; UDP conn&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Write test comb (single or multitone)&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Write stored comb from config file&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;I &lt;-&gt; Q Phase offset&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Take Raw Data&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;LO Sweep&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Exit&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;ONR kidpy&quot;</span><span class="p">,</span>
+        <span class="p">]</span>
+
+<div class="viewcode-block" id="kidpy.begin_ui"><a class="viewcode-back" href="../kidpy.html#kidpy.kidpy.begin_ui">[docs]</a>    <span class="k">def</span> <span class="nf">begin_ui</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">pass</span></div>
+
+<div class="viewcode-block" id="kidpy.main_opt"><a class="viewcode-back" href="../kidpy.html#kidpy.kidpy.main_opt">[docs]</a>    <span class="k">def</span> <span class="nf">main_opt</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Main user interface routing</span>
+
+<span class="sd">        r : redis Server instance</span>
+<span class="sd">        p : redis.pubsub instance</span>
+<span class="sd">        udp : udpcap object instance</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">while</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">conStatus</span> <span class="o">=</span> <span class="n">testConnection</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">conStatus</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\033</span><span class="s2">[0;36m&quot;</span> <span class="o">+</span> <span class="s2">&quot;</span><span class="se">\r\n</span><span class="s2">Connected&quot;</span> <span class="o">+</span> <span class="s2">&quot;</span><span class="se">\033</span><span class="s2">[0m&quot;</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span>
+                    <span class="s2">&quot;</span><span class="se">\033</span><span class="s2">[0;31m&quot;</span>
+                    <span class="o">+</span> <span class="s2">&quot;</span><span class="se">\r\n</span><span class="s2">Couldn&#39;t connect to redis-server double check it&#39;s running and the generalConfig is correct&quot;</span>
+                    <span class="o">+</span> <span class="s2">&quot;</span><span class="se">\033</span><span class="s2">[0m&quot;</span>
+                <span class="p">)</span>
+            <span class="n">opt</span> <span class="o">=</span> <span class="n">menu</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">captions</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">__main_opts</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">conStatus</span> <span class="o">==</span> <span class="kc">False</span><span class="p">:</span>
+                <span class="n">resp</span> <span class="o">=</span> <span class="nb">input</span><span class="p">(</span>
+                    <span class="s2">&quot;Can&#39;t connect to redis server, do you want to continue anyway? [y/n]: &quot;</span>
+                <span class="p">)</span>
+                <span class="k">if</span> <span class="n">resp</span> <span class="o">!=</span> <span class="s2">&quot;y&quot;</span><span class="p">:</span>
+                    <span class="n">exit</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">opt</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>  <span class="c1"># upload firmware</span>
+                <span class="n">os</span><span class="o">.</span><span class="n">system</span><span class="p">(</span><span class="s2">&quot;clear&quot;</span><span class="p">)</span>
+                <span class="n">cmd</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;cmd&quot;</span><span class="p">:</span> <span class="s2">&quot;ulBitstream&quot;</span><span class="p">,</span> <span class="s2">&quot;args&quot;</span><span class="p">:</span> <span class="p">[]}</span>
+                <span class="n">cmdstr</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">cmd</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">publish</span><span class="p">(</span><span class="s2">&quot;picard&quot;</span><span class="p">,</span> <span class="n">cmdstr</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="s2">&quot;status&quot;</span><span class="p">,</span> <span class="s2">&quot;busy&quot;</span><span class="p">)</span>
+                <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Waiting for the RFSOC to upload it&#39;s bitstream...&quot;</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">wait_for_free</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="p">,</span> <span class="mf">0.75</span><span class="p">,</span> <span class="mi">25</span><span class="p">):</span>
+                    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Done&quot;</span><span class="p">)</span>
+
+            <span class="k">if</span> <span class="n">opt</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>  <span class="c1"># Init System &amp; UDP conn.</span>
+                <span class="n">os</span><span class="o">.</span><span class="n">system</span><span class="p">(</span><span class="s2">&quot;clear&quot;</span><span class="p">)</span>
+                <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Initializing System and UDP Connection&quot;</span><span class="p">)</span>
+                <span class="n">cmd</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;cmd&quot;</span><span class="p">:</span> <span class="s2">&quot;initRegs&quot;</span><span class="p">,</span> <span class="s2">&quot;args&quot;</span><span class="p">:</span> <span class="p">[]}</span>
+                <span class="n">cmdstr</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">cmd</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">publish</span><span class="p">(</span><span class="s2">&quot;picard&quot;</span><span class="p">,</span> <span class="n">cmdstr</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">wait_for_free</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">,</span> <span class="mi">5</span><span class="p">):</span>
+                    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Done&quot;</span><span class="p">)</span>
+
+            <span class="k">if</span> <span class="n">opt</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>  <span class="c1"># Write test comb</span>
+                <span class="n">prompt</span> <span class="o">=</span> <span class="nb">input</span><span class="p">(</span><span class="s2">&quot;Full test comb? y/n &quot;</span><span class="p">)</span>
+                <span class="n">os</span><span class="o">.</span><span class="n">system</span><span class="p">(</span><span class="s2">&quot;clear&quot;</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">prompt</span> <span class="o">==</span> <span class="s2">&quot;y&quot;</span><span class="p">:</span>
+                    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Waiting for the RFSOC to finish writing the full comb&quot;</span><span class="p">)</span>
+                    <span class="n">write_fList</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="p">[],</span> <span class="p">[])</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="nb">print</span><span class="p">(</span>
+                        <span class="s2">&quot;Waiting for the RFSOC to write single </span><span class="si">{}</span><span class="s2"> MHz Tone&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                            <span class="nb">float</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">__customSingleTone</span><span class="p">)</span> <span class="o">/</span> <span class="mf">1e6</span>
+                        <span class="p">)</span>
+                    <span class="p">)</span>
+                    <span class="n">write_fList</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="p">[</span><span class="nb">float</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">__customSingleTone</span><span class="p">)],</span> <span class="p">[])</span>
+
+            <span class="k">if</span> <span class="n">opt</span> <span class="o">==</span> <span class="mi">3</span><span class="p">:</span>  <span class="c1"># write stored comb</span>
+                <span class="n">os</span><span class="o">.</span><span class="n">system</span><span class="p">(</span><span class="s2">&quot;clear&quot;</span><span class="p">)</span>
+                <span class="nb">print</span><span class="p">(</span>
+                    <span class="s2">&quot;Waiting for the RFSOC to finish writing the custom frequency list: </span><span class="se">\r\n</span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">customWaveform</span>
+                    <span class="p">)</span>
+                <span class="p">)</span>
+                <span class="n">fList</span> <span class="o">=</span> <span class="p">[]</span>
+
+                <span class="c1"># separate values from config and remove &#39;,&#39; before converting to number and</span>
+                <span class="c1"># sending the list of values up to the DAC</span>
+                <span class="k">for</span> <span class="n">value</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">__customWaveform</span><span class="o">.</span><span class="n">split</span><span class="p">():</span>
+                    <span class="n">s</span> <span class="o">=</span> <span class="n">value</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;,&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
+                    <span class="n">fList</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">s</span><span class="p">))</span>
+                <span class="n">write_fList</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">fList</span><span class="p">,</span> <span class="p">[])</span>
+
+            <span class="k">if</span> <span class="n">opt</span> <span class="o">==</span> <span class="mi">4</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Not Implemented&quot;</span><span class="p">)</span>
+
+            <span class="k">if</span> <span class="n">opt</span> <span class="o">==</span> <span class="mi">5</span><span class="p">:</span>
+                <span class="n">t</span> <span class="o">=</span> <span class="mi">0</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="n">t</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="nb">input</span><span class="p">(</span><span class="s2">&quot;How many seconds of data?: &quot;</span><span class="p">))</span>
+                    <span class="nb">print</span><span class="p">(</span><span class="n">t</span><span class="p">)</span>
+                <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
+                    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Error, not a valid Number&quot;</span><span class="p">)</span>
+                <span class="k">except</span> <span class="ne">KeyboardInterrupt</span><span class="p">:</span>
+                    <span class="k">return</span>
+
+                <span class="k">if</span> <span class="n">t</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+                    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Can&#39;t sample 0 seconds&quot;</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">os</span><span class="o">.</span><span class="n">system</span><span class="p">(</span><span class="s2">&quot;clear&quot;</span><span class="p">)</span>
+                    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Binding Socket&quot;</span><span class="p">)</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">__udp</span><span class="o">.</span><span class="n">bindSocket</span><span class="p">()</span>
+                    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Capturing packets&quot;</span><span class="p">)</span>
+                    <span class="n">fname</span> <span class="o">=</span> <span class="p">(</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">__saveData</span>
+                        <span class="o">+</span> <span class="s2">&quot;kidpyCaptureData{0:%Y%m</span><span class="si">%d</span><span class="s2">%H%M%S}.h5&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                            <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span>
+                        <span class="p">)</span>
+                    <span class="p">)</span>
+                    <span class="nb">print</span><span class="p">(</span><span class="n">fname</span><span class="p">)</span>
+                    <span class="k">if</span> <span class="n">t</span> <span class="o">&lt;</span> <span class="mi">60</span><span class="p">:</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">__udp</span><span class="o">.</span><span class="n">shortDataCapture</span><span class="p">(</span><span class="n">fname</span><span class="p">,</span> <span class="mi">488</span> <span class="o">*</span> <span class="n">t</span><span class="p">)</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">__udp</span><span class="o">.</span><span class="n">LongDataCapture</span><span class="p">(</span><span class="n">fname</span><span class="p">,</span> <span class="mi">488</span> <span class="o">*</span> <span class="n">t</span><span class="p">)</span>
+                    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Releasing Socket&quot;</span><span class="p">)</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">__udp</span><span class="o">.</span><span class="n">release</span><span class="p">()</span>
+
+            <span class="k">if</span> <span class="n">opt</span> <span class="o">==</span> <span class="mi">6</span><span class="p">:</span>  <span class="c1"># Lo Sweep</span>
+                <span class="c1"># valon should be connected and differentiated as part of bringing kidpy up.</span>
+                <span class="n">os</span><span class="o">.</span><span class="n">system</span><span class="p">(</span><span class="s2">&quot;clear&quot;</span><span class="p">)</span>
+                <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;LO Sweep&quot;</span><span class="p">)</span>
+                <span class="n">Sweeps</span><span class="o">.</span><span class="n">loSweep</span><span class="p">(</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">valon</span><span class="p">,</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">__udp</span><span class="p">,</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">current_waveform</span><span class="p">,</span>
+                    <span class="n">f_center</span><span class="o">=</span><span class="n">default_f_center</span><span class="p">,</span>
+                <span class="p">)</span>
+
+                <span class="k">pass</span>
+
+            <span class="k">if</span> <span class="n">opt</span> <span class="o">==</span> <span class="mi">7</span><span class="p">:</span>  <span class="c1"># get system state</span>
+                <span class="n">exit</span><span class="p">()</span>
+
+            <span class="k">if</span> <span class="n">opt</span> <span class="o">==</span> <span class="mi">8</span><span class="p">:</span>  <span class="c1"># ONR version of kidpy</span>
+                <span class="k">if</span> <span class="n">onr_flag</span><span class="p">:</span>
+                    <span class="n">onr_loop</span> <span class="o">=</span> <span class="kc">True</span>
+                    <span class="k">while</span> <span class="n">onr_loop</span><span class="p">:</span>
+                        <span class="n">onr_caption</span> <span class="o">=</span> <span class="p">[</span>
+                            <span class="s2">&quot;</span><span class="se">\n\t\033</span><span class="s2">[95mKID-PY2 RFSoC Readout (ONR Version)</span><span class="se">\033</span><span class="s2">[95m&quot;</span>
+                        <span class="p">]</span>
+                        <span class="n">onr_options</span> <span class="o">=</span> <span class="p">[</span>
+                            <span class="s2">&quot;Write Custom Tone List&quot;</span><span class="p">,</span>
+                            <span class="s2">&quot;Standard Calibration LO Sweep&quot;</span><span class="p">,</span>
+                            <span class="s2">&quot;Stream Data to File&quot;</span><span class="p">,</span>
+                            <span class="s2">&quot;Get Cooridinates&quot;</span><span class="p">,</span>
+                            <span class="s2">&quot;Set AZ Position&quot;</span><span class="p">,</span>
+                            <span class="s2">&quot;Set EL Position&quot;</span><span class="p">,</span>
+                            <span class="s2">&quot;Motor Test for Data Acquisition&quot;</span><span class="p">,</span>
+                            <span class="s2">&quot;Exit&quot;</span><span class="p">,</span>
+                        <span class="p">]</span>
+                        <span class="n">onr_opt</span> <span class="o">=</span> <span class="n">menu</span><span class="p">(</span><span class="n">onr_caption</span><span class="p">,</span> <span class="n">onr_options</span><span class="p">)</span>
+
+                        <span class="k">if</span> <span class="n">onr_opt</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>  <span class="c1"># write stored comb</span>
+                            <span class="n">os</span><span class="o">.</span><span class="n">system</span><span class="p">(</span><span class="s2">&quot;clear&quot;</span><span class="p">)</span>
+
+                            <span class="c1"># see if the user wants the default list or something different:</span>
+                            <span class="n">tone_file</span> <span class="o">=</span> <span class="p">(</span>
+                                <span class="nb">input</span><span class="p">(</span>
+                                    <span class="s2">&quot;What is the tone file you would like to load (default is params/Default_tone_list.npy)&quot;</span>
+                                <span class="p">)</span>
+                                <span class="ow">or</span> <span class="s2">&quot;params/Default_tone_list.npy&quot;</span>
+                            <span class="p">)</span>
+                            <span class="n">freqfile</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">tone_file</span><span class="p">)</span>
+                            <span class="n">fList</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="o">.</span><span class="n">tolist</span><span class="p">(</span><span class="n">freqfile</span><span class="p">)</span>
+                            <span class="n">aList</span> <span class="o">=</span> <span class="p">[]</span>
+                            <span class="c1"># aList = np.ndarray.tolist(np.load(amplitude_file)) # doesnt exist yet...</span>
+
+                            <span class="nb">print</span><span class="p">(</span>
+                                <span class="s2">&quot;Waiting for the RFSOC to finish writing the custom frequency list&quot;</span>
+                            <span class="p">)</span>
+                            <span class="n">write_fList</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">fList</span><span class="p">,</span> <span class="n">aList</span><span class="p">)</span>
+
+                        <span class="k">if</span> <span class="n">onr_opt</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>  <span class="c1"># Run standard calibration LO sweep</span>
+                            <span class="c1"># see if the user wants to shift all the tones (e.g., due to change in loading)</span>
+                            <span class="n">tone_shift</span> <span class="o">=</span> <span class="p">(</span>
+                                <span class="nb">input</span><span class="p">(</span>
+                                    <span class="s2">&quot;How many kHz to shift the tones before the LO sweep (default is 0)&quot;</span>
+                                <span class="p">)</span>
+                                <span class="ow">or</span> <span class="mi">0</span>
+                            <span class="p">)</span>
+                            <span class="k">if</span> <span class="n">tone_shift</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+                                <span class="n">lo_freq</span> <span class="o">=</span> <span class="n">valon5009</span><span class="o">.</span><span class="n">Synthesizer</span><span class="o">.</span><span class="n">get_frequency</span><span class="p">(</span>
+                                    <span class="bp">self</span><span class="o">.</span><span class="n">valon</span><span class="p">,</span> <span class="n">valon5009</span><span class="o">.</span><span class="n">SYNTH_B</span>
+                                <span class="p">)</span>
+                                <span class="n">fList</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="o">.</span><span class="n">tolist</span><span class="p">(</span>
+                                    <span class="n">get_tone_list</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+                                    <span class="o">+</span> <span class="nb">float</span><span class="p">(</span><span class="n">tone_shift</span><span class="p">)</span> <span class="o">*</span> <span class="mf">1.0e3</span>
+                                    <span class="o">-</span> <span class="n">lo_freq</span> <span class="o">*</span> <span class="mf">1.0e6</span>
+                                <span class="p">)</span>
+                                <span class="nb">print</span><span class="p">(</span>
+                                    <span class="s2">&quot;Waiting for the RFSOC to finish writing the updated frequency list&quot;</span>
+                                <span class="p">)</span>
+                                <span class="n">write_fList</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">fList</span><span class="p">,</span> <span class="p">[])</span>
+
+                            <span class="c1"># first the low resolution initial sweep</span>
+                            <span class="n">os</span><span class="o">.</span><span class="n">system</span><span class="p">(</span><span class="s2">&quot;clear&quot;</span><span class="p">)</span>
+                            <span class="nb">print</span><span class="p">(</span>
+                                <span class="s2">&quot;Taking initial low-resoluation sweep with df = 1 kHz and Deltaf = 100 kHz&quot;</span>
+                            <span class="p">)</span>
+                            <span class="n">savefile</span> <span class="o">=</span> <span class="n">onrkidpy</span><span class="o">.</span><span class="n">get_filename</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="s2">&quot;LO&quot;</span><span class="p">)</span>
+                            <span class="n">Sweeps</span><span class="o">.</span><span class="n">loSweep</span><span class="p">(</span>
+                                <span class="bp">self</span><span class="o">.</span><span class="n">valon</span><span class="p">,</span>
+                                <span class="bp">self</span><span class="o">.</span><span class="n">__udp</span><span class="p">,</span>
+                                <span class="bp">self</span><span class="o">.</span><span class="n">current_waveform</span><span class="p">,</span>
+                                <span class="n">valon5009</span><span class="o">.</span><span class="n">Synthesizer</span><span class="o">.</span><span class="n">get_frequency</span><span class="p">(</span>
+                                    <span class="bp">self</span><span class="o">.</span><span class="n">valon</span><span class="p">,</span> <span class="n">valon5009</span><span class="o">.</span><span class="n">SYNTH_B</span>
+                                <span class="p">),</span>
+                                <span class="n">N_steps</span><span class="o">=</span><span class="mi">200</span><span class="p">,</span>
+                                <span class="n">freq_step</span><span class="o">=</span><span class="mf">0.001</span><span class="p">,</span>
+                                <span class="n">savefile</span><span class="o">=</span><span class="n">savefile</span><span class="p">,</span>
+                            <span class="p">)</span>
+
+                            <span class="c1"># then fit the resonances from that sweep</span>
+                            <span class="n">fit_f0</span><span class="p">,</span> <span class="n">fit_qi</span><span class="p">,</span> <span class="n">fit_qc</span> <span class="o">=</span> <span class="n">fit_lo</span><span class="o">.</span><span class="n">main</span><span class="p">(</span>
+                                <span class="n">get_tone_list</span><span class="p">(</span><span class="bp">self</span><span class="p">),</span> <span class="n">quickPlot</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">printFlag</span><span class="o">=</span><span class="kc">True</span>
+                            <span class="p">)</span>
+                            <span class="n">adjust_tones</span> <span class="o">=</span> <span class="p">(</span>
+                                <span class="nb">input</span><span class="p">(</span>
+                                    <span class="s2">&quot;Manually adjust any of the fitted f0 values (y/n)?&quot;</span>
+                                <span class="p">)</span>
+                                <span class="ow">or</span> <span class="s2">&quot;n&quot;</span>
+                            <span class="p">)</span>
+                            <span class="k">if</span> <span class="n">adjust_tones</span> <span class="o">==</span> <span class="s2">&quot;y&quot;</span><span class="p">:</span>
+                                <span class="n">keepgoing</span> <span class="o">=</span> <span class="s2">&quot;y&quot;</span>
+                                <span class="k">while</span> <span class="n">keepgoing</span> <span class="o">==</span> <span class="s2">&quot;y&quot;</span><span class="p">:</span>
+                                    <span class="n">adjust_index</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span>
+                                        <span class="nb">input</span><span class="p">(</span><span class="s2">&quot;Index of tone to adjust:  &quot;</span><span class="p">)</span>
+                                    <span class="p">)</span>
+                                    <span class="n">freq_adjust</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="nb">input</span><span class="p">(</span><span class="s2">&quot;Frequency (in MHz):  &quot;</span><span class="p">))</span>
+                                    <span class="n">fit_f0</span><span class="p">[</span><span class="n">adjust_index</span><span class="p">]</span> <span class="o">=</span> <span class="n">freq_adjust</span> <span class="o">*</span> <span class="mf">1.0e6</span>
+                                    <span class="n">keepgoing</span> <span class="o">=</span> <span class="p">(</span>
+                                        <span class="nb">input</span><span class="p">(</span><span class="s2">&quot;Adjust another tone (y/n)?&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="s2">&quot;n&quot;</span>
+                                    <span class="p">)</span>
+                            <span class="n">new_tone_list</span> <span class="o">=</span> <span class="p">(</span>
+                                <span class="n">fit_f0</span>
+                                <span class="o">-</span> <span class="n">valon5009</span><span class="o">.</span><span class="n">Synthesizer</span><span class="o">.</span><span class="n">get_frequency</span><span class="p">(</span>
+                                    <span class="bp">self</span><span class="o">.</span><span class="n">valon</span><span class="p">,</span> <span class="n">valon5009</span><span class="o">.</span><span class="n">SYNTH_B</span>
+                                <span class="p">)</span>
+                                <span class="o">*</span> <span class="mf">1.0e6</span>
+                            <span class="p">)</span>
+
+                        <span class="k">if</span> <span class="n">onr_opt</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>  <span class="c1"># Stream data to file</span>
+                            <span class="n">t</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="nb">input</span><span class="p">(</span><span class="s2">&quot;How many seconds of data?: &quot;</span><span class="p">))</span> <span class="ow">or</span> <span class="mi">0</span>
+                            <span class="n">os</span><span class="o">.</span><span class="n">system</span><span class="p">(</span><span class="s2">&quot;clear&quot;</span><span class="p">)</span>
+                            <span class="bp">self</span><span class="o">.</span><span class="n">__udp</span><span class="o">.</span><span class="n">bindSocket</span><span class="p">()</span>
+                            <span class="n">savefile</span> <span class="o">=</span> <span class="n">onrkidpy</span><span class="o">.</span><span class="n">get_filename</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="s2">&quot;TOD&quot;</span><span class="p">)</span> <span class="o">+</span> <span class="s2">&quot;.hd5&quot;</span>
+                            <span class="k">if</span> <span class="n">t</span> <span class="o">&lt;</span> <span class="mi">60</span><span class="p">:</span>
+                                <span class="bp">self</span><span class="o">.</span><span class="n">__udp</span><span class="o">.</span><span class="n">shortDataCapture</span><span class="p">(</span><span class="n">savefile</span><span class="p">,</span> <span class="mi">488</span> <span class="o">*</span> <span class="n">t</span><span class="p">)</span>
+                            <span class="k">else</span><span class="p">:</span>
+                                <span class="bp">self</span><span class="o">.</span><span class="n">__udp</span><span class="o">.</span><span class="n">LongDataCapture</span><span class="p">(</span><span class="n">savefile</span><span class="p">,</span> <span class="mi">488</span> <span class="o">*</span> <span class="n">t</span><span class="p">)</span>
+                            <span class="bp">self</span><span class="o">.</span><span class="n">__udp</span><span class="o">.</span><span class="n">release</span><span class="p">()</span>
+
+                        <span class="k">if</span> <span class="n">onr_opt</span> <span class="o">==</span> <span class="mi">3</span><span class="p">:</span>  <span class="c1"># Test a telescope function</span>
+                            <span class="n">motor</span><span class="o">.</span><span class="n">init_test</span><span class="p">()</span>
+                            <span class="n">motor</span><span class="o">.</span><span class="n">AZ_Ser_Pos</span><span class="p">()</span>
+                            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;The AZ position is: &quot;</span><span class="p">,</span> <span class="n">motor</span><span class="o">.</span><span class="n">pfb</span><span class="p">)</span>
+                            <span class="n">motor</span><span class="o">.</span><span class="n">EL_Ser_Pos</span><span class="p">()</span>
+                            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;The EL position is: &quot;</span><span class="p">,</span> <span class="n">motor</span><span class="o">.</span><span class="n">pos</span><span class="p">)</span>
+
+                        <span class="k">if</span> <span class="n">onr_opt</span> <span class="o">==</span> <span class="mi">4</span><span class="p">:</span>
+                            <span class="n">motor</span><span class="o">.</span><span class="n">init_test</span><span class="p">()</span>
+                            <span class="n">pfb</span> <span class="o">=</span> <span class="n">motor</span><span class="o">.</span><span class="n">pfb</span>
+                            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Az Position is: &quot;</span><span class="p">,</span> <span class="n">pfb</span><span class="p">)</span>
+                            <span class="n">az_set_pos_req</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span>
+                                <span class="nb">input</span><span class="p">(</span>
+                                    <span class="s2">&quot;What position do you want to set the motor (-180.000 to 180.000 degrees)?&quot;</span>
+                                <span class="p">)</span>
+                            <span class="p">)</span>
+                            <span class="n">az_set_pos</span> <span class="o">=</span> <span class="n">az_set_pos_req</span>
+                            <span class="k">if</span> <span class="n">az_set_pos</span> <span class="o">&gt;</span> <span class="mi">180000</span> <span class="ow">or</span> <span class="n">az_set_pos</span> <span class="o">&lt;</span> <span class="o">-</span><span class="mi">180000</span><span class="p">:</span>
+                                <span class="nb">print</span><span class="p">(</span>
+                                    <span class="s2">&quot;This position is outside the limits of the Telescope!&quot;</span>
+                                <span class="p">)</span>
+                            <span class="k">else</span><span class="p">:</span>
+                                <span class="n">motor</span><span class="o">.</span><span class="n">setAZposition</span><span class="p">(</span><span class="n">az_set_pos</span><span class="p">)</span>
+                            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;The AZ position is: &quot;</span><span class="p">,</span> <span class="n">motor</span><span class="o">.</span><span class="n">pfb</span><span class="p">)</span>
+
+                        <span class="k">if</span> <span class="n">onr_opt</span> <span class="o">==</span> <span class="mi">5</span><span class="p">:</span>
+                            <span class="k">try</span><span class="p">:</span>
+                                <span class="n">motor</span><span class="o">.</span><span class="n">init_test</span><span class="p">()</span>
+                                <span class="n">pos</span> <span class="o">=</span> <span class="n">motor</span><span class="o">.</span><span class="n">pos</span>
+                                <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;El Position is: &quot;</span><span class="p">,</span> <span class="n">pos</span><span class="p">)</span>
+                                <span class="n">el_set_pos</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span>
+                                    <span class="nb">input</span><span class="p">(</span>
+                                        <span class="s2">&quot;What position do you want to set the motor (Degrees)?&quot;</span>
+                                    <span class="p">)</span>
+                                <span class="p">)</span>
+                                <span class="n">motor</span><span class="o">.</span><span class="n">setELposition</span><span class="p">(</span><span class="n">el_set_pos</span><span class="p">)</span>
+                                <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;The EL position is: &quot;</span><span class="p">,</span> <span class="n">motor</span><span class="o">.</span><span class="n">pos</span><span class="p">)</span>
+                            <span class="k">except</span><span class="p">:</span>
+                                <span class="n">motor</span><span class="o">.</span><span class="n">set_ao_zero</span><span class="p">()</span>
+                                <span class="nb">print</span><span class="p">(</span>
+                                    <span class="s2">&quot;</span><span class="se">\033</span><span class="s2">[93m UnboundLocalError: DAQ could not be initialized: Check comm port and power supply</span><span class="se">\033</span><span class="s2">[0m&quot;</span>
+                                <span class="p">)</span>
+
+                        <span class="k">if</span> <span class="n">onr_opt</span> <span class="o">==</span> <span class="mi">6</span><span class="p">:</span>
+                            <span class="c1"># open a new terminal to move the telescope</span>
+                            <span class="c1"># open a new terminal to move the telescope</span>
+                            <span class="n">termcmd</span> <span class="o">=</span> <span class="p">(</span>
+                                <span class="s2">&quot;python3 /home/onrkids/onrkidpy/onr_motor_control.py 12&quot;</span>
+                            <span class="p">)</span>
+                            <span class="n">new_term</span> <span class="o">=</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">Popen</span><span class="p">(</span>
+                                <span class="p">[</span><span class="s2">&quot;gnome-terminal&quot;</span><span class="p">,</span> <span class="s2">&quot;--&quot;</span><span class="p">,</span> <span class="s2">&quot;bash&quot;</span><span class="p">,</span> <span class="s2">&quot;-c&quot;</span><span class="p">,</span> <span class="n">termcmd</span><span class="p">],</span>
+                                <span class="n">stdin</span><span class="o">=</span><span class="n">subprocess</span><span class="o">.</span><span class="n">PIPE</span><span class="p">,</span>
+                                <span class="n">stdout</span><span class="o">=</span><span class="n">subprocess</span><span class="o">.</span><span class="n">PIPE</span><span class="p">,</span>
+                                <span class="n">stderr</span><span class="o">=</span><span class="n">subprocess</span><span class="o">.</span><span class="n">STDOUT</span><span class="p">,</span>
+                            <span class="p">)</span>
+
+                            <span class="c1"># then collect the KID data</span>
+                            <span class="n">t</span> <span class="o">=</span> <span class="mi">10</span>
+                            <span class="n">NSAMP</span> <span class="o">=</span> <span class="mi">488</span> <span class="o">*</span> <span class="n">t</span>
+                            <span class="n">os</span><span class="o">.</span><span class="n">system</span><span class="p">(</span><span class="s2">&quot;clear&quot;</span><span class="p">)</span>
+                            <span class="c1"># print(&quot;pretending to collect data&quot;)</span>
+                            <span class="n">savefile</span> <span class="o">=</span> <span class="n">onrkidpy</span><span class="o">.</span><span class="n">get_filename</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="s2">&quot;TOD&quot;</span><span class="p">)</span> <span class="o">+</span> <span class="s2">&quot;.hd5&quot;</span>
+                            <span class="n">rawFile</span> <span class="o">=</span> <span class="n">data_handler</span><span class="o">.</span><span class="n">RawDataFile</span><span class="p">(</span><span class="n">savefile</span><span class="p">,</span> <span class="n">NSAMP</span><span class="p">,</span> <span class="mi">1000</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+                            <span class="n">rfsoc1</span> <span class="o">=</span> <span class="n">udp2</span><span class="o">.</span><span class="n">Connection</span><span class="p">(</span><span class="n">rawFile</span><span class="p">,</span> <span class="s2">&quot;192.168.5.40&quot;</span><span class="p">,</span> <span class="s2">&quot;4096&quot;</span><span class="p">)</span>
+                            <span class="n">udp2</span><span class="o">.</span><span class="n">capture</span><span class="p">([</span><span class="n">rfsoc1</span><span class="p">],</span> <span class="n">NSAMP</span><span class="p">)</span>
+                            <span class="c1"># savefile = onrkidpy.get_filename(type=&quot;TOD&quot;) + &quot;.hd5&quot;</span>
+                            <span class="c1"># if t &lt; 60:</span>
+                            <span class="c1">#    self.__udp.shortDataCapture(savefile, 488 * t)</span>
+                            <span class="c1"># else:</span>
+                            <span class="c1">#    self.__udp.LongDataCapture(savefile, 488 * t)</span>
+                            <span class="c1"># self.__udp.release()</span>
+
+                        <span class="k">if</span> <span class="n">onr_opt</span> <span class="o">==</span> <span class="mi">7</span><span class="p">:</span>  <span class="c1"># Exit</span>
+                            <span class="n">onr_loop</span> <span class="o">=</span> <span class="kc">False</span>
+
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;ONR repository does not exist&quot;</span><span class="p">)</span>
+
+            <span class="k">return</span> <span class="mi">0</span></div></div>
+
+
+<div class="viewcode-block" id="main"><a class="viewcode-back" href="../kidpy.html#kidpy.main">[docs]</a><span class="k">def</span> <span class="nf">main</span><span class="p">():</span>
+    <span class="n">k</span> <span class="o">=</span> <span class="n">kidpy</span><span class="p">()</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="k">while</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">k</span><span class="o">.</span><span class="n">main_opt</span><span class="p">()</span>
+    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="n">e</span></div>
+
+
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
+    <span class="n">main</span><span class="p">()</span>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, Arizona State University.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

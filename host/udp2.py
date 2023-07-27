@@ -1,9 +1,14 @@
 """
-Description
-___________
+Overview
+________
 
-udp2 is the Next iteration of udpcap. The idea here is to facilitate taking data in a multiprocess enviornment
-from multiple channels from multiple RFSOC's in our mKID readout system.
+udp2 is the Next iteration of udpcap. Here, we want to facilitate the process of pulling data
+from multiple channels from multiple RFSOC's in a multiprocessing environment. 
+
+.. note::
+    A key part of python multiprocessing library is 'pickling'. This is a funny name to describe object serialization. Essentially, our code needs
+    to be convertable into a stream of bytes that can be passed intoa new python interpreter process.
+    Certain typs of variables such as h5py objects or sockets can't be pickled. We therefore have to create the h5py/socket objects we need post-pickle. 
 
 :Authors: Cody
 :Date: 2023-07-26
@@ -11,84 +16,68 @@ from multiple channels from multiple RFSOC's in our mKID readout system.
 """
 import concurrent.futures
 import logging
-import socket
-from dataclasses import dataclass
-import numpy as np
-import time
 import data_handler
+import numpy as np
+import socket
+import data_handler
+import socket
+import time
+from data_handler import RFChannel
 
 logger = logging.getLogger(__name__)
 
 
-@dataclass
-class Connection:
-    raw_df: data_handler.RawDataFile
-    ip_addr: str = ""
-    port: int = 0000
-
-
-def __receive_udp(conn: Connection, n_samples: int):
+def __workerprocess(chan: RFChannel):
     """
-    UDP data receiver process. *This function is intended to be executed from a ProcessPoolExecutor*
-
-    Parameters
-    __________
-
-    :param conn: RFSOC udp connection to obtain data from.
-    :type conn: Connection
-    :param n_samples: Number of samples to take
-    :type n_samples: int
-    :return: Does not return anything
+    Worker Process
+    Given properties through chan, the worker process creates a new socket and binds to it. A RawDataFile is then created
+    and formated. Following this, the raw file is filled out with the aquired data and then closed.
     """
     log = logger.getChild(__name__)
-    # create a socket and bind it to the connection
-    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    sock.settimeout(1.0)
 
-    host = conn.ip_addr
-    port = conn.port
-    raw_df = conn.raw_df
-
+    log.debug(f"__worker process for {chan.name} started. ")
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     try:
-        sock.bind((host, port))
-    except socket.timeout:
-        log.error(f"socket.timeout -> Could not bind to the socket for {host}:{port}")
-    except socket.error:
-        log.error(f"socket.error -> Could not bind to the socket for {host}:{port}")
+        s.bind((chan.ip, chan.port))
+        s.settimeout(1.0)
+    except Exception as e:
+        log.error(e)
+        return
+    log.debug(f"{chan.name} loading HDF5")
+    raw = data_handler.RawDataFile(chan.raw_filename)
+    raw.format(chan.n_sample, chan.n_resonator, chan.n_attenuator)
 
-    # Take data and add into HDF File
-    i = 0
-    log.debug(f"Beginning data taking loop for {conn.ip_addr}:{conn.port}")
-
-    while i < n_samples:
-        data = sock.recv(8208)
-        spec_data = np.frombuffer(data, dtype="<i", offset=0)
-        t = time.time_ns() / 1e3
-
-        if data is None:
-            break
-
-        raw_df.adc_i[:, i] = spec_data[0::2]
-        raw_df.adc_q[:, i] = spec_data[1::2]
-        raw_df.timestamp[0, i] = t
-
-        i = i + 1
+    log.debug(f"{chan.name} begin data collection")
+    iter = np.arange(0, chan.n_sample, 1)
+    try:
+        for i in iter:
+            data = np.frombuffer(s.recv(8208), dtype="<i")
+            raw.adc_i[:, i] = data[0::2]
+            raw.adc_q[:, i] = data[1::2]
+            raw.timestamp[1, i] = time.time_ns() / 1e3
+        s.close()
+        raw.close()
+    except Exception as e2:
+        log.error(str(e2))
 
 
-def capture(connection_list: list, n_samples: int):
+def capture(channels: list):
     """
-    Capture Data. Spawns N connection receive_udp processes for data taking
-
-    Parameters
-    __________
-
-    :param connection_list: List of Connections
-    :param n_samples: n samples to record.
-    :return: None
+    For each RFChannel provided, capture(...) spawns a worker process that does the following:
+        * Generates a RawDataFile
+        * Creates a socket connection on the network
+        * Downlinks data and populates the raw file
     """
     log = logger.getChild(__name__)
-    # create subprocesses for each udp connection.
-    with concurrent.futures.ProcessPoolExecutor() as executor:
-        for con in connection_list:
-            log.debug(f"Spawning receive_udp process for {con.ip_addr}:{con.port}")
-            executor.submit(__receive_udp, con, n_samples)
+    log.info("Starting Capture")
+
+    if channels is None or channels is []:
+        log.warning("Specified list of rfsoc connections is empy/None")
+        return
+
+    with concurrent.futures.ProcessPoolExecutor() as exec:
+        log.debug("submitting jobs to process pool")
+        results = exec.map(__workerprocess, channels)
+        log.debug("Worker Processes executed, waiting for jobs to complete.")
+        exec.shutdown(wait=True)
+    log.info("Capture Finished")

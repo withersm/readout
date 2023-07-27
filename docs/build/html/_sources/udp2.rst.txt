@@ -1,7 +1,7 @@
-Sweeps module
-=============
+udp2 module
+===========
 
-.. automodule:: Sweeps
+.. automodule:: udp2
    :members:
    :undoc-members:
    :show-inheritance:

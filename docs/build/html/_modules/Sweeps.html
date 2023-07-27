@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sweeps &mdash; mKID Readout - KIDPY3 2.0.0 documentation</title>
+      <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../_static/jquery.js"></script>
+        <script src="../_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
+        <script src="../_static/doctools.js"></script>
+        <script src="../_static/sphinx_highlight.js"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            mKID Readout - KIDPY3
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../modules.html">host</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">mKID Readout - KIDPY3</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="index.html">Module code</a></li>
+      <li class="breadcrumb-item active">Sweeps</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for Sweeps</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">Sweeps module is where lo sweep code can be accessed.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">valon5009</span>
+
+
+<span class="c1">#######################################################</span>
+<span class="c1"># Temporary Home for DSP Functions</span>
+<span class="c1"># These should get a dedicated DSP python file</span>
+<span class="c1">#######################################################</span>
+<div class="viewcode-block" id="sweep"><a class="viewcode-back" href="../sweeps.html#Sweeps.sweep">[docs]</a><span class="k">def</span> <span class="nf">sweep</span><span class="p">(</span><span class="n">loSource</span><span class="p">,</span> <span class="n">udp</span><span class="p">,</span> <span class="n">f_center</span><span class="p">,</span> <span class="n">freqs</span><span class="p">,</span> <span class="n">N_steps</span><span class="o">=</span><span class="mi">500</span><span class="p">,</span> <span class="n">freq_step</span><span class="o">=</span><span class="mf">0.0</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Actually perform an LO Sweep using valon 5009&#39;s and save the data</span>
+
+<span class="sd">    :param loSource:</span>
+<span class="sd">        Valon 5009 Device Object instance</span>
+<span class="sd">    :type loSource: valon5009.Synthesizer</span>
+<span class="sd">    :param f_center:</span>
+<span class="sd">        Center frequency of upconverted tones</span>
+<span class="sd">    :param freqs: List of Baseband Frequencies returned from rfsocInterface.py&#39;s writeWaveform()</span>
+<span class="sd">    :type freqs: List</span>
+
+<span class="sd">    :param udp: udp data capture utility. This is our bread and butter for taking data from ethernet</span>
+<span class="sd">    :type udp: udpcap.udpcap object instance</span>
+
+<span class="sd">    :param N_steps: Number of steps with which to do the sweep.</span>
+<span class="sd">    :type N_steps: Int</span>
+
+<span class="sd">    Credit: Dr. Adrian Sinclair (adriankaisinclair@gmail.com)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">tone_diff</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">freqs</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span> <span class="o">/</span> <span class="mf">1e6</span>  <span class="c1"># MHz</span>
+    <span class="k">if</span> <span class="n">freq_step</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">flo_step</span> <span class="o">=</span> <span class="n">freq_step</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">flo_step</span> <span class="o">=</span> <span class="n">tone_diff</span> <span class="o">/</span> <span class="n">N_steps</span>
+    <span class="n">flo_start</span> <span class="o">=</span> <span class="n">f_center</span> <span class="o">-</span> <span class="n">flo_step</span> <span class="o">*</span> <span class="n">N_steps</span> <span class="o">/</span> <span class="mf">2.0</span>  <span class="c1"># 256</span>
+    <span class="n">flo_stop</span> <span class="o">=</span> <span class="n">f_center</span> <span class="o">+</span> <span class="n">flo_step</span> <span class="o">*</span> <span class="n">N_steps</span> <span class="o">/</span> <span class="mf">2.0</span>  <span class="c1"># 256</span>
+
+    <span class="n">flos</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">flo_start</span><span class="p">,</span> <span class="n">flo_stop</span><span class="p">,</span> <span class="n">flo_step</span><span class="p">)</span>
+    <span class="n">udp</span><span class="o">.</span><span class="n">bindSocket</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="nf">temp</span><span class="p">(</span><span class="n">lofreq</span><span class="p">):</span>
+        <span class="c1"># self.set_ValonLO function here</span>
+        <span class="n">loSource</span><span class="o">.</span><span class="n">set_frequency</span><span class="p">(</span><span class="n">valon5009</span><span class="o">.</span><span class="n">SYNTH_B</span><span class="p">,</span> <span class="n">lofreq</span><span class="p">)</span>
+        <span class="c1"># Read values and trash initial read, suspecting linear delay is cause..</span>
+        <span class="n">Naccums</span> <span class="o">=</span> <span class="mi">50</span>
+        <span class="n">I</span><span class="p">,</span> <span class="n">Q</span> <span class="o">=</span> <span class="p">[],</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">10</span><span class="p">):</span>  <span class="c1"># toss 10 packets in the garbage</span>
+            <span class="n">udp</span><span class="o">.</span><span class="n">parse_packet</span><span class="p">()</span>
+
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">Naccums</span><span class="p">):</span>
+            <span class="c1"># d = udp.parse_packet()</span>
+            <span class="n">d</span> <span class="o">=</span> <span class="n">udp</span><span class="o">.</span><span class="n">parse_packet</span><span class="p">()</span>
+            <span class="n">It</span> <span class="o">=</span> <span class="n">d</span><span class="p">[::</span><span class="mi">2</span><span class="p">]</span>
+            <span class="n">Qt</span> <span class="o">=</span> <span class="n">d</span><span class="p">[</span><span class="mi">1</span><span class="p">::</span><span class="mi">2</span><span class="p">]</span>
+            <span class="n">I</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">It</span><span class="p">)</span>
+            <span class="n">Q</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">Qt</span><span class="p">)</span>
+        <span class="n">I</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">I</span><span class="p">)</span>
+        <span class="n">Q</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">Q</span><span class="p">)</span>
+        <span class="n">Imed</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">median</span><span class="p">(</span><span class="n">I</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+        <span class="n">Qmed</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">median</span><span class="p">(</span><span class="n">Q</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+
+        <span class="n">Z</span> <span class="o">=</span> <span class="n">Imed</span> <span class="o">+</span> <span class="mi">1</span><span class="n">j</span> <span class="o">*</span> <span class="n">Qmed</span>
+        <span class="n">start_ind</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">argwhere</span><span class="p">(</span><span class="n">Imed</span> <span class="o">!=</span> <span class="mf">0.0</span><span class="p">))</span>
+        <span class="n">Z</span> <span class="o">=</span> <span class="n">Z</span><span class="p">[</span><span class="n">start_ind</span> <span class="p">:</span> <span class="n">start_ind</span> <span class="o">+</span> <span class="nb">len</span><span class="p">(</span><span class="n">freqs</span><span class="p">)]</span>
+
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;.&quot;</span><span class="p">,</span> <span class="n">end</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">Z</span>
+
+    <span class="n">sweep_Z</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">temp</span><span class="p">(</span><span class="n">lofreq</span><span class="p">)</span> <span class="k">for</span> <span class="n">lofreq</span> <span class="ow">in</span> <span class="n">flos</span><span class="p">])</span>
+
+    <span class="n">f</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">([</span><span class="n">np</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="n">freqs</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="n">flos</span><span class="p">)])</span>
+    <span class="k">for</span> <span class="n">itone</span><span class="p">,</span> <span class="n">ftone</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">freqs</span><span class="p">):</span>
+        <span class="n">f</span><span class="p">[</span><span class="n">itone</span><span class="p">,</span> <span class="p">:]</span> <span class="o">=</span> <span class="n">flos</span> <span class="o">*</span> <span class="mf">1.0e6</span> <span class="o">+</span> <span class="n">ftone</span>
+    <span class="c1">#    f = np.array([flos * 1e6 + ftone for ftone in freqs]).flatten()</span>
+    <span class="n">sweep_Z_f</span> <span class="o">=</span> <span class="n">sweep_Z</span><span class="o">.</span><span class="n">T</span>
+    <span class="c1">#    sweep_Z_f = sweep_Z.T.flatten()</span>
+    <span class="n">udp</span><span class="o">.</span><span class="n">release</span><span class="p">()</span>
+    <span class="c1">## SAVE f and sweep_Z_f TO LOCAL FILES</span>
+    <span class="c1"># SHOULD BE ABLE TO SAVE TARG OR VNA</span>
+    <span class="c1"># WITH TIMESTAMP</span>
+
+    <span class="c1"># set the LO back to the original frequency</span>
+    <span class="n">loSource</span><span class="o">.</span><span class="n">set_frequency</span><span class="p">(</span><span class="n">valon5009</span><span class="o">.</span><span class="n">SYNTH_B</span><span class="p">,</span> <span class="n">f_center</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">sweep_Z_f</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="loSweep"><a class="viewcode-back" href="../sweeps.html#Sweeps.loSweep">[docs]</a><span class="k">def</span> <span class="nf">loSweep</span><span class="p">(</span>
+    <span class="n">loSource</span><span class="p">,</span>
+    <span class="n">udp</span><span class="p">,</span>
+    <span class="n">freqs</span><span class="o">=</span><span class="p">[],</span>
+    <span class="n">f_center</span><span class="o">=</span><span class="mf">400.0</span><span class="p">,</span>
+    <span class="n">N_steps</span><span class="o">=</span><span class="mi">500</span><span class="p">,</span>
+    <span class="n">freq_step</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span>
+    <span class="n">savefile</span><span class="o">=</span><span class="s2">&quot;s21&quot;</span><span class="p">,</span>
+<span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Perform a stepped frequency sweep centered at f_center and save result as s21.npy file</span>
+
+<span class="sd">    f_center: center frequency for sweep in [MHz], default is 400</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1">#    print(freqs)</span>
+    <span class="n">f</span><span class="p">,</span> <span class="n">sweep_Z_f</span> <span class="o">=</span> <span class="n">sweep</span><span class="p">(</span>
+        <span class="n">loSource</span><span class="p">,</span>
+        <span class="n">udp</span><span class="p">,</span>
+        <span class="n">f_center</span><span class="p">,</span>
+        <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">freqs</span><span class="p">)</span> <span class="o">/</span> <span class="mi">2</span><span class="p">,</span>
+        <span class="n">N_steps</span><span class="o">=</span><span class="n">N_steps</span><span class="p">,</span>
+        <span class="n">freq_step</span><span class="o">=</span><span class="n">freq_step</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">np</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">savefile</span> <span class="o">+</span> <span class="s2">&quot;.npy&quot;</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">((</span><span class="n">f</span><span class="p">,</span> <span class="n">sweep_Z_f</span><span class="p">)))</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;LO Sweep s21 file saved.&quot;</span><span class="p">)</span></div>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, Arizona State University.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

@@ -67,6 +67,7 @@ _How users will further implement their application within or utilizing this lib
 ---
 
 ## Documentation
+[SEE Read The Docs](./docs/build/html/index.html)
 
 ## License
 _text here_

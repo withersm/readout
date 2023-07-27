@@ -7,9 +7,10 @@
           - Philip Mauskopf
           - Jack Sayers
 
-kidpy is where users can interact with the mkid readout 
-system. Simply launch with::
+kidpy is where users can interact with the mkid readout system. Simply launch with
+.. codeblock::
     python kidpy.py
+
 
 When an operation is selected, a command is created and published on a redis
 pubsub channel. Any listening RFSOC(s) would then parse and execute the specified command

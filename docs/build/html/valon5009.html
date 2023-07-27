@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>valon5009 module &mdash; mKID Readout - KIDPY3 2.0.0 documentation</title>
+      <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="_static/jquery.js"></script>
+        <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+        <script src="_static/doctools.js"></script>
+        <script src="_static/sphinx_highlight.js"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="prev" title="udp2 module" href="udp2.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            mKID Readout - KIDPY3
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="modules.html">host</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="Sweeps.html">Sweeps module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="config.html">config module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="data_handler.html">data_handler module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="kidpy.html">kidpy module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="udp2.html">udp2 module</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">valon5009 module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#valon5009.Synthesizer"><code class="docutils literal notranslate"><span class="pre">Synthesizer</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#valon5009.Synthesizer.flash"><code class="docutils literal notranslate"><span class="pre">Synthesizer.flash()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#valon5009.Synthesizer.getSN"><code class="docutils literal notranslate"><span class="pre">Synthesizer.getSN()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#valon5009.Synthesizer.get_frequency"><code class="docutils literal notranslate"><span class="pre">Synthesizer.get_frequency()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#valon5009.Synthesizer.get_pfd"><code class="docutils literal notranslate"><span class="pre">Synthesizer.get_pfd()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#valon5009.Synthesizer.get_phase_lock"><code class="docutils literal notranslate"><span class="pre">Synthesizer.get_phase_lock()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#valon5009.Synthesizer.get_ref_select"><code class="docutils literal notranslate"><span class="pre">Synthesizer.get_ref_select()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#valon5009.Synthesizer.get_refdoubler"><code class="docutils literal notranslate"><span class="pre">Synthesizer.get_refdoubler()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#valon5009.Synthesizer.get_reference"><code class="docutils literal notranslate"><span class="pre">Synthesizer.get_reference()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#valon5009.Synthesizer.get_rf_level"><code class="docutils literal notranslate"><span class="pre">Synthesizer.get_rf_level()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#valon5009.Synthesizer.get_vco_range"><code class="docutils literal notranslate"><span class="pre">Synthesizer.get_vco_range()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#valon5009.Synthesizer.reset"><code class="docutils literal notranslate"><span class="pre">Synthesizer.reset()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#valon5009.Synthesizer.set_frequency"><code class="docutils literal notranslate"><span class="pre">Synthesizer.set_frequency()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#valon5009.Synthesizer.set_pfd"><code class="docutils literal notranslate"><span class="pre">Synthesizer.set_pfd()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#valon5009.Synthesizer.set_ref_select"><code class="docutils literal notranslate"><span class="pre">Synthesizer.set_ref_select()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#valon5009.Synthesizer.set_refdoubler"><code class="docutils literal notranslate"><span class="pre">Synthesizer.set_refdoubler()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#valon5009.Synthesizer.set_reference"><code class="docutils literal notranslate"><span class="pre">Synthesizer.set_reference()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#valon5009.Synthesizer.set_rf_level"><code class="docutils literal notranslate"><span class="pre">Synthesizer.set_rf_level()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">mKID Readout - KIDPY3</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="modules.html">host</a></li>
+      <li class="breadcrumb-item active">valon5009 module</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/valon5009.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="module-valon5009">
+<span id="valon5009-module"></span><h1>valon5009 module<a class="headerlink" href="#module-valon5009" title="Permalink to this heading"></a></h1>
+<p>Provides a serial interface to the Valon 5009.
+Adapted from Python2 Example code.</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="valon5009.Synthesizer">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">valon5009.</span></span><span class="sig-name descname"><span class="pre">Synthesizer</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">port</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/valon5009.html#Synthesizer"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#valon5009.Synthesizer" title="Permalink to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>A simple interface to the Valon 5009 synthesizer.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="valon5009.Synthesizer.flash">
+<span class="sig-name descname"><span class="pre">flash</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/valon5009.html#Synthesizer.flash"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#valon5009.Synthesizer.flash" title="Permalink to this definition"></a></dt>
+<dd><p>Flash current settings for both synthesizers into non-volatile memory.</p>
+<p>&#64;return: True if success (bool)</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="valon5009.Synthesizer.getSN">
+<span class="sig-name descname"><span class="pre">getSN</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/valon5009.html#Synthesizer.getSN"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#valon5009.Synthesizer.getSN" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="valon5009.Synthesizer.get_frequency">
+<span class="sig-name descname"><span class="pre">get_frequency</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">synth</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/valon5009.html#Synthesizer.get_frequency"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#valon5009.Synthesizer.get_frequency" title="Permalink to this definition"></a></dt>
+<dd><p>Returns the current output frequency for the selected synthesizer.</p>
+<p>&#64;param synth : synthesizer this command affects (1 or 2).
+&#64;type  synth : int</p>
+<p>&#64;return: the frequency in MHz (float)</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="valon5009.Synthesizer.get_pfd">
+<span class="sig-name descname"><span class="pre">get_pfd</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">synth</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/valon5009.html#Synthesizer.get_pfd"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#valon5009.Synthesizer.get_pfd" title="Permalink to this definition"></a></dt>
+<dd><p>Gets the synthesizer’s phase/frequency detector to the desired frequency</p>
+<p>&#64;param synth : synthesizer this command affects (1 or 2).
+&#64;type  synth : int</p>
+<p>&#64;return: True if success (bool)</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="valon5009.Synthesizer.get_phase_lock">
+<span class="sig-name descname"><span class="pre">get_phase_lock</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">synth</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/valon5009.html#Synthesizer.get_phase_lock"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#valon5009.Synthesizer.get_phase_lock" title="Permalink to this definition"></a></dt>
+<dd><p>Get phase lock status</p>
+<p>&#64;param synth : synthesizer base address
+&#64;type  synth : int</p>
+<p>&#64;return: True if locked (bool)</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="valon5009.Synthesizer.get_ref_select">
+<span class="sig-name descname"><span class="pre">get_ref_select</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/valon5009.html#Synthesizer.get_ref_select"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#valon5009.Synthesizer.get_ref_select" title="Permalink to this definition"></a></dt>
+<dd><p>Returns the currently selected reference clock.</p>
+<p>Returns 1 if the external reference is selected, 0 otherwise.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="valon5009.Synthesizer.get_refdoubler">
+<span class="sig-name descname"><span class="pre">get_refdoubler</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">synth</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/valon5009.html#Synthesizer.get_refdoubler"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#valon5009.Synthesizer.get_refdoubler" title="Permalink to this definition"></a></dt>
+<dd><p>Get reference doubler</p>
+<p>&#64;param synth : synthesizer this command affects (1 or 2).
+&#64;type  synth : int</p>
+<p>&#64;return: True if on, False if off (bool)</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="valon5009.Synthesizer.get_reference">
+<span class="sig-name descname"><span class="pre">get_reference</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/valon5009.html#Synthesizer.get_reference"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#valon5009.Synthesizer.get_reference" title="Permalink to this definition"></a></dt>
+<dd><p>Get reference frequency in MHz</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="valon5009.Synthesizer.get_rf_level">
+<span class="sig-name descname"><span class="pre">get_rf_level</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">synth</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/valon5009.html#Synthesizer.get_rf_level"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#valon5009.Synthesizer.get_rf_level" title="Permalink to this definition"></a></dt>
+<dd><p>Returns RF level in dBm</p>
+<p>&#64;param synth : synthesizer address, 1 or 2
+&#64;type  synth : int</p>
+<p>&#64;return: dBm (int)</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="valon5009.Synthesizer.get_vco_range">
+<span class="sig-name descname"><span class="pre">get_vco_range</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">synth</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/valon5009.html#Synthesizer.get_vco_range"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#valon5009.Synthesizer.get_vco_range" title="Permalink to this definition"></a></dt>
+<dd><p>Returns (min, max) VCO range tuple.</p>
+<p>&#64;param synth : synthesizer base address
+&#64;type  synth : int</p>
+<p>&#64;return: min,max in MHz</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="valon5009.Synthesizer.reset">
+<span class="sig-name descname"><span class="pre">reset</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/valon5009.html#Synthesizer.reset"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#valon5009.Synthesizer.reset" title="Permalink to this definition"></a></dt>
+<dd><p>Resets the Valon to factory settings</p>
+<p>&#64;return: True if success (bool)</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="valon5009.Synthesizer.set_frequency">
+<span class="sig-name descname"><span class="pre">set_frequency</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">synth</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">freq</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">chan_spacing</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">10.0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/valon5009.html#Synthesizer.set_frequency"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#valon5009.Synthesizer.set_frequency" title="Permalink to this definition"></a></dt>
+<dd><p>Sets the synthesizer to the desired frequency</p>
+<p>Sets to the closest possible frequency, depending on the channel spacing.
+Range is determined by the minimum and maximum VCO frequency.</p>
+<p>&#64;param synth : synthesizer this command affects (1 or 2).
+&#64;type  synth : int</p>
+<p>&#64;param freq : output frequency
+&#64;type  freq : float</p>
+<p>&#64;param chan_spacing : deprecated
+&#64;type  chan_spacing : float</p>
+<p>&#64;return: True if success (bool)</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="valon5009.Synthesizer.set_pfd">
+<span class="sig-name descname"><span class="pre">set_pfd</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">synth</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">freq</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/valon5009.html#Synthesizer.set_pfd"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#valon5009.Synthesizer.set_pfd" title="Permalink to this definition"></a></dt>
+<dd><p>Sets the synthesizer’s phase/frequency detector to the desired frequency</p>
+<p>&#64;param synth : synthesizer this command affects (1 or 2).
+&#64;type  synth : int</p>
+<p>&#64;param freq : pfd frequency
+&#64;type  freq : float</p>
+<p>&#64;return: True if success (bool)</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="valon5009.Synthesizer.set_ref_select">
+<span class="sig-name descname"><span class="pre">set_ref_select</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">e_not_i</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/valon5009.html#Synthesizer.set_ref_select"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#valon5009.Synthesizer.set_ref_select" title="Permalink to this definition"></a></dt>
+<dd><p>Selects either internal or external reference clock.</p>
+<p>&#64;param e_not_i : 1 (external) or 0 (internal); default 1
+&#64;type  e_not_i : int</p>
+<p>&#64;return: True if success (bool)</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="valon5009.Synthesizer.set_refdoubler">
+<span class="sig-name descname"><span class="pre">set_refdoubler</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">synth</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">enable</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/valon5009.html#Synthesizer.set_refdoubler"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#valon5009.Synthesizer.set_refdoubler" title="Permalink to this definition"></a></dt>
+<dd><p>Set reference doubler</p>
+<p>&#64;param synth : synthesizer this command affects (1 or 2).
+&#64;type  synth : int</p>
+<p>&#64;param enable : turn on or off the reference doubler
+&#64;type  enable : bool</p>
+<p>&#64;return: True if success (bool)</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="valon5009.Synthesizer.set_reference">
+<span class="sig-name descname"><span class="pre">set_reference</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">freq</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/valon5009.html#Synthesizer.set_reference"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#valon5009.Synthesizer.set_reference" title="Permalink to this definition"></a></dt>
+<dd><p>Set reference frequency in MHz</p>
+<p>&#64;param freq : frequency in MHz
+&#64;type  freq : float</p>
+<p>&#64;return: True if success (bool)</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="valon5009.Synthesizer.set_rf_level">
+<span class="sig-name descname"><span class="pre">set_rf_level</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">synth</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rf_level</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/valon5009.html#Synthesizer.set_rf_level"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#valon5009.Synthesizer.set_rf_level" title="Permalink to this definition"></a></dt>
+<dd><p>Set RF level</p>
+<p>&#64;param synth : synthesizer address, 1 or 2
+&#64;type  synth : int</p>
+<p>&#64;param rf_level : RF power in dBm
+&#64;type  rf_level : float</p>
+<p>&#64;return: True if success (bool)</p>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="udp2.html" class="btn btn-neutral float-left" title="udp2 module" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, Arizona State University.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
