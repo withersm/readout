@@ -33,6 +33,8 @@ class rfsocInterface:
         self.accum_snap = None
         self.selectedBitstream = None
         self.bitf_loaded = False
+        self.last_flist = np.array([])
+        self.last_alist = np.array([])
 
     def uploadOverlay(
         self, bitstream="202306091243_silver_blast_fixedeth.bit", reload_bitf=False
@@ -50,7 +52,6 @@ class rfsocInterface:
             print("bitfile not loaded, loading bitf_loaded=False")
         else:
             pass
-
 
         xrfclk.set_all_ref_clks(409.6)  # MHz
         print("firmware uploaded and pll set")
@@ -125,7 +126,9 @@ class rfsocInterface:
         ###############################
         # Ethernet Delay Lines
         ###############################
-        eth_delay_reg.write(0x00, 37 + (4 << 16))  # 44 + (4<<16)) # data output from eth buffer delay/ input to eth buffer delay <<16 delay
+        eth_delay_reg.write(
+            0x00, 37 + (4 << 16)
+        )  # 44 + (4<<16)) # data output from eth buffer delay/ input to eth buffer delay <<16 delay
         eth_delay_reg.write(0x08, 43)  # start pulse out delay
         ###############################
         # Data MUX
@@ -452,14 +455,14 @@ class rfsocInterface:
         vna: bool = False,
         verbose: bool = False,
     ):
-        """! Generate a waveform from the RFSOC
+        """Generate a waveform from the RFSOC
 
-        @param bbfreq_list      List of bb tones to generate
-        @param bb_amplitudes    List of amplitudes paired with with bbfreq_list
-        @param vna              (optional) Generate 1000 Tones from -251.0e6 to -1e6, 2.25e6, 252.25e6
-        @param verbose          (DEPRECATED) -> Enabled various print statements, most of which have been removed.
+        :param bbfreq_list:      List of bb tones to generate
+        :param bb_amplitudes:    List of amplitudes paired with with bbfreq_list
+        :param vna:              (optional) Generate 1000 Tones from -251.0e6 to -1e6, 2.25e6, 252.25e6
+        :param verbose:          (DEPRECATED) -> Enabled various print statements, most of which have been removed.
 
-        @returns The list of calculated (ACTUAL) baseband tones.
+        :returns: The list of calculated (ACTUAL) baseband tones.
 
         """
 
@@ -484,6 +487,8 @@ class rfsocInterface:
         )
         self.load_bin_list(freqs)
         self.load_waveform_into_mem(freqs, LUT_I, LUT_Q, DDS_I, DDS_Q)
+        self.last_flist = bbfreq
+        self.last_alist = bbamp
         # divide by 2 due to Interpolation within the DAC
         return freqs / 2
 

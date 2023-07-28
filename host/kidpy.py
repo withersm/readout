@@ -33,7 +33,7 @@ import data_handler
 import matplotlib.pyplot as plt
 
 # from datetime import date
-# from datetime import datetime
+# from datetime import datetime
 import pdb
 import glob
 import logging
@@ -42,7 +42,7 @@ import logging
 # Configures the logger such that it prints to a screen and file including the format
 __LOGFMT = "%(asctime)s|%(levelname)s|%(filename)s|%(lineno)d|%(funcName)s|%(message)s"
 
-#logging.basicConfig(format=__LOGFMT, level=logging.DEBUG)
+# logging.basicConfig(format=__LOGFMT, level=logging.DEBUG)
 logging.basicConfig(format=__LOGFMT, level=logging.INFO)
 logger = logging.getLogger(__name__)
 __logh = logging.FileHandler("./kidpy.log")
@@ -72,7 +72,7 @@ if onr_flag:
     motor = onr_motor_control.SKPR_Motor_Control()
 
 
-def testConnection(r): 
+def testConnection(r):
     try:
         tr = r.set("testkey", "123")
         return True
@@ -156,37 +156,57 @@ def checkBlastCli(r, p):
 
 
 def write_fList(self, fList, ampList):
-    # simple function to write a list of tones
-    if fList == []:
+    """
+    Function for writing tones to the rfsoc. Accepts both numpy arrays and lists.
+    :param fList: List of desired tones
+    :type fList: list
+    :param ampList: List of desired amplitudes
+    :type ampList: list
+    .. note::
+        fList and ampList must be the same size
+    """
+    log = logger.getChild("write_fList")
+    f = fList
+    a = ampList
+
+    # Convert to numpy arrays as needed
+    if isinstance(fList, np.ndarray):
+        f = fList.tolist()
+    if isinstance(ampList, np.ndarray):
+        a = ampList.tolist()
+
+    # Format Command based on provided parameters
+    cmd = {}
+    if len(f) == 0:
         cmd = {"cmd": "ulWaveform", "args": []}
-    elif fList != [] and ampList == []:
-        # in the case that amps are not provided, do default.
-        ampList = np.ones(len(fList)).tolist()
-        cmd = {"cmd": "ulWaveform", "args": [fList, ampList]}
+    elif len(f) > 0 and len(a) == 0:
+        a = np.ones_like(f).tolist()
+        cmd = {"cmd": "ulWaveform", "args": [f, a]}
+    elif len(f) > 0 and len(a) > 0:
+        assert len(a) == len(
+            f
+        ), "Frequency list and Amplitude list must be the same dimmension"
+        cmd = {"cmd": "ulWaveform", "args": [f, a]}
     else:
-        cmd = {"cmd": "ulWaveform", "args": [fList, ampList]}
+        log.error("Weird edge case, something went very wrong.....")
+        return
 
     cmdstr = json.dumps(cmd)
     self.r.publish("picard", cmdstr)
-    success, self.current_waveform = wait_for_reply(
-        self.p, "ulWaveform", max_timeout=10
-    )
+    success, _ = wait_for_reply(self.p, "ulWaveform", max_timeout=10)
     if success:
-        print("Wrote Waveform")
-    #        print(self.current_waveform)
+        log.info("Wrote waveform.")
     else:
-        print("Failed to write waveform")
+        log.error("FAILED TO WRITE WAVEFORM")
 
-#simple function to return current tone list
+
+# simple function to return current tone list
+# NOTE THAT THESE HAVE BEEN REMOVED
 def get_tone_list(self):
     lo_freq = valon5009.Synthesizer.get_frequency(self.valon, valon5009.SYNTH_B)
-    tones = lo_freq * 1.0e6 + np.asarray(self.current_waveform)
+    tones = lo_freq * 1.0e6 + np.asarray(self.get_last_flist())
     return tones
 
-#simple function to return current amplitude list associated with tones
-def get_amplitude_list(self):
-    amplitudes = np.asarray(self.current_amplitude)
-    return amplitudes
 
 def menu(captions, options):
     """Creates menu for terminal interface
@@ -262,8 +282,23 @@ class kidpy:
             "ONR kidpy",
         ]
 
-    def begin_ui(self):
-        pass
+    def get_last_flist(self):
+        log = logger.getChild("kidpy.get_last_flist")
+        status, data = wait_for_reply(self.p, "get_last_flist", 2)
+        if status:
+            return np.array(data)
+        else:
+            log.error("The rfsoc didn't return back our data")
+            return None
+
+    def get_last_alist(self):
+        log = logger.getChild("kidpy.get_last_alist")
+        status, data = wait_for_reply(self.p, "get_last_alist", 2)
+        if status:
+            return np.array(data)
+        else:
+            log.error("The rfsoc didn't return back our data")
+            return None
 
     def main_opt(self):
         log = logger.getChild(__name__)
@@ -326,19 +361,7 @@ class kidpy:
 
             if opt == 3:  # write stored comb
                 os.system("clear")
-                print(
-                    "Waiting for the RFSOC to finish writing the custom frequency list: \r\n{}".format(
-                        self.customWaveform
-                    )
-                )
-                fList = []
-
-                # separate values from config and remove ',' before converting to number and
-                # sending the list of values up to the DAC
-                for value in self.__customWaveform.split():
-                    s = value.replace(",", "")
-                    fList.append(float(s))
-                write_fList(self, fList, [])
+                # not used
 
             if opt == 4:
                 print("Not Implemented")
@@ -381,9 +404,9 @@ class kidpy:
                 Sweeps.loSweep(
                     self.valon,
                     self.__udp,
-                    self.current_waveform,
+                    self.get_last_flist(),
                     f_center=default_f_center,
-                    freq_step=0
+                    freq_step=0,
                 )
 
                 # plot result
@@ -408,7 +431,7 @@ class kidpy:
                             "Set EL Position",
                             "Motor Test for Data Acquisition",
                             "Exit",
-                            "Tone Powers"
+                            "Tone Powers",
                         ]
                         onr_opt = menu(onr_caption, onr_options)
 
@@ -463,7 +486,7 @@ class kidpy:
                             Sweeps.loSweep(
                                 self.valon,
                                 self.__udp,
-                                self.current_waveform,
+                                self.get_last_flist(),
                                 valon5009.Synthesizer.get_frequency(
                                     self.valon, valon5009.SYNTH_B
                                 ),
@@ -500,10 +523,13 @@ class kidpy:
                                 )
                                 * 1.0e6
                             )
-                            write_new_list = input('Write new list of tones (Default = False)?') or False
+                            write_new_list = (
+                                input("Write new list of tones (Default = False)?")
+                                or False
+                            )
                             if write_new_list:
                                 write_fList(self, np.ndarray.tolist(new_tone_list), [])
-                            plt.close('all')
+                            plt.close("all")
 
                         if onr_opt == 2:  # Stream data to file
                             t = int(input("How many seconds of data?: ")) or 0
@@ -579,10 +605,12 @@ class kidpy:
                             # print("pretending to collect data")
                             savefile = onrkidpy.get_filename(type="TOD") + ".hd5"
 
-                            rfsoc1 = data_handler.RFChannel(savefile, "192.168.5.40", 4096, "rfso1", NSAMP, 1024)
+                            rfsoc1 = data_handler.RFChannel(
+                                savefile, "192.168.5.40", 4096, "rfso1", NSAMP, 1024
+                            )
                             t = time.time()
                             udp2.capture([rfsoc1])
-                            log.debug((time.time()-t))
+                            log.debug((time.time() - t))
                             data = data_handler.RawDataFile(savefile)
                             # i = data.adc_i
                             # q = data.adc_q
@@ -600,12 +628,14 @@ class kidpy:
                         if onr_opt == 7:  # Exit
                             onr_loop = False
 
-                        if onr_opt == 8: # Tone Powers
+                        if onr_opt == 8:  # Tone Powers
                             fList = get_tone_list(self)
                             fAmps = np.ones(np.size(fList))
-#                           fAmps[0:10] = 10
+                            #                           fAmps[0:10] = 10
                             pdb.set_trace()
-                            write_fList(self, np.ndarray.tolist(fList), np.ndarray.tolist(fAmps))                            
+                            write_fList(
+                                self, np.ndarray.tolist(fList), np.ndarray.tolist(fAmps)
+                            )
 
                 else:
                     print("ONR repository does not exist")
