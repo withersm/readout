@@ -125,10 +125,8 @@ class rfsocInterface:
         ###############################
         # Ethernet Delay Lines
         ###############################
-        eth_delay_reg.write(
-            0x00, 37 + (4 << 16)
-        )  # 44 + (4<<16)) # data output from eth buffer delay/ input to eth buffer delay <<16 delay
-        eth_delay_reg.write(0x08, 3)  # start pulse out delay
+        eth_delay_reg.write(0x00, 37 + (4 << 16))  # 44 + (4<<16)) # data output from eth buffer delay/ input to eth buffer delay <<16 delay
+        eth_delay_reg.write(0x08, 43)  # start pulse out delay
         ###############################
         # Data MUX
         ###############################
@@ -343,7 +341,7 @@ class rfsocInterface:
             fft_shift = 1 * ((2**5) - 1)  # (2**7)-1 # CHANGED FOR NEW GPIO
 
         # DDS SHIFT offset = 0x00, 0x08 is open
-        self.dds_shift.write(0x00, 234)  # WRITING TO DDS SHIFT
+        self.dds_shift.write(0x00, 193)  # WRITING TO DDS SHIFT
         # 0x00 bins, 0x08 0b-23b accum len, 24b accum rst, 26b sync in
         self.accum_and_bin_idx.write(0x08, 1 * accum_length)  # 100
 

@@ -30,6 +30,7 @@ import valon5009
 import Sweeps
 import udp2
 import data_handler
+import matplotlib.pyplot as plt
 
 # from datetime import date
 # from datetime import datetime
@@ -41,7 +42,8 @@ import logging
 # Configures the logger such that it prints to a screen and file including the format
 __LOGFMT = "%(asctime)s|%(levelname)s|%(filename)s|%(lineno)d|%(funcName)s|%(message)s"
 
-logging.basicConfig(format=__LOGFMT, level=logging.DEBUG)
+#logging.basicConfig(format=__LOGFMT, level=logging.DEBUG)
+logging.basicConfig(format=__LOGFMT, level=logging.INFO)
 logger = logging.getLogger(__name__)
 __logh = logging.FileHandler("./kidpy.log")
 logging.root.addHandler(__logh)
@@ -70,7 +72,7 @@ if onr_flag:
     motor = onr_motor_control.SKPR_Motor_Control()
 
 
-def testConnection(r):
+def testConnection(r): 
     try:
         tr = r.set("testkey", "123")
         return True
@@ -175,12 +177,16 @@ def write_fList(self, fList, ampList):
     else:
         print("Failed to write waveform")
 
-
+#simple function to return current tone list
 def get_tone_list(self):
     lo_freq = valon5009.Synthesizer.get_frequency(self.valon, valon5009.SYNTH_B)
-    tones = lo_freq * 1.0e6 + np.asarray(self.current_waveform) / 2.0
+    tones = lo_freq * 1.0e6 + np.asarray(self.current_waveform)
     return tones
 
+#simple function to return current amplitude list associated with tones
+def get_amplitude_list(self):
+    amplitudes = np.asarray(self.current_amplitude)
+    return amplitudes
 
 def menu(captions, options):
     """Creates menu for terminal interface
@@ -240,6 +246,7 @@ class kidpy:
 
         self.__udp = udpcap.udpcap()
         self.current_waveform = []
+        self.current_amplitude = []
         caption1 = "\n\t\033[95mKID-PY2 RFSoC Readout\033[95m"
         self.captions = [caption1]
 
@@ -259,6 +266,7 @@ class kidpy:
         pass
 
     def main_opt(self):
+        log = logger.getChild(__name__)
         """
         Main user interface routing
 
@@ -375,9 +383,11 @@ class kidpy:
                     self.__udp,
                     self.current_waveform,
                     f_center=default_f_center,
+                    freq_step=0
                 )
 
-                pass
+                # plot result
+                Sweeps.plot_sweep("./s21.npy")
 
             if opt == 7:  # get system state
                 exit()
@@ -398,6 +408,7 @@ class kidpy:
                             "Set EL Position",
                             "Motor Test for Data Acquisition",
                             "Exit",
+                            "Tone Powers"
                         ]
                         onr_opt = menu(onr_caption, onr_options)
 
@@ -489,6 +500,10 @@ class kidpy:
                                 )
                                 * 1.0e6
                             )
+                            write_new_list = input('Write new list of tones (Default = False)?') or False
+                            if write_new_list:
+                                write_fList(self, np.ndarray.tolist(new_tone_list), [])
+                            plt.close('all')
 
                         if onr_opt == 2:  # Stream data to file
                             t = int(input("How many seconds of data?: ")) or 0
@@ -547,15 +562,15 @@ class kidpy:
                         if onr_opt == 6:
                             # open a new terminal to move the telescope
                             # open a new terminal to move the telescope
-                            termcmd = (
-                                "python3 /home/onrkids/onrkidpy/onr_motor_control.py 12"
-                            )
-                            new_term = subprocess.Popen(
-                                ["gnome-terminal", "--", "bash", "-c", termcmd],
-                                stdin=subprocess.PIPE,
-                                stdout=subprocess.PIPE,
-                                stderr=subprocess.STDOUT,
-                            )
+                            # termcmd = (
+                            #     "python3 /home/onrkids/onrkidpy/onr_motor_control.py 12"
+                            # )
+                            # new_term = subprocess.Popen(
+                            #     ["gnome-terminal", "--", "bash", "-c", termcmd],
+                            #     stdin=subprocess.PIPE,
+                            #     stdout=subprocess.PIPE,
+                            #     stderr=subprocess.STDOUT,
+                            # )
 
                             # then collect the KID data
                             t = 10
@@ -563,9 +578,18 @@ class kidpy:
                             os.system("clear")
                             # print("pretending to collect data")
                             savefile = onrkidpy.get_filename(type="TOD") + ".hd5"
-                            rawFile = data_handler.RawDataFile(savefile, NSAMP, 1000, 2)
-                            rfsoc1 = udp2.Connection(rawFile, "192.168.5.40", "4096")
-                            udp2.capture([rfsoc1], NSAMP)
+
+                            rfsoc1 = data_handler.RFChannel(savefile, "192.168.5.40", 4096, "rfso1", NSAMP, 1024)
+                            t = time.time()
+                            udp2.capture([rfsoc1])
+                            log.debug((time.time()-t))
+                            data = data_handler.RawDataFile(savefile)
+                            # i = data.adc_i
+                            # q = data.adc_q
+                            # i = i[10].T
+                            # q = i[10].T
+                            # mag = np.sqrt(i**2 + q**2)
+                            # plt.plot(mag)
                             # savefile = onrkidpy.get_filename(type="TOD") + ".hd5"
                             # if t < 60:
                             #    self.__udp.shortDataCapture(savefile, 488 * t)
@@ -575,6 +599,13 @@ class kidpy:
 
                         if onr_opt == 7:  # Exit
                             onr_loop = False
+
+                        if onr_opt == 8: # Tone Powers
+                            fList = get_tone_list(self)
+                            fAmps = np.ones(np.size(fList))
+#                           fAmps[0:10] = 10
+                            pdb.set_trace()
+                            write_fList(self, np.ndarray.tolist(fList), np.ndarray.tolist(fAmps))                            
 
                 else:
                     print("ONR repository does not exist")

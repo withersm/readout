@@ -20,22 +20,6 @@ from dataclasses import dataclass
 
 logger = logging.getLogger(__name__)
 
-if __name__ == "__main__":
-    # Configures the logger such that it prints to a screen and file including the format
-    __LOGFMT = (
-        "%(asctime)s|%(levelname)s|%(filename)s|%(lineno)d|%(funcName)s|%(message)s"
-    )
-
-    logging.basicConfig(format=__LOGFMT, level=logging.DEBUG)
-    logger = logging.getLogger(__name__)
-    __logh = logging.FileHandler("./data_handler.log")
-    logging.root.addHandler(__logh)
-    logger.log(100, __LOGFMT)
-    __logh.flush()
-    __logh.setFormatter(logging.Formatter(__LOGFMT))
-    ################
-
-
 @dataclass
 class RFChannel:
     raw_filename: str = ""  # HDF5 file to open/create
@@ -43,7 +27,7 @@ class RFChannel:
     port: int = 0000  # udp port to listen on
     name: str = ""  # Friendly Name to call the channel
     n_sample: int = 488
-    n_resonator: int = 1000
+    n_resonator: int = 1024
     n_attenuator: int = 1
 
 
@@ -67,7 +51,7 @@ class RawDataFile:
         if not os.path.isfile(path):
             log.debug("File not found, creating file...")
             try:
-                self.fh = h5py.File(self.filename, "w")
+                self.fh = h5py.File(self.filename, "a")
             except Exception as e:
                 log.error(e)
                 raise
@@ -155,6 +139,7 @@ class RawDataFile:
             (2, n_sample),
             dtype=timestamp_compound_datatype,
         )
+        self.fh.flush()
 
     def read(self):
         """
@@ -409,30 +394,3 @@ def gen_read(h5: str):
         elif isinstance(v, h5py.Group):
             v.visititems(somefunc)
 
-
-if __name__ == "__main__":
-    log = logger.getChild(__name__)
-    log.info("create a RawDataFile instance")
-
-    f = "SomeMadeUpName.h5"
-    rdf = RawDataFile(f)
-
-    log.info(
-        "file was created as it didn't exist, but if it's reread: an exeception will be caught"
-    )
-    rdf = RawDataFile(f)
-
-    log.info("this time, setting the format before next read...")
-    rdf.format(488, 1000, 1)
-    rdf.close()
-
-    del rdf
-
-    rdf = RawDataFile(f)
-    log.info(f"n_resonator is currently {rdf.n_resonator[0]}")
-    rdf.n_resonator[0] = 15
-    rdf.close()
-    del rdf
-    rdf = RawDataFile(f)
-
-    log.info(f"after write and close, n_resonator is now {rdf.n_resonator[0]}")

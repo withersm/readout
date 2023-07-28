@@ -48,13 +48,21 @@ def __workerprocess(chan: RFChannel):
     raw.format(chan.n_sample, chan.n_resonator, chan.n_attenuator)
 
     log.debug(f"{chan.name} begin data collection")
-    iter = np.arange(0, chan.n_sample, 1)
+
+    i = np.zeros((1024, chan.n_sample))
+    q = np.zeros((1024, chan.n_sample))
+    ts = np.zeros((2, chan.n_sample))
     try:
-        for i in iter:
-            data = np.frombuffer(s.recv(8208), dtype="<i")
-            raw.adc_i[:, i] = data[0::2]
-            raw.adc_q[:, i] = data[1::2]
-            raw.timestamp[1, i] = time.time_ns() / 1e3
+        log.debug("start collection loop")
+        for k in range(chan.n_sample):
+            data = np.frombuffer(bytearray(s.recv(8208)), dtype="<i")[0:2048]
+            i[:, k] = data[0::2]
+            q[:, k] = data[1::2]
+            ts[1, k] = time.time_ns() /1e6
+        log.debug("finished collection loop")
+        raw.adc_i[...] = i
+        raw.adc_q[...] = q
+        raw.timestamp[...] = ts
         s.close()
         raw.close()
     except Exception as e2:
@@ -81,3 +89,19 @@ def capture(channels: list):
         log.debug("Worker Processes executed, waiting for jobs to complete.")
         exec.shutdown(wait=True)
     log.info("Capture Finished")
+
+
+def test():
+    import os
+    t = 10
+    NSAMP = 488 * t
+    os.system("clear")
+    # print("pretending to collect data")
+    savefile = "TESTTEST.hdf"
+
+    rfsoc1 = data_handler.RFChannel(savefile, "192.168.5.40", 4096, "rfso1", NSAMP)
+    # capture([rfsoc1])
+    __workerprocess(rfsoc1)
+
+if __name__ == "__main__":
+    test()
