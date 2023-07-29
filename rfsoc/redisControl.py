@@ -136,10 +136,12 @@ class Cli:
                             print("Done")
                         self.r.set("status", "free")
                     elif cmd["cmd"] == "get_last_flist":
+                        print("get_last_flist")
                         self.reply(
                             "get_last_flist", "OK", self.rfsoc.last_flist.tolist()
                         )
                     elif cmd["cmd"] == "get_last_alist":
+                        print("get last alist")
                         self.reply(
                             "get_last_alist", "OK", self.rfsoc.last_alist.tolist()
                         )

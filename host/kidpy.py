@@ -130,6 +130,7 @@ def wait_for_reply(redis_pubsub, cmd, max_timeout=15):
     print(
         "WARINNG: TIMED OUT WAITING FOR REPLY -->  def waitForReply(redisIF, cmd, maxTimeout = 15):"
     )
+    return False, None
 
 
 def checkBlastCli(r, p):
@@ -200,12 +201,6 @@ def write_fList(self, fList, ampList):
         log.error("FAILED TO WRITE WAVEFORM")
 
 
-# simple function to return current tone list
-# NOTE THAT THESE HAVE BEEN REMOVED
-def get_tone_list(self):
-    lo_freq = valon5009.Synthesizer.get_frequency(self.valon, valon5009.SYNTH_B)
-    tones = lo_freq * 1.0e6 + np.asarray(self.get_last_flist())
-    return tones
 
 
 def menu(captions, options):
@@ -215,14 +210,22 @@ def menu(captions, options):
         list options: List of menu options
     outputs:
         int opt: Integer corresponding to menu option chosen by user"""
+    log = logger.getChild("menu")
     print("\t" + captions[0] + "\n")
     for i in range(len(options)):
         print("\t" + "\033[32m" + str(i) + " ..... " "\033[0m" + options[i] + "\n")
     opt = None
     try:
-        opt = eval(input())
+        x = input("Option? ")
+        opt = int(x)
     except KeyboardInterrupt:
         exit()
+    except ValueError:
+        print("Not a valid option")
+        return 999999
+    except TypeError:
+        print("Not a valid option")
+        return 999999
     return opt
 
 
@@ -259,8 +262,8 @@ class kidpy:
             exit()
 
         # Differentiate 5009's connected to the system
-        self.valon = valon5009.Synthesizer("/dev/IF2System1LO")
-        self.valon.set_frequency(valon5009.SYNTH_B, default_f_center)
+        # self.valon = valon5009.Synthesizer("/dev/IF2System1LO")
+        # self.valon.set_frequency(valon5009.SYNTH_B, default_f_center)
         # for v in self.__ValonPorts:
         #    self.valon = valon5009.Synthesizer(v.replace(' ', ''))
 
@@ -280,11 +283,19 @@ class kidpy:
             "LO Sweep",
             "Exit",
             "ONR kidpy",
+            "Plot accum sample"
         ]
+    def get_tone_list(self):
+        lo_freq = valon5009.Synthesizer.get_frequency(self.valon, valon5009.SYNTH_B)
+        tones = lo_freq * 1.0e6 + np.asarray(self.get_last_flist())
+        return tones
+
 
     def get_last_flist(self):
         log = logger.getChild("kidpy.get_last_flist")
-        status, data = wait_for_reply(self.p, "get_last_flist", 2)
+        cmd = json.dumps({"cmd": "get_last_flist", "args": []})
+        self.r.publish("picard", cmd)
+        status, data = wait_for_reply(self.p, "get_last_flist", 3)
         if status:
             return np.array(data)
         else:
@@ -293,6 +304,8 @@ class kidpy:
 
     def get_last_alist(self):
         log = logger.getChild("kidpy.get_last_alist")
+        cmd = json.dumps({"cmd": "get_last_alist", "args": []})
+        self.r.publish("picard", cmd)
         status, data = wait_for_reply(self.p, "get_last_alist", 2)
         if status:
             return np.array(data)
@@ -326,6 +339,8 @@ class kidpy:
                 )
                 if resp != "y":
                     exit()
+            if opt == 999999:
+                pass
             if opt == 0:  # upload firmware
                 os.system("clear")
                 cmd = {"cmd": "ulBitstream", "args": []}
@@ -468,7 +483,7 @@ class kidpy:
                                     self.valon, valon5009.SYNTH_B
                                 )
                                 fList = np.ndarray.tolist(
-                                    get_tone_list(self)
+                                    self.get_tone_list()
                                     + float(tone_shift) * 1.0e3
                                     - lo_freq * 1.0e6
                                 )
@@ -497,7 +512,7 @@ class kidpy:
 
                             # then fit the resonances from that sweep
                             fit_f0, fit_qi, fit_qc = fit_lo.main(
-                                get_tone_list(self), quickPlot=True, printFlag=True
+                                self.get_tone_list(), quickPlot=True, printFlag=True
                             )
                             adjust_tones = (
                                 input(
@@ -629,7 +644,7 @@ class kidpy:
                             onr_loop = False
 
                         if onr_opt == 8:  # Tone Powers
-                            fList = get_tone_list(self)
+                            fList = self.get_last_flist()
                             fAmps = np.ones(np.size(fList))
                             #                           fAmps[0:10] = 10
                             pdb.set_trace()
@@ -640,6 +655,19 @@ class kidpy:
                 else:
                     print("ONR repository does not exist")
 
+            if opt == 9:
+                self.__udp.bindSocket()
+                self.__udp.capture_packets(488)
+                d = self.__udp.capture_packets(100)
+                self.__udp.release()
+                i = d[0::2].T[50]
+                q = d[1::2].T[50]
+                mag = np.sqrt(i**2 + q**2)
+                y = 10*np.log10(mag/np.max(mag))
+                plt.plot(y)
+                plt.title("Accum (dB)")
+                plt.grid()
+                plt.show()
             return 0
 
 

@@ -118,8 +118,6 @@ class udpcap():
             # capture n packets 
                 # Dispatch helper process to dump data into hdf5 dataset
             # continue to capture n packets, never interrupting datataking
-        except Exception as errorE:
-            raise(errorE)
         
         except TypeError:
             print("Type error occured")

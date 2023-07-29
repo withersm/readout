@@ -6,3 +6,5 @@ __pycache__
 kidpylib/__pycache__
 kidpylib.loga
 onr/
+*.log
+host/params

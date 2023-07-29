@@ -37,21 +37,11 @@ class rfsocInterface:
         self.last_alist = np.array([])
 
     def uploadOverlay(
-        self, bitstream="202306091243_silver_blast_fixedeth.bit", reload_bitf=False
+        self, bitstream="202306091243_silver_blast_fixedeth.bit"
     ):
         # FIRMWARE UPLOAD
 
-        self.firmware = Overlay(bitstream, ignore_version=True, download=False)
-        if reload_bitf:
-            self.firmware.download()
-            self.bitf_loaded = True
-            print("reloading bitfile, reload_bitf=True")
-        elif not self.bitf_loaded:
-            self.firmware.download()
-            self.bitf_loaded = True
-            print("bitfile not loaded, loading bitf_loaded=False")
-        else:
-            pass
+        self.firmware = Overlay(bitstream, ignore_version=True)
 
         xrfclk.set_all_ref_clks(409.6)  # MHz
         print("firmware uploaded and pll set")
@@ -231,7 +221,7 @@ class rfsocInterface:
 
         dacI, dacQ = self.norm_wave(ts)
         ddcI, ddcQ = self.norm_wave(wave_ddc, max_amp=(2**13) - 1)
-        return dacI, dacQ, ddcI, ddcQ, freqs
+        return dacI, dacQ, ddcI, ddcQ, freqs, amplitudes
 
     def load_DAC(self, wave_real, wave_imag):
         """
@@ -482,13 +472,13 @@ class rfsocInterface:
                 "Write Waveform Error: Amplitudes and Frequency list must be same length"
             )
 
-        LUT_I, LUT_Q, DDS_I, DDS_Q, freqs = self._surfsUpDude(
+        LUT_I, LUT_Q, DDS_I, DDS_Q, freqs, amps = self._surfsUpDude(
             bbfreq, bbamp, vna=False, verbose=verbose
         )
         self.load_bin_list(freqs)
         self.load_waveform_into_mem(freqs, LUT_I, LUT_Q, DDS_I, DDS_Q)
-        self.last_flist = bbfreq
-        self.last_alist = bbamp
+        self.last_flist = freqs
+        self.last_alist = amps
         # divide by 2 due to Interpolation within the DAC
         return freqs / 2
 
