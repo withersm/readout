@@ -61,6 +61,10 @@ class Cli:
         else:
             print("Failed to Subscribe to Command Channel")
 
+    def reply(self, cmd: str, status: str, args):
+        msg = {"cmd": cmd, "status": status, "data": args}
+        self.r.publish("picard_reply", json.dumps(msg))
+
     def listen(self):
         print("Starting Listener")
         try:
@@ -131,6 +135,16 @@ class Cli:
                             self.r.publish("picard_reply", json.dumps(reply))
                             print("Done")
                         self.r.set("status", "free")
+                    elif cmd["cmd"] == "get_last_flist":
+                        print("get_last_flist")
+                        self.reply(
+                            "get_last_flist", "OK", self.rfsoc.last_flist.tolist()
+                        )
+                    elif cmd["cmd"] == "get_last_alist":
+                        print("get last alist")
+                        self.reply(
+                            "get_last_alist", "OK", self.rfsoc.last_alist.tolist()
+                        )
                     elif cmd["cmd"] == "exit":
                         print("Exiting as Commanded")
                         return

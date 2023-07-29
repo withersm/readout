@@ -33,24 +33,15 @@ class rfsocInterface:
         self.accum_snap = None
         self.selectedBitstream = None
         self.bitf_loaded = False
+        self.last_flist = np.array([])
+        self.last_alist = np.array([])
 
     def uploadOverlay(
-        self, bitstream="202306091243_silver_blast_fixedeth.bit", reload_bitf=False
+        self, bitstream="202306091243_silver_blast_fixedeth.bit"
     ):
         # FIRMWARE UPLOAD
 
-        self.firmware = Overlay(bitstream, ignore_version=True, download=False)
-        if reload_bitf:
-            self.firmware.download()
-            self.bitf_loaded = True
-            print("reloading bitfile, reload_bitf=True")
-        elif not self.bitf_loaded:
-            self.firmware.download()
-            self.bitf_loaded = True
-            print("bitfile not loaded, loading bitf_loaded=False")
-        else:
-            pass
-
+        self.firmware = Overlay(bitstream, ignore_version=True)
 
         xrfclk.set_all_ref_clks(409.6)  # MHz
         print("firmware uploaded and pll set")
@@ -128,7 +119,7 @@ class rfsocInterface:
         eth_delay_reg.write(
             0x00, 37 + (4 << 16)
         )  # 44 + (4<<16)) # data output from eth buffer delay/ input to eth buffer delay <<16 delay
-        eth_delay_reg.write(0x08, 3)  # start pulse out delay
+        eth_delay_reg.write(0x08, 43)  # start pulse out delay
         ###############################
         # Data MUX
         ###############################
@@ -230,7 +221,7 @@ class rfsocInterface:
 
         dacI, dacQ = self.norm_wave(ts)
         ddcI, ddcQ = self.norm_wave(wave_ddc, max_amp=(2**13) - 1)
-        return dacI, dacQ, ddcI, ddcQ, freqs
+        return dacI, dacQ, ddcI, ddcQ, freqs, amplitudes
 
     def load_DAC(self, wave_real, wave_imag):
         """
@@ -343,7 +334,7 @@ class rfsocInterface:
             fft_shift = 1 * ((2**5) - 1)  # (2**7)-1 # CHANGED FOR NEW GPIO
 
         # DDS SHIFT offset = 0x00, 0x08 is open
-        self.dds_shift.write(0x00, 234)  # WRITING TO DDS SHIFT
+        self.dds_shift.write(0x00, 193)  # WRITING TO DDS SHIFT
         # 0x00 bins, 0x08 0b-23b accum len, 24b accum rst, 26b sync in
         self.accum_and_bin_idx.write(0x08, 1 * accum_length)  # 100
 
@@ -454,14 +445,14 @@ class rfsocInterface:
         vna: bool = False,
         verbose: bool = False,
     ):
-        """! Generate a waveform from the RFSOC
+        """Generate a waveform from the RFSOC
 
-        @param bbfreq_list      List of bb tones to generate
-        @param bb_amplitudes    List of amplitudes paired with with bbfreq_list
-        @param vna              (optional) Generate 1000 Tones from -251.0e6 to -1e6, 2.25e6, 252.25e6
-        @param verbose          (DEPRECATED) -> Enabled various print statements, most of which have been removed.
+        :param bbfreq_list:      List of bb tones to generate
+        :param bb_amplitudes:    List of amplitudes paired with with bbfreq_list
+        :param vna:              (optional) Generate 1000 Tones from -251.0e6 to -1e6, 2.25e6, 252.25e6
+        :param verbose:          (DEPRECATED) -> Enabled various print statements, most of which have been removed.
 
-        @returns The list of calculated (ACTUAL) baseband tones.
+        :returns: The list of calculated (ACTUAL) baseband tones.
 
         """
 
@@ -481,11 +472,13 @@ class rfsocInterface:
                 "Write Waveform Error: Amplitudes and Frequency list must be same length"
             )
 
-        LUT_I, LUT_Q, DDS_I, DDS_Q, freqs = self._surfsUpDude(
+        LUT_I, LUT_Q, DDS_I, DDS_Q, freqs, amps = self._surfsUpDude(
             bbfreq, bbamp, vna=False, verbose=verbose
         )
         self.load_bin_list(freqs)
         self.load_waveform_into_mem(freqs, LUT_I, LUT_Q, DDS_I, DDS_Q)
+        self.last_flist = freqs
+        self.last_alist = amps
         # divide by 2 due to Interpolation within the DAC
         return freqs / 2
 
