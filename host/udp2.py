@@ -14,59 +14,96 @@ from multiple channels from multiple RFSOC's in a multiprocessing environment.
 :Date: 2023-07-26
 :Version: 1.0.0
 """
-import concurrent.futures
+from ctypes import c_bool
+import ctypes
 import logging
 import data_handler
 import numpy as np
 import socket
 import data_handler
+from data_handler import getdtime
 import socket
-import time
 from data_handler import RFChannel
+import multiprocessing as mp
 
+__LOGFMT = "%(asctime)s|%(levelname)s|%(filename)s|%(lineno)d|%(funcName)s|%(message)s"
+
+# logging.basicConfig(format=__LOGFMT, level=logging.DEBUG)
+logging.basicConfig(format=__LOGFMT, level=logging.INFO)
 logger = logging.getLogger(__name__)
+__logh = logging.FileHandler("./kidpy.log")
+logging.root.addHandler(__logh)
+logger.log(100, __LOGFMT)
+__logh.flush()
+__logh.setFormatter(logging.Formatter(__LOGFMT))
 
 
-def __workerprocess(chan: RFChannel):
-    """
-    Worker Process
-    Given properties through chan, the worker process creates a new socket and binds to it. A RawDataFile is then created
-    and formated. Following this, the raw file is filled out with the aquired data and then closed.
-    """
+def __data_writer_process(dataqueue, chan: RFChannel):
+    """ """
     log = logger.getChild(__name__)
+    log.debug(f"began data writer process <{chan.name}>")
 
-    log.debug(f"__worker process for {chan.name} started. ")
+    # Create HDF5 Datafile
+    raw = data_handler.RawDataFile(chan.raw_filename)
+    raw.format(0, chan.n_resonator, chan.n_attenuator)
+
+    # Pass in the last LO sweep hhere
+
+    while True:
+        # we're done if the queue closes
+        obj = dataqueue.get()
+        if obj is None:
+            break
+
+        # re-Allocate Dataset
+        indx, adci, adcq, timestamp = obj
+        raw.resize(indx)
+        # Get Data
+        raw.adc_i[:, indx - 488 : indx] = adci
+        raw.adc_q[:, indx - 488 : indx] = adcq
+        raw.timestamp[indx - 488 : indx] = timestamp
+
+    raw.close()
+    log.debug("Queue closed, closing file and exiting...")
+
+
+def __data_collector_process(dataqueue, chan: RFChannel, runFlag):
+    """"""
+    log = logger.getChild(__name__)
+    log.debug(f"began data collector process <{chan.name}>")
+    # Creae Socket
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     try:
         s.bind((chan.ip, chan.port))
         s.settimeout(1.0)
     except Exception as e:
-        log.error(e)
+        dataqueue.close()
         return
-    log.debug(f"{chan.name} loading HDF5")
-    raw = data_handler.RawDataFile(chan.raw_filename)
-    raw.format(chan.n_sample, chan.n_resonator, chan.n_attenuator)
 
-    log.debug(f"{chan.name} begin data collection")
+    # Take Data
+    idx = 488
+    i = np.zeros((1024, 488))
+    q = np.zeros((1024, 488))
+    ts = np.zeros(488)
 
-    i = np.zeros((1024, chan.n_sample))
-    q = np.zeros((1024, chan.n_sample))
-    ts = np.zeros((2, chan.n_sample))
-    try:
-        log.debug("start collection loop")
-        for k in range(chan.n_sample):
+    while runFlag.value:
+        if (
+            idx >= 2440
+        ):  # prevent runaway, just in case KeyboardInterrupt doesn't work as intended
+            break
+        i[...] = 0
+        q[...] = 0
+        ts[...] = 0
+        for k in range(488):
             data = np.frombuffer(bytearray(s.recv(8208)), dtype="<i")[0:2048]
             i[:, k] = data[0::2]
             q[:, k] = data[1::2]
-            ts[1, k] = time.time_ns() /1e6
-        log.debug("finished collection loop")
-        raw.adc_i[...] = i
-        raw.adc_q[...] = q
-        raw.timestamp[...] = ts
-        s.close()
-        raw.close()
-    except Exception as e2:
-        log.error(str(e2))
+            ts[k] = (getdtime(), 1)
+        dataqueue.put((idx, i, q, ts))
+        idx = idx + 488
+
+    dataqueue.close()
+    s.close()
 
 
 def capture(channels: list):
@@ -77,31 +114,38 @@ def capture(channels: list):
         * Downlinks data and populates the raw file
     """
     log = logger.getChild(__name__)
-    log.info("Starting Capture")
 
     if channels is None or channels is []:
         log.warning("Specified list of rfsoc connections is empy/None")
         return
 
-    with concurrent.futures.ProcessPoolExecutor() as exec:
-        log.debug("submitting jobs to process pool")
-        results = exec.map(__workerprocess, channels)
-        log.debug("Worker Processes executed, waiting for jobs to complete.")
-        exec.shutdown(wait=True)
-    log.info("Capture Finished")
+    # mmmmmmmmmmmmmmmmmmmmm
+    manager = mp.Manager()
+    pool = mp.Pool()
 
+    log.info("Starting Capture Processes")
+    runFlag = manager.Value(ctypes.c_bool, False)
+    try:
+        for chan in channels:
+            dataqueue = manager.Queue()
+            pool.apply_async(__data_writer_process, (dataqueue, chan))
+            log.debug(f"Spawned data collector process: {chan.name}")
+            pool.apply_async(__data_collector_process, (dataqueue, chan, runFlag))
+            log.debug(f"Spawned data writer process: {chan.name}")
 
-def test():
-    import os
-    t = 10
-    NSAMP = 488 * t
-    os.system("clear")
-    # print("pretending to collect data")
-    savefile = "TESTTEST.hdf"
+        pool.close()
+        log.info("Waiting on capture to complete")
+        pool.join()
+    except KeyboardInterrupt:
+        log.info("Ending Data Capture")
+        runFlag.value = False
 
-    rfsoc1 = data_handler.RFChannel(savefile, "192.168.5.40", 4096, "rfso1", NSAMP)
-    # capture([rfsoc1])
-    __workerprocess(rfsoc1)
+    log.info("Finished...")
+
 
 if __name__ == "__main__":
-    test()
+    # lets test this thing, shall we?
+    rfsoc = data_handler.RFChannel(
+        "./test_raw.h5", "192.168.5.40", 4096, "rfsoc1-test", 488, 1024, 1
+    )
+    capture([rfsoc])

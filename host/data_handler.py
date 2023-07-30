@@ -3,7 +3,7 @@ Overview
 ________
 
 data_handler defines an interface with whichi readout data is obtained, stored, and manipulated.
-The format specified here is a standard 
+The format specified here is a standard.
 
 :Authors: - Cody
           - Jack Sayers
@@ -14,11 +14,12 @@ The format specified here is a standard
 
 import h5py
 import os
-import datetime
+import time
 import logging
 from dataclasses import dataclass
 
 logger = logging.getLogger(__name__)
+
 
 @dataclass
 class RFChannel:
@@ -38,10 +39,10 @@ class RawDataFile:
     will be captured and saved to this hdf5 filetype.
 
     :param path: /file/path/here/file.h5
-    :param n_sample: The number of data samples collected (i.e., sample_rate * length_of_file_in_seconds)
+    :param n_sample: (Dimension) The number of data samples collected (i.e., sample_rate * length_of_file_in_seconds)
+    :param n_resonator: (Dimension) The number of resonance tones
+    :param n_attenuator: (Dimension) The number of attenuators used in the RF Channel
 
-    :param n_resonator: The number of resonance tones
-    :param n_attenuator: The number of attenuators in the IF slice or elsewhere in the system - likely = 2 for now
     """
 
     def __init__(self, path):
@@ -119,27 +120,39 @@ class RawDataFile:
         # ****************************** Time Ordered Data *****************************
         self.adc_i = self.fh.create_dataset(
             "time_ordered_data/adc_i",
-            (n_resonator, n_sample),
+            (1024, n_sample),
+            chunks=(1024, 488),
+            maxshape=(1024, None),
             dtype=h5py.h5t.NATIVE_UINT32,
         )
         self.adc_q = self.fh.create_dataset(
             "time_ordered_data/adc_q",
-            (n_resonator, n_sample),
+            (1024, n_sample),
+            chunks=(1024, 488),
+            maxshape=(1024, None),
             dtype=h5py.h5t.NATIVE_UINT32,
         )
         self.lo_freq = self.fh.create_dataset(
             "time_ordered_data/lo_freq", (1, n_sample), dtype=h5py.h5t.NATIVE_INT32
         )
         timestamp_compound_datatype = [
-            ("time_us", h5py.h5t.NATIVE_UINT64),
+            ("time", h5py.h5t.NATIVE_DOUBLE),
             ("packet_number", h5py.h5t.NATIVE_UINT64),
         ]
         self.timestamp = self.fh.create_dataset(
             "time_ordered_data/timestamp",
-            (2, n_sample),
-            dtype=timestamp_compound_datatype,
+            (n_sample,),
+            chunks=(488,),
+            maxshape=(None,),
+            type=timestamp_compound_datatype,
         )
         self.fh.flush()
+
+    def resize(self, n_sample: int):
+        self.n_sample[0] = n_sample
+        self.adc_i.resize((1024, n_sample))
+        self.adc_q.resize((1024, n_sample))
+        self.timestamp.resize((n_sample,))
 
     def read(self):
         """
@@ -394,3 +407,31 @@ def gen_read(h5: str):
         elif isinstance(v, h5py.Group):
             v.visititems(somefunc)
 
+
+def getdtime():
+    """
+    Gets the fractional hours since midnight of the current day.
+
+    :return: Fraction of hours since midnight
+    :rtype: Float
+    """
+    t = time.localtime()
+    t1 = time.mktime(t)  # current time
+
+    t2 = time.struct_time(
+        (
+            t.tm_year,
+            t.tm_mon,
+            t.tm_mday,
+            0,
+            0,
+            0,
+            t.tm_wday,
+            t.tm_yday,
+            t.tm_isdst,
+            t.tm_zone,
+            t.tm_gmtoff,
+        )
+    )
+    t2 = time.mktime(t2)
+    return (t1 - t2) / 3600
