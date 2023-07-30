@@ -19,7 +19,7 @@
     <script src="_static/js/theme.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
-    <link rel="next" title="Sweeps module" href="Sweeps.html" />
+    <link rel="next" title="config module" href="config.html" />
     <link rel="prev" title="Welcome to readout’s documentation!" href="index.html" /> 
 </head>
 
@@ -45,11 +45,13 @@
               <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
 <ul class="current">
 <li class="toctree-l1 current"><a class="current reference internal" href="#">host</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="Sweeps.html">Sweeps module</a></li>
 <li class="toctree-l2"><a class="reference internal" href="config.html">config module</a></li>
 <li class="toctree-l2"><a class="reference internal" href="data_handler.html">data_handler module</a></li>
 <li class="toctree-l2"><a class="reference internal" href="kidpy.html">kidpy module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sweeps.html">sweeps module</a></li>
 <li class="toctree-l2"><a class="reference internal" href="udp2.html">udp2 module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="udp_sender.html">udp_sender module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="udpcap.html">udpcap module</a></li>
 <li class="toctree-l2"><a class="reference internal" href="valon5009.html">valon5009 module</a></li>
 </ul>
 </li>
@@ -83,17 +85,13 @@
 <h1>host<a class="headerlink" href="#host" title="Permalink to this heading"></a></h1>
 <div class="toctree-wrapper compound">
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="Sweeps.html">Sweeps module</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="Sweeps.html#Sweeps.loSweep"><code class="docutils literal notranslate"><span class="pre">loSweep()</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="Sweeps.html#Sweeps.sweep"><code class="docutils literal notranslate"><span class="pre">sweep()</span></code></a></li>
-</ul>
-</li>
 <li class="toctree-l1"><a class="reference internal" href="config.html">config module</a></li>
 <li class="toctree-l1"><a class="reference internal" href="data_handler.html">data_handler module</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="data_handler.html#overview">Overview</a></li>
 <li class="toctree-l2"><a class="reference internal" href="data_handler.html#data_handler.ObservationDataFile"><code class="docutils literal notranslate"><span class="pre">ObservationDataFile</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="data_handler.html#data_handler.RFChannel"><code class="docutils literal notranslate"><span class="pre">RFChannel</span></code></a><ul>
 <li class="toctree-l3"><a class="reference internal" href="data_handler.html#data_handler.RFChannel.ip"><code class="docutils literal notranslate"><span class="pre">RFChannel.ip</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="data_handler.html#data_handler.RFChannel.lo_sweep_filename"><code class="docutils literal notranslate"><span class="pre">RFChannel.lo_sweep_filename</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="data_handler.html#data_handler.RFChannel.n_attenuator"><code class="docutils literal notranslate"><span class="pre">RFChannel.n_attenuator</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="data_handler.html#data_handler.RFChannel.n_resonator"><code class="docutils literal notranslate"><span class="pre">RFChannel.n_resonator</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="data_handler.html#data_handler.RFChannel.n_sample"><code class="docutils literal notranslate"><span class="pre">RFChannel.n_sample</span></code></a></li>
@@ -103,19 +101,30 @@
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="data_handler.html#data_handler.RawDataFile"><code class="docutils literal notranslate"><span class="pre">RawDataFile</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="data_handler.html#data_handler.RawDataFile.append_lo_sweep"><code class="docutils literal notranslate"><span class="pre">RawDataFile.append_lo_sweep()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="data_handler.html#data_handler.RawDataFile.close"><code class="docutils literal notranslate"><span class="pre">RawDataFile.close()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="data_handler.html#data_handler.RawDataFile.format"><code class="docutils literal notranslate"><span class="pre">RawDataFile.format()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="data_handler.html#data_handler.RawDataFile.read"><code class="docutils literal notranslate"><span class="pre">RawDataFile.read()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="data_handler.html#data_handler.RawDataFile.resize"><code class="docutils literal notranslate"><span class="pre">RawDataFile.resize()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="data_handler.html#data_handler.TelescopeDataFile"><code class="docutils literal notranslate"><span class="pre">TelescopeDataFile</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="data_handler.html#data_handler.TelescopeDataFile.format"><code class="docutils literal notranslate"><span class="pre">TelescopeDataFile.format()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="data_handler.html#data_handler.TelescopeDataFile.read"><code class="docutils literal notranslate"><span class="pre">TelescopeDataFile.read()</span></code></a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="data_handler.html#data_handler.gen_read"><code class="docutils literal notranslate"><span class="pre">gen_read()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="data_handler.html#data_handler.get_last_lo"><code class="docutils literal notranslate"><span class="pre">get_last_lo()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="data_handler.html#data_handler.get_yymmdd"><code class="docutils literal notranslate"><span class="pre">get_yymmdd()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="data_handler.html#data_handler.getdtime"><code class="docutils literal notranslate"><span class="pre">getdtime()</span></code></a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="kidpy.html">kidpy module</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="kidpy.html#kidpy.checkBlastCli"><code class="docutils literal notranslate"><span class="pre">checkBlastCli()</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="kidpy.html#kidpy.get_tone_list"><code class="docutils literal notranslate"><span class="pre">get_tone_list()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="kidpy.html#kidpy.kidpy"><code class="docutils literal notranslate"><span class="pre">kidpy</span></code></a><ul>
-<li class="toctree-l3"><a class="reference internal" href="kidpy.html#kidpy.kidpy.begin_ui"><code class="docutils literal notranslate"><span class="pre">kidpy.begin_ui()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="kidpy.html#kidpy.kidpy.get_last_alist"><code class="docutils literal notranslate"><span class="pre">kidpy.get_last_alist()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="kidpy.html#kidpy.kidpy.get_last_flist"><code class="docutils literal notranslate"><span class="pre">kidpy.get_last_flist()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="kidpy.html#kidpy.kidpy.get_tone_list"><code class="docutils literal notranslate"><span class="pre">kidpy.get_tone_list()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="kidpy.html#kidpy.kidpy.main_opt"><code class="docutils literal notranslate"><span class="pre">kidpy.main_opt()</span></code></a></li>
 </ul>
 </li>
@@ -127,9 +136,33 @@
 <li class="toctree-l2"><a class="reference internal" href="kidpy.html#kidpy.write_fList"><code class="docutils literal notranslate"><span class="pre">write_fList()</span></code></a></li>
 </ul>
 </li>
+<li class="toctree-l1"><a class="reference internal" href="sweeps.html">sweeps module</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="sweeps.html#sweeps.loSweep"><code class="docutils literal notranslate"><span class="pre">loSweep()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="sweeps.html#sweeps.plot_sweep"><code class="docutils literal notranslate"><span class="pre">plot_sweep()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="sweeps.html#sweeps.sweep"><code class="docutils literal notranslate"><span class="pre">sweep()</span></code></a></li>
+</ul>
+</li>
 <li class="toctree-l1"><a class="reference internal" href="udp2.html">udp2 module</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="udp2.html#overview">Overview</a></li>
 <li class="toctree-l2"><a class="reference internal" href="udp2.html#udp2.capture"><code class="docutils literal notranslate"><span class="pre">capture()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="udp2.html#udp2.exceptionCallback"><code class="docutils literal notranslate"><span class="pre">exceptionCallback()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="udp_sender.html">udp_sender module</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="udp_sender.html#overview">Overview</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="udpcap.html">udpcap module</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="udpcap.html#udpcap.ldcHelper"><code class="docutils literal notranslate"><span class="pre">ldcHelper()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="udpcap.html#udpcap.udpcap"><code class="docutils literal notranslate"><span class="pre">udpcap</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="udpcap.html#udpcap.udpcap.LongDataCapture"><code class="docutils literal notranslate"><span class="pre">udpcap.LongDataCapture()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="udpcap.html#udpcap.udpcap.bindSocket"><code class="docutils literal notranslate"><span class="pre">udpcap.bindSocket()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="udpcap.html#udpcap.udpcap.capture_packets"><code class="docutils literal notranslate"><span class="pre">udpcap.capture_packets()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="udpcap.html#udpcap.udpcap.parse_packet"><code class="docutils literal notranslate"><span class="pre">udpcap.parse_packet()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="udpcap.html#udpcap.udpcap.release"><code class="docutils literal notranslate"><span class="pre">udpcap.release()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="udpcap.html#udpcap.udpcap.shortDataCapture"><code class="docutils literal notranslate"><span class="pre">udpcap.shortDataCapture()</span></code></a></li>
+</ul>
+</li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="valon5009.html">valon5009 module</a><ul>
@@ -164,7 +197,7 @@
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
         <a href="index.html" class="btn btn-neutral float-left" title="Welcome to readout’s documentation!" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
-        <a href="Sweeps.html" class="btn btn-neutral float-right" title="Sweeps module" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+        <a href="config.html" class="btn btn-neutral float-right" title="config module" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 
   <hr/>

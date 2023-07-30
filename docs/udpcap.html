@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>udpcap module &mdash; mKID Readout - KIDPY3 2.0.0 documentation</title>
+      <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="_static/jquery.js"></script>
+        <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+        <script src="_static/doctools.js"></script>
+        <script src="_static/sphinx_highlight.js"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="valon5009 module" href="valon5009.html" />
+    <link rel="prev" title="udp_sender module" href="udp_sender.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            mKID Readout - KIDPY3
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="modules.html">host</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="config.html">config module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="data_handler.html">data_handler module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="kidpy.html">kidpy module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sweeps.html">sweeps module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="udp2.html">udp2 module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="udp_sender.html">udp_sender module</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">udpcap module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#udpcap.ldcHelper"><code class="docutils literal notranslate"><span class="pre">ldcHelper()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#udpcap.udpcap"><code class="docutils literal notranslate"><span class="pre">udpcap</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#udpcap.udpcap.LongDataCapture"><code class="docutils literal notranslate"><span class="pre">udpcap.LongDataCapture()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#udpcap.udpcap.bindSocket"><code class="docutils literal notranslate"><span class="pre">udpcap.bindSocket()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#udpcap.udpcap.capture_packets"><code class="docutils literal notranslate"><span class="pre">udpcap.capture_packets()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#udpcap.udpcap.parse_packet"><code class="docutils literal notranslate"><span class="pre">udpcap.parse_packet()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#udpcap.udpcap.release"><code class="docutils literal notranslate"><span class="pre">udpcap.release()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#udpcap.udpcap.shortDataCapture"><code class="docutils literal notranslate"><span class="pre">udpcap.shortDataCapture()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="valon5009.html">valon5009 module</a></li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">mKID Readout - KIDPY3</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="modules.html">host</a></li>
+      <li class="breadcrumb-item active">udpcap module</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/udpcap.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="module-udpcap">
+<span id="udpcap-module"></span><h1>udpcap module<a class="headerlink" href="#module-udpcap" title="Permalink to this heading"></a></h1>
+<dl class="py function">
+<dt class="sig sig-object py" id="udpcap.ldcHelper">
+<span class="sig-prename descclassname"><span class="pre">udpcap.</span></span><span class="sig-name descname"><span class="pre">ldcHelper</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">queue</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">filename</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nPackets</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/udpcap.html#ldcHelper"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#udpcap.ldcHelper" title="Permalink to this definition"></a></dt>
+<dd><p>ldcHelper is a helper method intended to be used in the udpcap.LongDataCapture method.
+This method runs asynchronously to udpcap.LongDataCapture in order to seperate 
+the array copy and i/o writing phases of data capture.</p>
+<blockquote>
+<div><p><a href="#id1"><span class="problematic" id="id2">**</span></a>** This should not be used for any purpose. <a href="#id3"><span class="problematic" id="id4">**</span></a><a href="#id5"><span class="problematic" id="id6">**</span></a></p>
+</div></blockquote>
+<dl class="simple">
+<dt>queue<span class="classifier">multiprocessing.manager.queue</span></dt><dd><p>Data Queue we are sourceing data from</p>
+</dd>
+<dt>dIn<span class="classifier">numpy.array</span></dt><dd><p>Numpy array that shall be copied into the h5p5 dataset</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="udpcap.udpcap">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">udpcap.</span></span><span class="sig-name descname"><span class="pre">udpcap</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">UDP_IP</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'192.168.5.40'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">UDP_PORT</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">4096</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/udpcap.html#udpcap"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#udpcap.udpcap" title="Permalink to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="udpcap.udpcap.LongDataCapture">
+<span class="sig-name descname"><span class="pre">LongDataCapture</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">fname</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nPackets</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/udpcap.html#udpcap.LongDataCapture"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#udpcap.udpcap.LongDataCapture" title="Permalink to this definition"></a></dt>
+<dd><p>Captures packets for extended periods of time utilzing pythons Multiprocessing library
+fname : string</p>
+<blockquote>
+<div><p>file name / path where data shall be exported</p>
+</div></blockquote>
+<dl class="simple">
+<dt>nPackets<span class="classifier">int</span></dt><dd><p>Number of packets to save</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="udpcap.udpcap.bindSocket">
+<span class="sig-name descname"><span class="pre">bindSocket</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/udpcap.html#udpcap.bindSocket"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#udpcap.udpcap.bindSocket" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="udpcap.udpcap.capture_packets">
+<span class="sig-name descname"><span class="pre">capture_packets</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">N_packets</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/udpcap.html#udpcap.capture_packets"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#udpcap.udpcap.capture_packets" title="Permalink to this definition"></a></dt>
+<dd><p>DEPRECATED</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="udpcap.udpcap.parse_packet">
+<span class="sig-name descname"><span class="pre">parse_packet</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/udpcap.html#udpcap.parse_packet"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#udpcap.udpcap.parse_packet" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="udpcap.udpcap.release">
+<span class="sig-name descname"><span class="pre">release</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/udpcap.html#udpcap.release"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#udpcap.udpcap.release" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="udpcap.udpcap.shortDataCapture">
+<span class="sig-name descname"><span class="pre">shortDataCapture</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">fname</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nPackets</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/udpcap.html#udpcap.shortDataCapture"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#udpcap.udpcap.shortDataCapture" title="Permalink to this definition"></a></dt>
+<dd><p>Performes sub 60 seconds data captures using only memory. 
+Data is then transferred to a file after the collection is complete.
+N : int</p>
+<blockquote>
+<div><p>Number of packets to save</p>
+</div></blockquote>
+<dl class="simple">
+<dt>fname<span class="classifier">string</span></dt><dd><p>file name / path</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="udp_sender.html" class="btn btn-neutral float-left" title="udp_sender module" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="valon5009.html" class="btn btn-neutral float-right" title="valon5009 module" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, Arizona State University.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

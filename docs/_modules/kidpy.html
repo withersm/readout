@@ -98,12 +98,13 @@
 <span class="kn">import</span> <span class="nn">udpcap</span>
 <span class="kn">import</span> <span class="nn">datetime</span>
 <span class="kn">import</span> <span class="nn">valon5009</span>
-<span class="kn">import</span> <span class="nn">Sweeps</span>
+<span class="kn">import</span> <span class="nn">sweeps</span>
 <span class="kn">import</span> <span class="nn">udp2</span>
 <span class="kn">import</span> <span class="nn">data_handler</span>
+<span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="k">as</span> <span class="nn">plt</span>
 
 <span class="c1"># from datetime import date</span>
-<span class="c1"># from datetime import datetime</span>
+<span class="c1"># from datetime import datetime</span>
 <span class="kn">import</span> <span class="nn">pdb</span>
 <span class="kn">import</span> <span class="nn">glob</span>
 <span class="kn">import</span> <span class="nn">logging</span>
@@ -112,7 +113,8 @@
 <span class="c1"># Configures the logger such that it prints to a screen and file including the format</span>
 <span class="n">__LOGFMT</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">%(asctime)s</span><span class="s2">|</span><span class="si">%(levelname)s</span><span class="s2">|</span><span class="si">%(filename)s</span><span class="s2">|</span><span class="si">%(lineno)d</span><span class="s2">|</span><span class="si">%(funcName)s</span><span class="s2">|</span><span class="si">%(message)s</span><span class="s2">&quot;</span>
 
-<span class="n">logging</span><span class="o">.</span><span class="n">basicConfig</span><span class="p">(</span><span class="nb">format</span><span class="o">=</span><span class="n">__LOGFMT</span><span class="p">,</span> <span class="n">level</span><span class="o">=</span><span class="n">logging</span><span class="o">.</span><span class="n">DEBUG</span><span class="p">)</span>
+<span class="c1"># logging.basicConfig(format=__LOGFMT, level=logging.DEBUG)</span>
+<span class="n">logging</span><span class="o">.</span><span class="n">basicConfig</span><span class="p">(</span><span class="nb">format</span><span class="o">=</span><span class="n">__LOGFMT</span><span class="p">,</span> <span class="n">level</span><span class="o">=</span><span class="n">logging</span><span class="o">.</span><span class="n">INFO</span><span class="p">)</span>
 <span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
 <span class="n">__logh</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">FileHandler</span><span class="p">(</span><span class="s2">&quot;./kidpy.log&quot;</span><span class="p">)</span>
 <span class="n">logging</span><span class="o">.</span><span class="n">root</span><span class="o">.</span><span class="n">addHandler</span><span class="p">(</span><span class="n">__logh</span><span class="p">)</span>
@@ -198,7 +200,8 @@
         <span class="n">current_time</span> <span class="o">=</span> <span class="n">current_time</span> <span class="o">+</span> <span class="mi">1</span>
     <span class="nb">print</span><span class="p">(</span>
         <span class="s2">&quot;WARINNG: TIMED OUT WAITING FOR REPLY --&gt;  def waitForReply(redisIF, cmd, maxTimeout = 15):&quot;</span>
-    <span class="p">)</span></div>
+    <span class="p">)</span>
+    <span class="k">return</span> <span class="kc">False</span><span class="p">,</span> <span class="kc">None</span></div>
 
 
 <div class="viewcode-block" id="checkBlastCli"><a class="viewcode-back" href="../kidpy.html#kidpy.checkBlastCli">[docs]</a><span class="k">def</span> <span class="nf">checkBlastCli</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="n">p</span><span class="p">):</span>
@@ -225,32 +228,48 @@
 
 
 <div class="viewcode-block" id="write_fList"><a class="viewcode-back" href="../kidpy.html#kidpy.write_fList">[docs]</a><span class="k">def</span> <span class="nf">write_fList</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">fList</span><span class="p">,</span> <span class="n">ampList</span><span class="p">):</span>
-    <span class="c1"># simple function to write a list of tones</span>
-    <span class="k">if</span> <span class="n">fList</span> <span class="o">==</span> <span class="p">[]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Function for writing tones to the rfsoc. Accepts both numpy arrays and lists.</span>
+<span class="sd">    :param fList: List of desired tones</span>
+<span class="sd">    :type fList: list</span>
+<span class="sd">    :param ampList: List of desired amplitudes</span>
+<span class="sd">    :type ampList: list</span>
+<span class="sd">    .. note::</span>
+<span class="sd">        fList and ampList must be the same size</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">log</span> <span class="o">=</span> <span class="n">logger</span><span class="o">.</span><span class="n">getChild</span><span class="p">(</span><span class="s2">&quot;write_fList&quot;</span><span class="p">)</span>
+    <span class="n">f</span> <span class="o">=</span> <span class="n">fList</span>
+    <span class="n">a</span> <span class="o">=</span> <span class="n">ampList</span>
+
+    <span class="c1"># Convert to numpy arrays as needed</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">fList</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">):</span>
+        <span class="n">f</span> <span class="o">=</span> <span class="n">fList</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">ampList</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">):</span>
+        <span class="n">a</span> <span class="o">=</span> <span class="n">ampList</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+
+    <span class="c1"># Format Command based on provided parameters</span>
+    <span class="n">cmd</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">f</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
         <span class="n">cmd</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;cmd&quot;</span><span class="p">:</span> <span class="s2">&quot;ulWaveform&quot;</span><span class="p">,</span> <span class="s2">&quot;args&quot;</span><span class="p">:</span> <span class="p">[]}</span>
-    <span class="k">elif</span> <span class="n">fList</span> <span class="o">!=</span> <span class="p">[]</span> <span class="ow">and</span> <span class="n">ampList</span> <span class="o">==</span> <span class="p">[]:</span>
-        <span class="c1"># in the case that amps are not provided, do default.</span>
-        <span class="n">ampList</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">fList</span><span class="p">))</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
-        <span class="n">cmd</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;cmd&quot;</span><span class="p">:</span> <span class="s2">&quot;ulWaveform&quot;</span><span class="p">,</span> <span class="s2">&quot;args&quot;</span><span class="p">:</span> <span class="p">[</span><span class="n">fList</span><span class="p">,</span> <span class="n">ampList</span><span class="p">]}</span>
+    <span class="k">elif</span> <span class="nb">len</span><span class="p">(</span><span class="n">f</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">a</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">a</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones_like</span><span class="p">(</span><span class="n">f</span><span class="p">)</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+        <span class="n">cmd</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;cmd&quot;</span><span class="p">:</span> <span class="s2">&quot;ulWaveform&quot;</span><span class="p">,</span> <span class="s2">&quot;args&quot;</span><span class="p">:</span> <span class="p">[</span><span class="n">f</span><span class="p">,</span> <span class="n">a</span><span class="p">]}</span>
+    <span class="k">elif</span> <span class="nb">len</span><span class="p">(</span><span class="n">f</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">a</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">a</span><span class="p">)</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span>
+            <span class="n">f</span>
+        <span class="p">),</span> <span class="s2">&quot;Frequency list and Amplitude list must be the same dimmension&quot;</span>
+        <span class="n">cmd</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;cmd&quot;</span><span class="p">:</span> <span class="s2">&quot;ulWaveform&quot;</span><span class="p">,</span> <span class="s2">&quot;args&quot;</span><span class="p">:</span> <span class="p">[</span><span class="n">f</span><span class="p">,</span> <span class="n">a</span><span class="p">]}</span>
     <span class="k">else</span><span class="p">:</span>
-        <span class="n">cmd</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;cmd&quot;</span><span class="p">:</span> <span class="s2">&quot;ulWaveform&quot;</span><span class="p">,</span> <span class="s2">&quot;args&quot;</span><span class="p">:</span> <span class="p">[</span><span class="n">fList</span><span class="p">,</span> <span class="n">ampList</span><span class="p">]}</span>
+        <span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;Weird edge case, something went very wrong.....&quot;</span><span class="p">)</span>
+        <span class="k">return</span>
 
     <span class="n">cmdstr</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">cmd</span><span class="p">)</span>
     <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">publish</span><span class="p">(</span><span class="s2">&quot;picard&quot;</span><span class="p">,</span> <span class="n">cmdstr</span><span class="p">)</span>
-    <span class="n">success</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">current_waveform</span> <span class="o">=</span> <span class="n">wait_for_reply</span><span class="p">(</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="p">,</span> <span class="s2">&quot;ulWaveform&quot;</span><span class="p">,</span> <span class="n">max_timeout</span><span class="o">=</span><span class="mi">10</span>
-    <span class="p">)</span>
+    <span class="n">success</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">wait_for_reply</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="p">,</span> <span class="s2">&quot;ulWaveform&quot;</span><span class="p">,</span> <span class="n">max_timeout</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">success</span><span class="p">:</span>
-        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Wrote Waveform&quot;</span><span class="p">)</span>
-    <span class="c1">#        print(self.current_waveform)</span>
+        <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Wrote waveform.&quot;</span><span class="p">)</span>
     <span class="k">else</span><span class="p">:</span>
-        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Failed to write waveform&quot;</span><span class="p">)</span></div>
-
-
-<div class="viewcode-block" id="get_tone_list"><a class="viewcode-back" href="../kidpy.html#kidpy.get_tone_list">[docs]</a><span class="k">def</span> <span class="nf">get_tone_list</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-    <span class="n">lo_freq</span> <span class="o">=</span> <span class="n">valon5009</span><span class="o">.</span><span class="n">Synthesizer</span><span class="o">.</span><span class="n">get_frequency</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">valon</span><span class="p">,</span> <span class="n">valon5009</span><span class="o">.</span><span class="n">SYNTH_B</span><span class="p">)</span>
-    <span class="n">tones</span> <span class="o">=</span> <span class="n">lo_freq</span> <span class="o">*</span> <span class="mf">1.0e6</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">current_waveform</span><span class="p">)</span> <span class="o">/</span> <span class="mf">2.0</span>
-    <span class="k">return</span> <span class="n">tones</span></div>
+        <span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;FAILED TO WRITE WAVEFORM&quot;</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="menu"><a class="viewcode-back" href="../kidpy.html#kidpy.menu">[docs]</a><span class="k">def</span> <span class="nf">menu</span><span class="p">(</span><span class="n">captions</span><span class="p">,</span> <span class="n">options</span><span class="p">):</span>
@@ -260,14 +279,22 @@
 <span class="sd">        list options: List of menu options</span>
 <span class="sd">    outputs:</span>
 <span class="sd">        int opt: Integer corresponding to menu option chosen by user&quot;&quot;&quot;</span>
+    <span class="n">log</span> <span class="o">=</span> <span class="n">logger</span><span class="o">.</span><span class="n">getChild</span><span class="p">(</span><span class="s2">&quot;menu&quot;</span><span class="p">)</span>
     <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\t</span><span class="s2">&quot;</span> <span class="o">+</span> <span class="n">captions</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
     <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">options</span><span class="p">)):</span>
         <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\t</span><span class="s2">&quot;</span> <span class="o">+</span> <span class="s2">&quot;</span><span class="se">\033</span><span class="s2">[32m&quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">i</span><span class="p">)</span> <span class="o">+</span> <span class="s2">&quot; ..... &quot;</span> <span class="s2">&quot;</span><span class="se">\033</span><span class="s2">[0m&quot;</span> <span class="o">+</span> <span class="n">options</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">+</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
     <span class="n">opt</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="k">try</span><span class="p">:</span>
-        <span class="n">opt</span> <span class="o">=</span> <span class="nb">eval</span><span class="p">(</span><span class="nb">input</span><span class="p">())</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="nb">input</span><span class="p">(</span><span class="s2">&quot;Option? &quot;</span><span class="p">)</span>
+        <span class="n">opt</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
     <span class="k">except</span> <span class="ne">KeyboardInterrupt</span><span class="p">:</span>
         <span class="n">exit</span><span class="p">()</span>
+    <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Not a valid option&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="mi">999999</span>
+    <span class="k">except</span> <span class="ne">TypeError</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Not a valid option&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="mi">999999</span>
     <span class="k">return</span> <span class="n">opt</span></div>
 
 
@@ -304,13 +331,14 @@
             <span class="n">exit</span><span class="p">()</span>
 
         <span class="c1"># Differentiate 5009&#39;s connected to the system</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">valon</span> <span class="o">=</span> <span class="n">valon5009</span><span class="o">.</span><span class="n">Synthesizer</span><span class="p">(</span><span class="s2">&quot;/dev/IF2System1LO&quot;</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">valon</span><span class="o">.</span><span class="n">set_frequency</span><span class="p">(</span><span class="n">valon5009</span><span class="o">.</span><span class="n">SYNTH_B</span><span class="p">,</span> <span class="n">default_f_center</span><span class="p">)</span>
+        <span class="c1"># self.valon = valon5009.Synthesizer(&quot;/dev/IF2System1LO&quot;)</span>
+        <span class="c1"># self.valon.set_frequency(valon5009.SYNTH_B, default_f_center)</span>
         <span class="c1"># for v in self.__ValonPorts:</span>
         <span class="c1">#    self.valon = valon5009.Synthesizer(v.replace(&#39; &#39;, &#39;&#39;))</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">__udp</span> <span class="o">=</span> <span class="n">udpcap</span><span class="o">.</span><span class="n">udpcap</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">current_waveform</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">current_amplitude</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="n">caption1</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="se">\n\t\033</span><span class="s2">[95mKID-PY2 RFSoC Readout</span><span class="se">\033</span><span class="s2">[95m&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">captions</span> <span class="o">=</span> <span class="p">[</span><span class="n">caption1</span><span class="p">]</span>
 
@@ -324,12 +352,38 @@
             <span class="s2">&quot;LO Sweep&quot;</span><span class="p">,</span>
             <span class="s2">&quot;Exit&quot;</span><span class="p">,</span>
             <span class="s2">&quot;ONR kidpy&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Plot accum sample&quot;</span><span class="p">,</span>
         <span class="p">]</span>
 
-<div class="viewcode-block" id="kidpy.begin_ui"><a class="viewcode-back" href="../kidpy.html#kidpy.kidpy.begin_ui">[docs]</a>    <span class="k">def</span> <span class="nf">begin_ui</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">pass</span></div>
+<div class="viewcode-block" id="kidpy.get_tone_list"><a class="viewcode-back" href="../kidpy.html#kidpy.kidpy.get_tone_list">[docs]</a>    <span class="k">def</span> <span class="nf">get_tone_list</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">lo_freq</span> <span class="o">=</span> <span class="n">valon5009</span><span class="o">.</span><span class="n">Synthesizer</span><span class="o">.</span><span class="n">get_frequency</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">valon</span><span class="p">,</span> <span class="n">valon5009</span><span class="o">.</span><span class="n">SYNTH_B</span><span class="p">)</span>
+        <span class="n">tones</span> <span class="o">=</span> <span class="n">lo_freq</span> <span class="o">*</span> <span class="mf">1.0e6</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">get_last_flist</span><span class="p">())</span>
+        <span class="k">return</span> <span class="n">tones</span></div>
+
+<div class="viewcode-block" id="kidpy.get_last_flist"><a class="viewcode-back" href="../kidpy.html#kidpy.kidpy.get_last_flist">[docs]</a>    <span class="k">def</span> <span class="nf">get_last_flist</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">log</span> <span class="o">=</span> <span class="n">logger</span><span class="o">.</span><span class="n">getChild</span><span class="p">(</span><span class="s2">&quot;kidpy.get_last_flist&quot;</span><span class="p">)</span>
+        <span class="n">cmd</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">({</span><span class="s2">&quot;cmd&quot;</span><span class="p">:</span> <span class="s2">&quot;get_last_flist&quot;</span><span class="p">,</span> <span class="s2">&quot;args&quot;</span><span class="p">:</span> <span class="p">[]})</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">publish</span><span class="p">(</span><span class="s2">&quot;picard&quot;</span><span class="p">,</span> <span class="n">cmd</span><span class="p">)</span>
+        <span class="n">status</span><span class="p">,</span> <span class="n">data</span> <span class="o">=</span> <span class="n">wait_for_reply</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="p">,</span> <span class="s2">&quot;get_last_flist&quot;</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">status</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;The rfsoc didn&#39;t return back our data&quot;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="kc">None</span></div>
+
+<div class="viewcode-block" id="kidpy.get_last_alist"><a class="viewcode-back" href="../kidpy.html#kidpy.kidpy.get_last_alist">[docs]</a>    <span class="k">def</span> <span class="nf">get_last_alist</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">log</span> <span class="o">=</span> <span class="n">logger</span><span class="o">.</span><span class="n">getChild</span><span class="p">(</span><span class="s2">&quot;kidpy.get_last_alist&quot;</span><span class="p">)</span>
+        <span class="n">cmd</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">({</span><span class="s2">&quot;cmd&quot;</span><span class="p">:</span> <span class="s2">&quot;get_last_alist&quot;</span><span class="p">,</span> <span class="s2">&quot;args&quot;</span><span class="p">:</span> <span class="p">[]})</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">publish</span><span class="p">(</span><span class="s2">&quot;picard&quot;</span><span class="p">,</span> <span class="n">cmd</span><span class="p">)</span>
+        <span class="n">status</span><span class="p">,</span> <span class="n">data</span> <span class="o">=</span> <span class="n">wait_for_reply</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="p">,</span> <span class="s2">&quot;get_last_alist&quot;</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">status</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;The rfsoc didn&#39;t return back our data&quot;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="kc">None</span></div>
 
 <div class="viewcode-block" id="kidpy.main_opt"><a class="viewcode-back" href="../kidpy.html#kidpy.kidpy.main_opt">[docs]</a>    <span class="k">def</span> <span class="nf">main_opt</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">log</span> <span class="o">=</span> <span class="n">logger</span><span class="o">.</span><span class="n">getChild</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Main user interface routing</span>
 
@@ -354,6 +408,8 @@
                 <span class="p">)</span>
                 <span class="k">if</span> <span class="n">resp</span> <span class="o">!=</span> <span class="s2">&quot;y&quot;</span><span class="p">:</span>
                     <span class="n">exit</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">opt</span> <span class="o">==</span> <span class="mi">999999</span><span class="p">:</span>
+                <span class="k">pass</span>
             <span class="k">if</span> <span class="n">opt</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>  <span class="c1"># upload firmware</span>
                 <span class="n">os</span><span class="o">.</span><span class="n">system</span><span class="p">(</span><span class="s2">&quot;clear&quot;</span><span class="p">)</span>
                 <span class="n">cmd</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;cmd&quot;</span><span class="p">:</span> <span class="s2">&quot;ulBitstream&quot;</span><span class="p">,</span> <span class="s2">&quot;args&quot;</span><span class="p">:</span> <span class="p">[]}</span>
@@ -389,19 +445,7 @@
 
             <span class="k">if</span> <span class="n">opt</span> <span class="o">==</span> <span class="mi">3</span><span class="p">:</span>  <span class="c1"># write stored comb</span>
                 <span class="n">os</span><span class="o">.</span><span class="n">system</span><span class="p">(</span><span class="s2">&quot;clear&quot;</span><span class="p">)</span>
-                <span class="nb">print</span><span class="p">(</span>
-                    <span class="s2">&quot;Waiting for the RFSOC to finish writing the custom frequency list: </span><span class="se">\r\n</span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
-                        <span class="bp">self</span><span class="o">.</span><span class="n">customWaveform</span>
-                    <span class="p">)</span>
-                <span class="p">)</span>
-                <span class="n">fList</span> <span class="o">=</span> <span class="p">[]</span>
-
-                <span class="c1"># separate values from config and remove &#39;,&#39; before converting to number and</span>
-                <span class="c1"># sending the list of values up to the DAC</span>
-                <span class="k">for</span> <span class="n">value</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">__customWaveform</span><span class="o">.</span><span class="n">split</span><span class="p">():</span>
-                    <span class="n">s</span> <span class="o">=</span> <span class="n">value</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;,&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
-                    <span class="n">fList</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">s</span><span class="p">))</span>
-                <span class="n">write_fList</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">fList</span><span class="p">,</span> <span class="p">[])</span>
+                <span class="c1"># not used</span>
 
             <span class="k">if</span> <span class="n">opt</span> <span class="o">==</span> <span class="mi">4</span><span class="p">:</span>
                 <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Not Implemented&quot;</span><span class="p">)</span>
@@ -441,14 +485,16 @@
                 <span class="c1"># valon should be connected and differentiated as part of bringing kidpy up.</span>
                 <span class="n">os</span><span class="o">.</span><span class="n">system</span><span class="p">(</span><span class="s2">&quot;clear&quot;</span><span class="p">)</span>
                 <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;LO Sweep&quot;</span><span class="p">)</span>
-                <span class="n">Sweeps</span><span class="o">.</span><span class="n">loSweep</span><span class="p">(</span>
+                <span class="n">sweeps</span><span class="o">.</span><span class="n">loSweep</span><span class="p">(</span>
                     <span class="bp">self</span><span class="o">.</span><span class="n">valon</span><span class="p">,</span>
                     <span class="bp">self</span><span class="o">.</span><span class="n">__udp</span><span class="p">,</span>
-                    <span class="bp">self</span><span class="o">.</span><span class="n">current_waveform</span><span class="p">,</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">get_last_flist</span><span class="p">(),</span>
                     <span class="n">f_center</span><span class="o">=</span><span class="n">default_f_center</span><span class="p">,</span>
+                    <span class="n">freq_step</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
                 <span class="p">)</span>
 
-                <span class="k">pass</span>
+                <span class="c1"># plot result</span>
+                <span class="n">sweeps</span><span class="o">.</span><span class="n">plot_sweep</span><span class="p">(</span><span class="s2">&quot;./s21.npy&quot;</span><span class="p">)</span>
 
             <span class="k">if</span> <span class="n">opt</span> <span class="o">==</span> <span class="mi">7</span><span class="p">:</span>  <span class="c1"># get system state</span>
                 <span class="n">exit</span><span class="p">()</span>
@@ -469,6 +515,7 @@
                             <span class="s2">&quot;Set EL Position&quot;</span><span class="p">,</span>
                             <span class="s2">&quot;Motor Test for Data Acquisition&quot;</span><span class="p">,</span>
                             <span class="s2">&quot;Exit&quot;</span><span class="p">,</span>
+                            <span class="s2">&quot;Tone Powers&quot;</span><span class="p">,</span>
                         <span class="p">]</span>
                         <span class="n">onr_opt</span> <span class="o">=</span> <span class="n">menu</span><span class="p">(</span><span class="n">onr_caption</span><span class="p">,</span> <span class="n">onr_options</span><span class="p">)</span>
 
@@ -505,7 +552,7 @@
                                     <span class="bp">self</span><span class="o">.</span><span class="n">valon</span><span class="p">,</span> <span class="n">valon5009</span><span class="o">.</span><span class="n">SYNTH_B</span>
                                 <span class="p">)</span>
                                 <span class="n">fList</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="o">.</span><span class="n">tolist</span><span class="p">(</span>
-                                    <span class="n">get_tone_list</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+                                    <span class="bp">self</span><span class="o">.</span><span class="n">get_tone_list</span><span class="p">()</span>
                                     <span class="o">+</span> <span class="nb">float</span><span class="p">(</span><span class="n">tone_shift</span><span class="p">)</span> <span class="o">*</span> <span class="mf">1.0e3</span>
                                     <span class="o">-</span> <span class="n">lo_freq</span> <span class="o">*</span> <span class="mf">1.0e6</span>
                                 <span class="p">)</span>
@@ -519,11 +566,11 @@
                             <span class="nb">print</span><span class="p">(</span>
                                 <span class="s2">&quot;Taking initial low-resoluation sweep with df = 1 kHz and Deltaf = 100 kHz&quot;</span>
                             <span class="p">)</span>
-                            <span class="n">savefile</span> <span class="o">=</span> <span class="n">onrkidpy</span><span class="o">.</span><span class="n">get_filename</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="s2">&quot;LO&quot;</span><span class="p">)</span>
-                            <span class="n">Sweeps</span><span class="o">.</span><span class="n">loSweep</span><span class="p">(</span>
+                            <span class="n">savefile</span> <span class="o">=</span> <span class="n">onrkidpy</span><span class="o">.</span><span class="n">get_filename</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="s2">&quot;LO&quot;</span><span class="p">)</span> <span class="o">+</span> <span class="s2">&quot;_rfsoc1&quot;</span>
+                            <span class="n">sweeps</span><span class="o">.</span><span class="n">loSweep</span><span class="p">(</span>
                                 <span class="bp">self</span><span class="o">.</span><span class="n">valon</span><span class="p">,</span>
                                 <span class="bp">self</span><span class="o">.</span><span class="n">__udp</span><span class="p">,</span>
-                                <span class="bp">self</span><span class="o">.</span><span class="n">current_waveform</span><span class="p">,</span>
+                                <span class="bp">self</span><span class="o">.</span><span class="n">get_last_flist</span><span class="p">(),</span>
                                 <span class="n">valon5009</span><span class="o">.</span><span class="n">Synthesizer</span><span class="o">.</span><span class="n">get_frequency</span><span class="p">(</span>
                                     <span class="bp">self</span><span class="o">.</span><span class="n">valon</span><span class="p">,</span> <span class="n">valon5009</span><span class="o">.</span><span class="n">SYNTH_B</span>
                                 <span class="p">),</span>
@@ -534,7 +581,7 @@
 
                             <span class="c1"># then fit the resonances from that sweep</span>
                             <span class="n">fit_f0</span><span class="p">,</span> <span class="n">fit_qi</span><span class="p">,</span> <span class="n">fit_qc</span> <span class="o">=</span> <span class="n">fit_lo</span><span class="o">.</span><span class="n">main</span><span class="p">(</span>
-                                <span class="n">get_tone_list</span><span class="p">(</span><span class="bp">self</span><span class="p">),</span> <span class="n">quickPlot</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">printFlag</span><span class="o">=</span><span class="kc">True</span>
+                                <span class="bp">self</span><span class="o">.</span><span class="n">get_tone_list</span><span class="p">(),</span> <span class="n">quickPlot</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">printFlag</span><span class="o">=</span><span class="kc">True</span>
                             <span class="p">)</span>
                             <span class="n">adjust_tones</span> <span class="o">=</span> <span class="p">(</span>
                                 <span class="nb">input</span><span class="p">(</span>
@@ -560,6 +607,13 @@
                                 <span class="p">)</span>
                                 <span class="o">*</span> <span class="mf">1.0e6</span>
                             <span class="p">)</span>
+                            <span class="n">write_new_list</span> <span class="o">=</span> <span class="p">(</span>
+                                <span class="nb">input</span><span class="p">(</span><span class="s2">&quot;Write new list of tones (Default = False)?&quot;</span><span class="p">)</span>
+                                <span class="ow">or</span> <span class="kc">False</span>
+                            <span class="p">)</span>
+                            <span class="k">if</span> <span class="n">write_new_list</span><span class="p">:</span>
+                                <span class="n">write_fList</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="o">.</span><span class="n">tolist</span><span class="p">(</span><span class="n">new_tone_list</span><span class="p">),</span> <span class="p">[])</span>
+                            <span class="n">plt</span><span class="o">.</span><span class="n">close</span><span class="p">(</span><span class="s2">&quot;all&quot;</span><span class="p">)</span>
 
                         <span class="k">if</span> <span class="n">onr_opt</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>  <span class="c1"># Stream data to file</span>
                             <span class="n">t</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="nb">input</span><span class="p">(</span><span class="s2">&quot;How many seconds of data?: &quot;</span><span class="p">))</span> <span class="ow">or</span> <span class="mi">0</span>
@@ -629,14 +683,25 @@
                             <span class="p">)</span>
 
                             <span class="c1"># then collect the KID data</span>
-                            <span class="n">t</span> <span class="o">=</span> <span class="mi">10</span>
-                            <span class="n">NSAMP</span> <span class="o">=</span> <span class="mi">488</span> <span class="o">*</span> <span class="n">t</span>
                             <span class="n">os</span><span class="o">.</span><span class="n">system</span><span class="p">(</span><span class="s2">&quot;clear&quot;</span><span class="p">)</span>
-                            <span class="c1"># print(&quot;pretending to collect data&quot;)</span>
+
                             <span class="n">savefile</span> <span class="o">=</span> <span class="n">onrkidpy</span><span class="o">.</span><span class="n">get_filename</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="s2">&quot;TOD&quot;</span><span class="p">)</span> <span class="o">+</span> <span class="s2">&quot;.hd5&quot;</span>
-                            <span class="n">rawFile</span> <span class="o">=</span> <span class="n">data_handler</span><span class="o">.</span><span class="n">RawDataFile</span><span class="p">(</span><span class="n">savefile</span><span class="p">,</span> <span class="n">NSAMP</span><span class="p">,</span> <span class="mi">1000</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
-                            <span class="n">rfsoc1</span> <span class="o">=</span> <span class="n">udp2</span><span class="o">.</span><span class="n">Connection</span><span class="p">(</span><span class="n">rawFile</span><span class="p">,</span> <span class="s2">&quot;192.168.5.40&quot;</span><span class="p">,</span> <span class="s2">&quot;4096&quot;</span><span class="p">)</span>
-                            <span class="n">udp2</span><span class="o">.</span><span class="n">capture</span><span class="p">([</span><span class="n">rfsoc1</span><span class="p">],</span> <span class="n">NSAMP</span><span class="p">)</span>
+                            <span class="n">rfsoc1</span> <span class="o">=</span> <span class="n">data_handler</span><span class="o">.</span><span class="n">RFChannel</span><span class="p">(</span>
+                                <span class="n">savefile</span><span class="p">,</span>
+                                <span class="s2">&quot;192.168.5.40&quot;</span><span class="p">,</span>
+                                <span class="mi">4096</span><span class="p">,</span>
+                                <span class="s2">&quot;rfsoc1&quot;</span><span class="p">,</span>
+                                <span class="mi">0</span><span class="p">,</span>
+                                <span class="mi">1024</span><span class="p">,</span>
+                                <span class="mi">1</span><span class="p">,</span>
+                            <span class="p">)</span>
+                            <span class="n">udp2</span><span class="o">.</span><span class="n">capture</span><span class="p">([</span><span class="n">rfsoc1</span><span class="p">],</span> <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">,</span> <span class="mi">5</span><span class="p">)</span>
+                            <span class="c1"># i = data.adc_i</span>
+                            <span class="c1"># q = data.adc_q</span>
+                            <span class="c1"># i = i[10].T</span>
+                            <span class="c1"># q = i[10].T</span>
+                            <span class="c1"># mag = np.sqrt(i**2 + q**2)</span>
+                            <span class="c1"># plt.plot(mag)</span>
                             <span class="c1"># savefile = onrkidpy.get_filename(type=&quot;TOD&quot;) + &quot;.hd5&quot;</span>
                             <span class="c1"># if t &lt; 60:</span>
                             <span class="c1">#    self.__udp.shortDataCapture(savefile, 488 * t)</span>
@@ -647,9 +712,31 @@
                         <span class="k">if</span> <span class="n">onr_opt</span> <span class="o">==</span> <span class="mi">7</span><span class="p">:</span>  <span class="c1"># Exit</span>
                             <span class="n">onr_loop</span> <span class="o">=</span> <span class="kc">False</span>
 
+                        <span class="k">if</span> <span class="n">onr_opt</span> <span class="o">==</span> <span class="mi">8</span><span class="p">:</span>  <span class="c1"># Tone Powers</span>
+                            <span class="n">fList</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_last_flist</span><span class="p">()</span>
+                            <span class="n">fAmps</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="n">fList</span><span class="p">))</span>
+                            <span class="c1">#                           fAmps[0:10] = 10</span>
+                            <span class="n">pdb</span><span class="o">.</span><span class="n">set_trace</span><span class="p">()</span>
+                            <span class="n">write_fList</span><span class="p">(</span>
+                                <span class="bp">self</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="o">.</span><span class="n">tolist</span><span class="p">(</span><span class="n">fList</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="o">.</span><span class="n">tolist</span><span class="p">(</span><span class="n">fAmps</span><span class="p">)</span>
+                            <span class="p">)</span>
+
                 <span class="k">else</span><span class="p">:</span>
                     <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;ONR repository does not exist&quot;</span><span class="p">)</span>
 
+            <span class="k">if</span> <span class="n">opt</span> <span class="o">==</span> <span class="mi">9</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">__udp</span><span class="o">.</span><span class="n">bindSocket</span><span class="p">()</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">__udp</span><span class="o">.</span><span class="n">capture_packets</span><span class="p">(</span><span class="mi">488</span><span class="p">)</span>
+                <span class="n">d</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">__udp</span><span class="o">.</span><span class="n">capture_packets</span><span class="p">(</span><span class="mi">100</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">__udp</span><span class="o">.</span><span class="n">release</span><span class="p">()</span>
+                <span class="n">i</span> <span class="o">=</span> <span class="n">d</span><span class="p">[</span><span class="mi">0</span><span class="p">::</span><span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">T</span><span class="p">[</span><span class="mi">50</span><span class="p">]</span>
+                <span class="n">q</span> <span class="o">=</span> <span class="n">d</span><span class="p">[</span><span class="mi">1</span><span class="p">::</span><span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">T</span><span class="p">[</span><span class="mi">50</span><span class="p">]</span>
+                <span class="n">mag</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">i</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="n">q</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>
+                <span class="n">y</span> <span class="o">=</span> <span class="mi">10</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">log10</span><span class="p">(</span><span class="n">mag</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">mag</span><span class="p">))</span>
+                <span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">y</span><span class="p">)</span>
+                <span class="n">plt</span><span class="o">.</span><span class="n">title</span><span class="p">(</span><span class="s2">&quot;Accum (dB)&quot;</span><span class="p">)</span>
+                <span class="n">plt</span><span class="o">.</span><span class="n">grid</span><span class="p">()</span>
+                <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
             <span class="k">return</span> <span class="mi">0</span></div></div>
 
 

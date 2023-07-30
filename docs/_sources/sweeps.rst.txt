@@ -1,7 +1,7 @@
-Sweeps module
+sweeps module
 =============
 
-.. automodule:: Sweeps
+.. automodule:: sweeps
    :members:
    :undoc-members:
    :show-inheritance:

@@ -45,13 +45,13 @@
               <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
 <ul class="current">
 <li class="toctree-l1 current"><a class="reference internal" href="modules.html">host</a><ul class="current">
-<li class="toctree-l2"><a class="reference internal" href="Sweeps.html">Sweeps module</a></li>
 <li class="toctree-l2"><a class="reference internal" href="config.html">config module</a></li>
 <li class="toctree-l2 current"><a class="current reference internal" href="#">data_handler module</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="#overview">Overview</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#data_handler.ObservationDataFile"><code class="docutils literal notranslate"><span class="pre">ObservationDataFile</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#data_handler.RFChannel"><code class="docutils literal notranslate"><span class="pre">RFChannel</span></code></a><ul>
 <li class="toctree-l4"><a class="reference internal" href="#data_handler.RFChannel.ip"><code class="docutils literal notranslate"><span class="pre">RFChannel.ip</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#data_handler.RFChannel.lo_sweep_filename"><code class="docutils literal notranslate"><span class="pre">RFChannel.lo_sweep_filename</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="#data_handler.RFChannel.n_attenuator"><code class="docutils literal notranslate"><span class="pre">RFChannel.n_attenuator</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="#data_handler.RFChannel.n_resonator"><code class="docutils literal notranslate"><span class="pre">RFChannel.n_resonator</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="#data_handler.RFChannel.n_sample"><code class="docutils literal notranslate"><span class="pre">RFChannel.n_sample</span></code></a></li>
@@ -61,16 +61,29 @@
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="#data_handler.RawDataFile"><code class="docutils literal notranslate"><span class="pre">RawDataFile</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#data_handler.RawDataFile.append_lo_sweep"><code class="docutils literal notranslate"><span class="pre">RawDataFile.append_lo_sweep()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="#data_handler.RawDataFile.close"><code class="docutils literal notranslate"><span class="pre">RawDataFile.close()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="#data_handler.RawDataFile.format"><code class="docutils literal notranslate"><span class="pre">RawDataFile.format()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="#data_handler.RawDataFile.read"><code class="docutils literal notranslate"><span class="pre">RawDataFile.read()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#data_handler.RawDataFile.resize"><code class="docutils literal notranslate"><span class="pre">RawDataFile.resize()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#data_handler.TelescopeDataFile"><code class="docutils literal notranslate"><span class="pre">TelescopeDataFile</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#data_handler.TelescopeDataFile.format"><code class="docutils literal notranslate"><span class="pre">TelescopeDataFile.format()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#data_handler.TelescopeDataFile.read"><code class="docutils literal notranslate"><span class="pre">TelescopeDataFile.read()</span></code></a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="#data_handler.gen_read"><code class="docutils literal notranslate"><span class="pre">gen_read()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#data_handler.get_last_lo"><code class="docutils literal notranslate"><span class="pre">get_last_lo()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#data_handler.get_yymmdd"><code class="docutils literal notranslate"><span class="pre">get_yymmdd()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#data_handler.getdtime"><code class="docutils literal notranslate"><span class="pre">getdtime()</span></code></a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="kidpy.html">kidpy module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sweeps.html">sweeps module</a></li>
 <li class="toctree-l2"><a class="reference internal" href="udp2.html">udp2 module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="udp_sender.html">udp_sender module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="udpcap.html">udpcap module</a></li>
 <li class="toctree-l2"><a class="reference internal" href="valon5009.html">valon5009 module</a></li>
 </ul>
 </li>
@@ -106,11 +119,11 @@
 <section id="overview">
 <h2>Overview<a class="headerlink" href="#overview" title="Permalink to this heading"></a></h2>
 <p>data_handler defines an interface with whichi readout data is obtained, stored, and manipulated.
-The format specified here is a standard</p>
+The format specified here is a standard.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Authors<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p>Cody</p></li>
+<li><p>Cody Roberson</p></li>
 <li><p>Jack Sayers</p></li>
 <li><p>Daniel Cunnane</p></li>
 </ul>
@@ -144,11 +157,32 @@ period. raw rfsoc data is migrated into this data file after the observation has
 
 <dl class="py class">
 <dt class="sig sig-object py" id="data_handler.RFChannel">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">data_handler.</span></span><span class="sig-name descname"><span class="pre">RFChannel</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">raw_filename</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">''</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ip</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">''</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">port</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">''</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_sample</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">488</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_resonator</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_attenuator</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/data_handler.html#RFChannel"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#data_handler.RFChannel" title="Permalink to this definition"></a></dt>
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">data_handler.</span></span><span class="sig-name descname"><span class="pre">RFChannel</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">raw_filename</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ip</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">port</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">4096</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'Untitled'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_sample</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_resonator</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1024</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_attenuator</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">lo_sweep_filename</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'/path/to/some_s21_file_here.npy'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/data_handler.html#RFChannel"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#data_handler.RFChannel" title="Permalink to this definition"></a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Data Class used to describe an RFSOC and it’s relevant properties. This was created to mostly
+to be used as a struct to pass around properties inherint to an rfsoc.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>raw_filename</strong> (<em>str</em>) – path to where the HDF5 file shall exist.</p></li>
+<li><p><strong>ip</strong> (<em>str</em>) – ip address of UDP stream to listen to</p></li>
+<li><p><strong>port</strong> (<em>int</em>) – port of UDP to listen to, default is 4096</p></li>
+<li><p><strong>name</strong> (<em>str</em>) – Friendly Name to call the channel. This is relevant to logs, etc</p></li>
+<li><p><strong>n_sample</strong> (<em>int</em>) – n_samples to take. While this is used to format the rawDataFile, it should be
+left as 0 for now since udp2.capture() dynamically resizes/allocates it’s datasets.</p></li>
+<li><p><strong>n_resonator</strong> – n_resonators / resonator tones of interest</p></li>
+<li><p><strong>lo_sweep</strong> – path to the LO sweep data with which to append to the rawDataFile.</p></li>
+</ul>
+</dd>
+</dl>
 <dl class="py attribute">
 <dt class="sig sig-object py" id="data_handler.RFChannel.ip">
-<span class="sig-name descname"><span class="pre">ip</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">''</span></em><a class="headerlink" href="#data_handler.RFChannel.ip" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">ip</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><a class="headerlink" href="#data_handler.RFChannel.ip" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="data_handler.RFChannel.lo_sweep_filename">
+<span class="sig-name descname"><span class="pre">lo_sweep_filename</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'/path/to/some_s21_file_here.npy'</span></em><a class="headerlink" href="#data_handler.RFChannel.lo_sweep_filename" title="Permalink to this definition"></a></dt>
 <dd></dd></dl>
 
 <dl class="py attribute">
@@ -158,34 +192,34 @@ period. raw rfsoc data is migrated into this data file after the observation has
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="data_handler.RFChannel.n_resonator">
-<span class="sig-name descname"><span class="pre">n_resonator</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">1000</span></em><a class="headerlink" href="#data_handler.RFChannel.n_resonator" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">n_resonator</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">1024</span></em><a class="headerlink" href="#data_handler.RFChannel.n_resonator" title="Permalink to this definition"></a></dt>
 <dd></dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="data_handler.RFChannel.n_sample">
-<span class="sig-name descname"><span class="pre">n_sample</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">488</span></em><a class="headerlink" href="#data_handler.RFChannel.n_sample" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">n_sample</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0</span></em><a class="headerlink" href="#data_handler.RFChannel.n_sample" title="Permalink to this definition"></a></dt>
 <dd></dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="data_handler.RFChannel.name">
-<span class="sig-name descname"><span class="pre">name</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">''</span></em><a class="headerlink" href="#data_handler.RFChannel.name" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">name</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'Untitled'</span></em><a class="headerlink" href="#data_handler.RFChannel.name" title="Permalink to this definition"></a></dt>
 <dd></dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="data_handler.RFChannel.port">
-<span class="sig-name descname"><span class="pre">port</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0</span></em><a class="headerlink" href="#data_handler.RFChannel.port" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">port</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">4096</span></em><a class="headerlink" href="#data_handler.RFChannel.port" title="Permalink to this definition"></a></dt>
 <dd></dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="data_handler.RFChannel.raw_filename">
-<span class="sig-name descname"><span class="pre">raw_filename</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">''</span></em><a class="headerlink" href="#data_handler.RFChannel.raw_filename" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">raw_filename</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><a class="headerlink" href="#data_handler.RFChannel.raw_filename" title="Permalink to this definition"></a></dt>
 <dd></dd></dl>
 
 </dd></dl>
 
 <dl class="py class">
 <dt class="sig sig-object py" id="data_handler.RawDataFile">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">data_handler.</span></span><span class="sig-name descname"><span class="pre">RawDataFile</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">path</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/data_handler.html#RawDataFile"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#data_handler.RawDataFile" title="Permalink to this definition"></a></dt>
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">data_handler.</span></span><span class="sig-name descname"><span class="pre">RawDataFile</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">path</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">overwrite</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/data_handler.html#RawDataFile"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#data_handler.RawDataFile" title="Permalink to this definition"></a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
 <p>A raw hdf5 data file object for incoming rfsoc-UDP data streams.</p>
 <p>UDP packets containing our downsampled data streaming from the RFSOC to the readout computer
@@ -194,16 +228,37 @@ will be captured and saved to this hdf5 filetype.</p>
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>path</strong> – /file/path/here/file.h5</p></li>
-<li><p><strong>n_sample</strong> – The number of data samples collected (i.e., sample_rate * length_of_file_in_seconds)</p></li>
-<li><p><strong>n_resonator</strong> – The number of resonance tones</p></li>
-<li><p><strong>n_attenuator</strong> – The number of attenuators in the IF slice or elsewhere in the system - likely = 2 for now</p></li>
+<li><p><strong>n_sample</strong> – (Dimension) The number of data samples collected (i.e., sample_rate * length_of_file_in_seconds)</p></li>
+</ul>
+</dd>
+</dl>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>As of a recent change to the data collection process, n_samples is defaulted to 0 and
+repeatedly resized during data collection. This is due to the fact that an indefinite quantity of data was
+desired.</p>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>n_resonator</strong> – (Dimension) The number of resonance tones</p></li>
+<li><p><strong>n_attenuator</strong> – (Dimension) The number of attenuators used in the RF Channel</p></li>
+<li><p><strong>overwrite</strong><strong>(</strong><strong>optional</strong><strong>)</strong> – When true, signals that if an hdf5 file exists, overwrite its contents completely and
+do not contents. By default, this is false and the file is opened in append mode and subsequently read.</p></li>
 </ul>
 </dd>
 </dl>
 <dl class="py method">
+<dt class="sig sig-object py" id="data_handler.RawDataFile.append_lo_sweep">
+<span class="sig-name descname"><span class="pre">append_lo_sweep</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sweeppath</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/data_handler.html#RawDataFile.append_lo_sweep"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#data_handler.RawDataFile.append_lo_sweep" title="Permalink to this definition"></a></dt>
+<dd><p>Call this function to provide the RawDataFile with</p>
+</dd></dl>
+
+<dl class="py method">
 <dt class="sig sig-object py" id="data_handler.RawDataFile.close">
 <span class="sig-name descname"><span class="pre">close</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/data_handler.html#RawDataFile.close"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#data_handler.RawDataFile.close" title="Permalink to this definition"></a></dt>
-<dd></dd></dl>
+<dd><p>Close the RawDataFile</p>
+</dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="data_handler.RawDataFile.format">
@@ -226,14 +281,80 @@ self.identifier = self.fh[“/some/path/here/identifier”]</p>
 </div>
 </dd></dl>
 
+<dl class="py method">
+<dt class="sig sig-object py" id="data_handler.RawDataFile.resize">
+<span class="sig-name descname"><span class="pre">resize</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">n_sample</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/data_handler.html#RawDataFile.resize"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#data_handler.RawDataFile.resize" title="Permalink to this definition"></a></dt>
+<dd><p>resize the dynamically allocated datasets. This will mostly be used by udp2.py to
+expand the data file to accomodate more data.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="data_handler.TelescopeDataFile">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">data_handler.</span></span><span class="sig-name descname"><span class="pre">TelescopeDataFile</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">path</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">overwrite</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/data_handler.html#TelescopeDataFile"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#data_handler.TelescopeDataFile" title="Permalink to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Telescope Data File.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="data_handler.TelescopeDataFile.format">
+<span class="sig-name descname"><span class="pre">format</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/data_handler.html#TelescopeDataFile.format"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#data_handler.TelescopeDataFile.format" title="Permalink to this definition"></a></dt>
+<dd><p>format TBD</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="data_handler.TelescopeDataFile.read">
+<span class="sig-name descname"><span class="pre">read</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/data_handler.html#TelescopeDataFile.read"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#data_handler.TelescopeDataFile.read" title="Permalink to this definition"></a></dt>
+<dd><p>depends on format….</p>
+</dd></dl>
+
 </dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="data_handler.gen_read">
 <span class="sig-prename descclassname"><span class="pre">data_handler.</span></span><span class="sig-name descname"><span class="pre">gen_read</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">h5</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/data_handler.html#gen_read"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#data_handler.gen_read" title="Permalink to this definition"></a></dt>
 <dd><p>Cheat function. Reads an hdf5 file and generates read statements to then be pasted back into
-the class. This method worked because the dataset name was the same as the instance variable name.</p>
-<p>that is /group/group/adc_i translates to self.fh.adc_i</p>
+the class. This method worked because the dataset name was the same as the instance variable name.
+ie.  /group/group/adc_i translates to self.fh.adc_i</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="data_handler.get_last_lo">
+<span class="sig-prename descclassname"><span class="pre">data_handler.</span></span><span class="sig-name descname"><span class="pre">get_last_lo</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/data_handler.html#get_last_lo"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#data_handler.get_last_lo" title="Permalink to this definition"></a></dt>
+<dd><p>Modified function to get the laster sweep file from data.
+this function expects a general file format consisting of the
+following.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="s2">&quot;/data/</span><span class="si">{yymmdd}</span><span class="s2">/</span><span class="si">{yymmdd}</span><span class="s2">_LO_Sweep_*_</span><span class="si">{name}</span><span class="s2">.npy&quot;</span>
+<span class="n">example</span><span class="o">.</span>
+<span class="o">/</span><span class="n">data</span><span class="o">/</span><span class="mi">20230730</span><span class="o">/</span><span class="mi">20230730</span><span class="n">_LO_Sweep_hour15p4622_rfsoc1</span><span class="o">.</span><span class="n">npy</span>
+<span class="o">/</span><span class="n">data</span><span class="o">/</span><span class="mi">20230730</span><span class="o">/</span><span class="mi">20230730</span><span class="n">_LO_Sweep_hour15p4625_rfsoc1</span><span class="o">.</span><span class="n">npy</span>
+<span class="o">/</span><span class="n">data</span><span class="o">/</span><span class="mi">20230730</span><span class="o">/</span><span class="mi">20230730</span><span class="n">_LO_Sweep_hour15p4628_rfsoc1</span><span class="o">.</span><span class="n">npy</span>
+<span class="o">/</span><span class="n">data</span><span class="o">/</span><span class="mi">20230730</span><span class="o">/</span><span class="mi">20230730</span><span class="n">_LO_Sweep_hour15p4675_rfsoc2</span><span class="o">.</span><span class="n">npy</span>
+<span class="o">/</span><span class="n">data</span><span class="o">/</span><span class="mi">20230730</span><span class="o">/</span><span class="mi">20230730</span><span class="n">_LO_Sweep_hour15p4678_rfsoc2</span><span class="o">.</span><span class="n">npy</span>
+<span class="o">/</span><span class="n">data</span><span class="o">/</span><span class="mi">20230730</span><span class="o">/</span><span class="mi">20230730</span><span class="n">_LO_Sweep_hour15p4681_rfsoc2</span><span class="o">.</span><span class="n">npy</span>
+<span class="o">/</span><span class="n">data</span><span class="o">/</span><span class="mi">20230730</span><span class="o">/</span><span class="mi">20230730</span><span class="n">_LO_Sweep_hour15p4683_rfsoc2</span><span class="o">.</span><span class="n">npy</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="data_handler.get_yymmdd">
+<span class="sig-prename descclassname"><span class="pre">data_handler.</span></span><span class="sig-name descname"><span class="pre">get_yymmdd</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/data_handler.html#get_yymmdd"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#data_handler.get_yymmdd" title="Permalink to this definition"></a></dt>
+<dd><p>Duplicate from onrkidpy</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="data_handler.getdtime">
+<span class="sig-prename descclassname"><span class="pre">data_handler.</span></span><span class="sig-name descname"><span class="pre">getdtime</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/data_handler.html#getdtime"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#data_handler.getdtime" title="Permalink to this definition"></a></dt>
+<dd><p>Gets the time in fractional hours since midnight
+of the current day with a precision down to seconds.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Fraction of hours since midnight</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>Float</p>
+</dd>
+</dl>
 </dd></dl>
 
 </section>

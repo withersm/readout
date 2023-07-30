@@ -19,7 +19,7 @@
     <script src="_static/js/theme.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
-    <link rel="next" title="udp2 module" href="udp2.html" />
+    <link rel="next" title="sweeps module" href="sweeps.html" />
     <link rel="prev" title="data_handler module" href="data_handler.html" /> 
 </head>
 
@@ -45,14 +45,14 @@
               <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
 <ul class="current">
 <li class="toctree-l1 current"><a class="reference internal" href="modules.html">host</a><ul class="current">
-<li class="toctree-l2"><a class="reference internal" href="Sweeps.html">Sweeps module</a></li>
 <li class="toctree-l2"><a class="reference internal" href="config.html">config module</a></li>
 <li class="toctree-l2"><a class="reference internal" href="data_handler.html">data_handler module</a></li>
 <li class="toctree-l2 current"><a class="current reference internal" href="#">kidpy module</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="#kidpy.checkBlastCli"><code class="docutils literal notranslate"><span class="pre">checkBlastCli()</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="#kidpy.get_tone_list"><code class="docutils literal notranslate"><span class="pre">get_tone_list()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#kidpy.kidpy"><code class="docutils literal notranslate"><span class="pre">kidpy</span></code></a><ul>
-<li class="toctree-l4"><a class="reference internal" href="#kidpy.kidpy.begin_ui"><code class="docutils literal notranslate"><span class="pre">kidpy.begin_ui()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#kidpy.kidpy.get_last_alist"><code class="docutils literal notranslate"><span class="pre">kidpy.get_last_alist()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#kidpy.kidpy.get_last_flist"><code class="docutils literal notranslate"><span class="pre">kidpy.get_last_flist()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#kidpy.kidpy.get_tone_list"><code class="docutils literal notranslate"><span class="pre">kidpy.get_tone_list()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="#kidpy.kidpy.main_opt"><code class="docutils literal notranslate"><span class="pre">kidpy.main_opt()</span></code></a></li>
 </ul>
 </li>
@@ -64,7 +64,10 @@
 <li class="toctree-l3"><a class="reference internal" href="#kidpy.write_fList"><code class="docutils literal notranslate"><span class="pre">write_fList()</span></code></a></li>
 </ul>
 </li>
+<li class="toctree-l2"><a class="reference internal" href="sweeps.html">sweeps module</a></li>
 <li class="toctree-l2"><a class="reference internal" href="udp2.html">udp2 module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="udp_sender.html">udp_sender module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="udpcap.html">udpcap module</a></li>
 <li class="toctree-l2"><a class="reference internal" href="valon5009.html">valon5009 module</a></li>
 </ul>
 </li>
@@ -127,28 +130,29 @@ pubsub channel. Any listening RFSOC(s) would then parse and execute the specifie
 <dd><p>Rudamentary “is the rfsoc control software running” check.</p>
 </dd></dl>
 
-<dl class="py function">
-<dt class="sig sig-object py" id="kidpy.get_tone_list">
-<span class="sig-prename descclassname"><span class="pre">kidpy.</span></span><span class="sig-name descname"><span class="pre">get_tone_list</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">self</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/kidpy.html#get_tone_list"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#kidpy.get_tone_list" title="Permalink to this definition"></a></dt>
-<dd></dd></dl>
-
 <dl class="py class">
 <dt class="sig sig-object py" id="kidpy.kidpy">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">kidpy.</span></span><span class="sig-name descname"><span class="pre">kidpy</span></span><a class="reference internal" href="_modules/kidpy.html#kidpy"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#kidpy.kidpy" title="Permalink to this definition"></a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
 <dl class="py method">
-<dt class="sig sig-object py" id="kidpy.kidpy.begin_ui">
-<span class="sig-name descname"><span class="pre">begin_ui</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/kidpy.html#kidpy.begin_ui"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#kidpy.kidpy.begin_ui" title="Permalink to this definition"></a></dt>
+<dt class="sig sig-object py" id="kidpy.kidpy.get_last_alist">
+<span class="sig-name descname"><span class="pre">get_last_alist</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/kidpy.html#kidpy.get_last_alist"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#kidpy.kidpy.get_last_alist" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="kidpy.kidpy.get_last_flist">
+<span class="sig-name descname"><span class="pre">get_last_flist</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/kidpy.html#kidpy.get_last_flist"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#kidpy.kidpy.get_last_flist" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="kidpy.kidpy.get_tone_list">
+<span class="sig-name descname"><span class="pre">get_tone_list</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/kidpy.html#kidpy.get_tone_list"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#kidpy.kidpy.get_tone_list" title="Permalink to this definition"></a></dt>
 <dd></dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="kidpy.kidpy.main_opt">
 <span class="sig-name descname"><span class="pre">main_opt</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/kidpy.html#kidpy.main_opt"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#kidpy.kidpy.main_opt" title="Permalink to this definition"></a></dt>
-<dd><p>Main user interface routing</p>
-<p>r : redis Server instance
-p : redis.pubsub instance
-udp : udpcap object instance</p>
-</dd></dl>
+<dd></dd></dl>
 
 </dd></dl>
 
@@ -218,7 +222,16 @@ reference to a Redis pubsub object that has already subscribed to relevant chann
 <dl class="py function">
 <dt class="sig sig-object py" id="kidpy.write_fList">
 <span class="sig-prename descclassname"><span class="pre">kidpy.</span></span><span class="sig-name descname"><span class="pre">write_fList</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">self</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fList</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ampList</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/kidpy.html#write_fList"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#kidpy.write_fList" title="Permalink to this definition"></a></dt>
-<dd></dd></dl>
+<dd><p>Function for writing tones to the rfsoc. Accepts both numpy arrays and lists.
+:param fList: List of desired tones
+:type fList: list
+:param ampList: List of desired amplitudes
+:type ampList: list
+.. note:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">fList</span> <span class="ow">and</span> <span class="n">ampList</span> <span class="n">must</span> <span class="n">be</span> <span class="n">the</span> <span class="n">same</span> <span class="n">size</span>
+</pre></div>
+</div>
+</dd></dl>
 
 </section>
 
@@ -227,7 +240,7 @@ reference to a Redis pubsub object that has already subscribed to relevant chann
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
         <a href="data_handler.html" class="btn btn-neutral float-left" title="data_handler module" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
-        <a href="udp2.html" class="btn btn-neutral float-right" title="udp2 module" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+        <a href="sweeps.html" class="btn btn-neutral float-right" title="sweeps module" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 
   <hr/>

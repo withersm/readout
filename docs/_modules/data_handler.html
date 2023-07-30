@@ -74,9 +74,9 @@
 <span class="sd">________</span>
 
 <span class="sd">data_handler defines an interface with whichi readout data is obtained, stored, and manipulated.</span>
-<span class="sd">The format specified here is a standard </span>
+<span class="sd">The format specified here is a standard.</span>
 
-<span class="sd">:Authors: - Cody</span>
+<span class="sd">:Authors: - Cody Roberson</span>
 <span class="sd">          - Jack Sayers</span>
 <span class="sd">          - Daniel Cunnane</span>
 <span class="sd">:Date: 2023-07-26</span>
@@ -85,37 +85,49 @@
 
 <span class="kn">import</span> <span class="nn">h5py</span>
 <span class="kn">import</span> <span class="nn">os</span>
-<span class="kn">import</span> <span class="nn">datetime</span>
+<span class="kn">import</span> <span class="nn">time</span>
 <span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 <span class="kn">from</span> <span class="nn">dataclasses</span> <span class="kn">import</span> <span class="n">dataclass</span>
+<span class="kn">from</span> <span class="nn">datetime</span> <span class="kn">import</span> <span class="n">date</span>
+<span class="kn">from</span> <span class="nn">datetime</span> <span class="kn">import</span> <span class="n">datetime</span>
+<span class="kn">import</span> <span class="nn">glob</span>
 
 <span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
-
-<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
-    <span class="c1"># Configures the logger such that it prints to a screen and file including the format</span>
-    <span class="n">__LOGFMT</span> <span class="o">=</span> <span class="p">(</span>
-        <span class="s2">&quot;</span><span class="si">%(asctime)s</span><span class="s2">|</span><span class="si">%(levelname)s</span><span class="s2">|</span><span class="si">%(filename)s</span><span class="s2">|</span><span class="si">%(lineno)d</span><span class="s2">|</span><span class="si">%(funcName)s</span><span class="s2">|</span><span class="si">%(message)s</span><span class="s2">&quot;</span>
-    <span class="p">)</span>
-
-    <span class="n">logging</span><span class="o">.</span><span class="n">basicConfig</span><span class="p">(</span><span class="nb">format</span><span class="o">=</span><span class="n">__LOGFMT</span><span class="p">,</span> <span class="n">level</span><span class="o">=</span><span class="n">logging</span><span class="o">.</span><span class="n">DEBUG</span><span class="p">)</span>
-    <span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
-    <span class="n">__logh</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">FileHandler</span><span class="p">(</span><span class="s2">&quot;./data_handler.log&quot;</span><span class="p">)</span>
-    <span class="n">logging</span><span class="o">.</span><span class="n">root</span><span class="o">.</span><span class="n">addHandler</span><span class="p">(</span><span class="n">__logh</span><span class="p">)</span>
-    <span class="n">logger</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="mi">100</span><span class="p">,</span> <span class="n">__LOGFMT</span><span class="p">)</span>
-    <span class="n">__logh</span><span class="o">.</span><span class="n">flush</span><span class="p">()</span>
-    <span class="n">__logh</span><span class="o">.</span><span class="n">setFormatter</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">Formatter</span><span class="p">(</span><span class="n">__LOGFMT</span><span class="p">))</span>
-    <span class="c1">################</span>
 
 
 <div class="viewcode-block" id="RFChannel"><a class="viewcode-back" href="../data_handler.html#data_handler.RFChannel">[docs]</a><span class="nd">@dataclass</span>
 <span class="k">class</span> <span class="nc">RFChannel</span><span class="p">:</span>
-    <span class="n">raw_filename</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>  <span class="c1"># HDF5 file to open/create</span>
-    <span class="n">ip</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>  <span class="c1"># udp ip to listen on</span>
-    <span class="n">port</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0000</span>  <span class="c1"># udp port to listen on</span>
-    <span class="n">name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>  <span class="c1"># Friendly Name to call the channel</span>
-    <span class="n">n_sample</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">488</span>
-    <span class="n">n_resonator</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1000</span>
-    <span class="n">n_attenuator</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span></div>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Data Class used to describe an RFSOC and it&#39;s relevant properties. This was created to mostly</span>
+<span class="sd">    to be used as a struct to pass around properties inherint to an rfsoc.</span>
+
+<span class="sd">    :param raw_filename: path to where the HDF5 file shall exist.</span>
+<span class="sd">    :type raw_filename: str</span>
+<span class="sd">    :param ip: ip address of UDP stream to listen to</span>
+<span class="sd">    :type ip: str</span>
+<span class="sd">    :param port: port of UDP to listen to, default is 4096</span>
+<span class="sd">    :type port: int</span>
+<span class="sd">    :param name: Friendly Name to call the channel. This is relevant to logs, etc</span>
+<span class="sd">    :type name: str</span>
+<span class="sd">    :param n_sample: n_samples to take. While this is used to format the rawDataFile, it should be</span>
+<span class="sd">        left as 0 for now since udp2.capture() dynamically resizes/allocates it&#39;s datasets.</span>
+<span class="sd">    :type n_sample: int</span>
+<span class="sd">    :param n_resonator: n_resonators / resonator tones of interest</span>
+<span class="sd">    :type n_attenuator: int</span>
+<span class="sd">    :param lo_sweep: path to the LO sweep data with which to append to the rawDataFile.</span>
+
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">raw_filename</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">ip</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">port</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">4096</span>
+    <span class="n">name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;Untitled&quot;</span>
+    <span class="n">n_sample</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">n_resonator</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1024</span>
+    <span class="n">n_attenuator</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span>
+    <span class="n">lo_sweep_filename</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;/path/to/some_s21_file_here.npy&quot;</span></div>
 
 
 <div class="viewcode-block" id="RawDataFile"><a class="viewcode-back" href="../data_handler.html#data_handler.RawDataFile">[docs]</a><span class="k">class</span> <span class="nc">RawDataFile</span><span class="p">:</span>
@@ -125,31 +137,46 @@
 <span class="sd">    will be captured and saved to this hdf5 filetype.</span>
 
 <span class="sd">    :param path: /file/path/here/file.h5</span>
-<span class="sd">    :param n_sample: The number of data samples collected (i.e., sample_rate * length_of_file_in_seconds)</span>
+<span class="sd">    :param n_sample: (Dimension) The number of data samples collected (i.e., sample_rate * length_of_file_in_seconds)</span>
+<span class="sd">    .. note::</span>
+<span class="sd">        As of a recent change to the data collection process, n_samples is defaulted to 0 and</span>
+<span class="sd">        repeatedly resized during data collection. This is due to the fact that an indefinite quantity of data was</span>
+<span class="sd">        desired.</span>
 
-<span class="sd">    :param n_resonator: The number of resonance tones</span>
-<span class="sd">    :param n_attenuator: The number of attenuators in the IF slice or elsewhere in the system - likely = 2 for now</span>
+<span class="sd">    :param n_resonator: (Dimension) The number of resonance tones</span>
+<span class="sd">    :param n_attenuator: (Dimension) The number of attenuators used in the RF Channel</span>
+<span class="sd">    :param overwrite(optional): When true, signals that if an hdf5 file exists, overwrite its contents completely and</span>
+<span class="sd">        do not contents. By default, this is false and the file is opened in append mode and subsequently read.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">,</span> <span class="n">overwrite</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
         <span class="n">log</span> <span class="o">=</span> <span class="n">logger</span><span class="o">.</span><span class="n">getChild</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">filename</span> <span class="o">=</span> <span class="n">path</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isfile</span><span class="p">(</span><span class="n">path</span><span class="p">):</span>
             <span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;File not found, creating file...&quot;</span><span class="p">)</span>
             <span class="k">try</span><span class="p">:</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">fh</span> <span class="o">=</span> <span class="n">h5py</span><span class="o">.</span><span class="n">File</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">filename</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">)</span>
-            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-                <span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="n">e</span><span class="p">)</span>
-                <span class="k">raise</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;File exists, attempting to load&quot;</span><span class="p">)</span>
-            <span class="k">try</span><span class="p">:</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">fh</span> <span class="o">=</span> <span class="n">h5py</span><span class="o">.</span><span class="n">File</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">filename</span><span class="p">,</span> <span class="s2">&quot;a&quot;</span><span class="p">)</span>
             <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
                 <span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="n">e</span><span class="p">)</span>
                 <span class="k">raise</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;File already exists.&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">overwrite</span><span class="p">:</span>
+                <span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Overwriting file&quot;</span><span class="p">)</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">fh</span> <span class="o">=</span> <span class="n">h5py</span><span class="o">.</span><span class="n">File</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">filename</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">)</span>
+                <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                    <span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="n">e</span><span class="p">)</span>
+                    <span class="k">raise</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Opening File as append&quot;</span><span class="p">)</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">fh</span> <span class="o">=</span> <span class="n">h5py</span><span class="o">.</span><span class="n">File</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">filename</span><span class="p">,</span> <span class="s2">&quot;a&quot;</span><span class="p">)</span>
+                <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                    <span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="n">e</span><span class="p">)</span>
+                    <span class="k">raise</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>
 
 <div class="viewcode-block" id="RawDataFile.format"><a class="viewcode-back" href="../data_handler.html#data_handler.RawDataFile.format">[docs]</a>    <span class="k">def</span> <span class="nf">format</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">n_sample</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">n_resonator</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">n_attenuator</span><span class="p">:</span> <span class="nb">int</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
@@ -157,17 +184,17 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="c1"># ********************************* Dimensions *******************************</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">n_sample</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fh</span><span class="o">.</span><span class="n">create_dataset</span><span class="p">(</span>
-            <span class="s2">&quot;Dimension/n_sample&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;dimension/n_sample&quot;</span><span class="p">,</span>
             <span class="p">(</span><span class="mi">1</span><span class="p">,),</span>
             <span class="n">dtype</span><span class="o">=</span><span class="n">h5py</span><span class="o">.</span><span class="n">h5t</span><span class="o">.</span><span class="n">NATIVE_UINT64</span><span class="p">,</span>
         <span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">n_resonator</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fh</span><span class="o">.</span><span class="n">create_dataset</span><span class="p">(</span>
-            <span class="s2">&quot;Dimension/n_resonator&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;dimension/n_resonator&quot;</span><span class="p">,</span>
             <span class="p">(</span><span class="mi">1</span><span class="p">,),</span>
             <span class="n">dtype</span><span class="o">=</span><span class="n">h5py</span><span class="o">.</span><span class="n">h5t</span><span class="o">.</span><span class="n">NATIVE_UINT64</span><span class="p">,</span>
         <span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">n_attenuator</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fh</span><span class="o">.</span><span class="n">create_dataset</span><span class="p">(</span>
-            <span class="s2">&quot;Dimension/n_attenuator&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;dimension/n_attenuator&quot;</span><span class="p">,</span>
             <span class="p">(</span><span class="mi">1</span><span class="p">,),</span>
             <span class="n">dtype</span><span class="o">=</span><span class="n">h5py</span><span class="o">.</span><span class="n">h5t</span><span class="o">.</span><span class="n">NATIVE_UINT64</span><span class="p">,</span>
         <span class="p">)</span>
@@ -198,7 +225,6 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">chan_number</span><span class="o">.</span><span class="n">attrs</span><span class="o">.</span><span class="n">create</span><span class="p">(</span>
             <span class="s2">&quot;info&quot;</span><span class="p">,</span> <span class="s2">&quot;possibility of multiple raw files per channel per RFSOC&quot;</span>
         <span class="p">)</span>
-
         <span class="bp">self</span><span class="o">.</span><span class="n">ifslice_number</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fh</span><span class="o">.</span><span class="n">create_dataset</span><span class="p">(</span>
             <span class="s2">&quot;global_data/ifslice_number&quot;</span><span class="p">,</span> <span class="p">(</span><span class="mi">1</span><span class="p">,),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">h5py</span><span class="o">.</span><span class="n">h5t</span><span class="o">.</span><span class="n">NATIVE_INT32</span>
         <span class="p">)</span>
@@ -206,26 +232,39 @@
         <span class="c1"># ****************************** Time Ordered Data *****************************</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">adc_i</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fh</span><span class="o">.</span><span class="n">create_dataset</span><span class="p">(</span>
             <span class="s2">&quot;time_ordered_data/adc_i&quot;</span><span class="p">,</span>
-            <span class="p">(</span><span class="n">n_resonator</span><span class="p">,</span> <span class="n">n_sample</span><span class="p">),</span>
+            <span class="p">(</span><span class="mi">1024</span><span class="p">,</span> <span class="n">n_sample</span><span class="p">),</span>
+            <span class="n">chunks</span><span class="o">=</span><span class="p">(</span><span class="mi">1024</span><span class="p">,</span> <span class="mi">488</span><span class="p">),</span>
+            <span class="n">maxshape</span><span class="o">=</span><span class="p">(</span><span class="mi">1024</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
             <span class="n">dtype</span><span class="o">=</span><span class="n">h5py</span><span class="o">.</span><span class="n">h5t</span><span class="o">.</span><span class="n">NATIVE_UINT32</span><span class="p">,</span>
         <span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">adc_q</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fh</span><span class="o">.</span><span class="n">create_dataset</span><span class="p">(</span>
             <span class="s2">&quot;time_ordered_data/adc_q&quot;</span><span class="p">,</span>
-            <span class="p">(</span><span class="n">n_resonator</span><span class="p">,</span> <span class="n">n_sample</span><span class="p">),</span>
+            <span class="p">(</span><span class="mi">1024</span><span class="p">,</span> <span class="n">n_sample</span><span class="p">),</span>
+            <span class="n">chunks</span><span class="o">=</span><span class="p">(</span><span class="mi">1024</span><span class="p">,</span> <span class="mi">488</span><span class="p">),</span>
+            <span class="n">maxshape</span><span class="o">=</span><span class="p">(</span><span class="mi">1024</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
             <span class="n">dtype</span><span class="o">=</span><span class="n">h5py</span><span class="o">.</span><span class="n">h5t</span><span class="o">.</span><span class="n">NATIVE_UINT32</span><span class="p">,</span>
         <span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">lo_freq</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fh</span><span class="o">.</span><span class="n">create_dataset</span><span class="p">(</span>
             <span class="s2">&quot;time_ordered_data/lo_freq&quot;</span><span class="p">,</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">n_sample</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">h5py</span><span class="o">.</span><span class="n">h5t</span><span class="o">.</span><span class="n">NATIVE_INT32</span>
         <span class="p">)</span>
-        <span class="n">timestamp_compound_datatype</span> <span class="o">=</span> <span class="p">[</span>
-            <span class="p">(</span><span class="s2">&quot;time_us&quot;</span><span class="p">,</span> <span class="n">h5py</span><span class="o">.</span><span class="n">h5t</span><span class="o">.</span><span class="n">NATIVE_UINT64</span><span class="p">),</span>
-            <span class="p">(</span><span class="s2">&quot;packet_number&quot;</span><span class="p">,</span> <span class="n">h5py</span><span class="o">.</span><span class="n">h5t</span><span class="o">.</span><span class="n">NATIVE_UINT64</span><span class="p">),</span>
-        <span class="p">]</span>
+        <span class="c1"># timestamp_compound_datatype = [</span>
+        <span class="c1">#     (&quot;time&quot;, ),</span>
+        <span class="c1">#     (&quot;packet_number&quot;, h5py.h5t.NATIVE_UINT64),</span>
+        <span class="c1"># ]</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">timestamp</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fh</span><span class="o">.</span><span class="n">create_dataset</span><span class="p">(</span>
-            <span class="s2">&quot;time_ordered_data/timestamp&quot;</span><span class="p">,</span>
-            <span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="n">n_sample</span><span class="p">),</span>
-            <span class="n">dtype</span><span class="o">=</span><span class="n">timestamp_compound_datatype</span><span class="p">,</span>
-        <span class="p">)</span></div>
+            <span class="s2">&quot;time_ordered_data/timestamp&quot;</span><span class="p">,</span> <span class="p">(</span><span class="n">n_sample</span><span class="p">,),</span> <span class="n">chunks</span><span class="o">=</span><span class="p">(</span><span class="mi">488</span><span class="p">,),</span> <span class="n">maxshape</span><span class="o">=</span><span class="p">(</span><span class="kc">None</span><span class="p">,)</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">fh</span><span class="o">.</span><span class="n">flush</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="RawDataFile.resize"><a class="viewcode-back" href="../data_handler.html#data_handler.RawDataFile.resize">[docs]</a>    <span class="k">def</span> <span class="nf">resize</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">n_sample</span><span class="p">:</span> <span class="nb">int</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        resize the dynamically allocated datasets. This will mostly be used by udp2.py to</span>
+<span class="sd">        expand the data file to accomodate more data.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">n_sample</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">n_sample</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">adc_i</span><span class="o">.</span><span class="n">resize</span><span class="p">((</span><span class="mi">1024</span><span class="p">,</span> <span class="n">n_sample</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">adc_q</span><span class="o">.</span><span class="n">resize</span><span class="p">((</span><span class="mi">1024</span><span class="p">,</span> <span class="n">n_sample</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">timestamp</span><span class="o">.</span><span class="n">resize</span><span class="p">((</span><span class="n">n_sample</span><span class="p">,))</span></div>
 
 <div class="viewcode-block" id="RawDataFile.read"><a class="viewcode-back" href="../data_handler.html#data_handler.RawDataFile.read">[docs]</a>    <span class="k">def</span> <span class="nf">read</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
@@ -243,9 +282,10 @@
         <span class="n">log</span> <span class="o">=</span> <span class="n">logger</span><span class="o">.</span><span class="n">getChild</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
 
         <span class="k">try</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">n_attenuator</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fh</span><span class="p">[</span><span class="s2">&quot;/Dimension/n_attenuator&quot;</span><span class="p">]</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">n_resonator</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fh</span><span class="p">[</span><span class="s2">&quot;/Dimension/n_resonator&quot;</span><span class="p">]</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">n_sample</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fh</span><span class="p">[</span><span class="s2">&quot;/Dimension/n_sample&quot;</span><span class="p">]</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">n_attenuator</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fh</span><span class="p">[</span><span class="s2">&quot;/dimension/n_attenuator&quot;</span><span class="p">]</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">n_resonator</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fh</span><span class="p">[</span><span class="s2">&quot;/dimension/n_resonator&quot;</span><span class="p">]</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">n_sample</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fh</span><span class="p">[</span><span class="s2">&quot;/dimension/n_sample&quot;</span><span class="p">]</span>
+
             <span class="bp">self</span><span class="o">.</span><span class="n">attenuator_settings</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fh</span><span class="p">[</span><span class="s2">&quot;/global_data/attenuator_settings&quot;</span><span class="p">]</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">baseband_freq</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fh</span><span class="p">[</span><span class="s2">&quot;/global_data/baseband_freq&quot;</span><span class="p">]</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">chan_number</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fh</span><span class="p">[</span><span class="s2">&quot;/global_data/chan_number&quot;</span><span class="p">]</span>
@@ -254,15 +294,84 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">sample_rate</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fh</span><span class="p">[</span><span class="s2">&quot;/global_data/sample_rate&quot;</span><span class="p">]</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">tile_number</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fh</span><span class="p">[</span><span class="s2">&quot;/global_data/tile_number&quot;</span><span class="p">]</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">tone_power</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fh</span><span class="p">[</span><span class="s2">&quot;/global_data/tone_power&quot;</span><span class="p">]</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">lo_sweep</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fh</span><span class="p">[</span><span class="s2">&quot;global_data/lo_sweep&quot;</span><span class="p">]</span>
+            <span class="k">if</span> <span class="s2">&quot;/time_ordered_data/lo_freq&quot;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">fh</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">lo_sweep</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fh</span><span class="p">[</span><span class="s2">&quot;/time_ordered_data/lo_freq&quot;</span><span class="p">]</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">lo_sweep</span> <span class="o">=</span> <span class="kc">None</span>
+
+            <span class="bp">self</span><span class="o">.</span><span class="n">timestamp</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fh</span><span class="p">[</span><span class="s2">&quot;/time_ordered_data/timestamp&quot;</span><span class="p">]</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">adc_i</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fh</span><span class="p">[</span><span class="s2">&quot;/time_ordered_data/adc_i&quot;</span><span class="p">]</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">adc_q</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fh</span><span class="p">[</span><span class="s2">&quot;/time_ordered_data/adc_q&quot;</span><span class="p">]</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">lo_freq</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fh</span><span class="p">[</span><span class="s2">&quot;/time_ordered_data/lo_freq&quot;</span><span class="p">]</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">timestamp</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fh</span><span class="p">[</span><span class="s2">&quot;/time_ordered_data/timestamp&quot;</span><span class="p">]</span>
+
         <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
             <span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="n">e</span><span class="p">)</span></div>
 
+<div class="viewcode-block" id="RawDataFile.append_lo_sweep"><a class="viewcode-back" href="../data_handler.html#data_handler.RawDataFile.append_lo_sweep">[docs]</a>    <span class="k">def</span> <span class="nf">append_lo_sweep</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sweeppath</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Call this function to provide the RawDataFile with</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">log</span> <span class="o">=</span> <span class="n">logger</span><span class="o">.</span><span class="n">getChild</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+        <span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Checking for file </span><span class="si">{</span><span class="n">sweeppath</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isfile</span><span class="p">(</span><span class="n">sweeppath</span><span class="p">):</span>
+            <span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;found sweep file, appending.&quot;</span><span class="p">)</span>
+            <span class="n">sweepdata</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">sweeppath</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">fh</span><span class="o">.</span><span class="n">create_dataset</span><span class="p">(</span><span class="s2">&quot;global_data/lo_sweep&quot;</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="n">sweepdata</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Specified sweep file does not exist. Will not append.&quot;</span><span class="p">)</span></div>
+
 <div class="viewcode-block" id="RawDataFile.close"><a class="viewcode-back" href="../data_handler.html#data_handler.RawDataFile.close">[docs]</a>    <span class="k">def</span> <span class="nf">close</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Close the RawDataFile</span>
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">fh</span><span class="o">.</span><span class="n">close</span><span class="p">()</span></div></div>
+
+
+<div class="viewcode-block" id="TelescopeDataFile"><a class="viewcode-back" href="../data_handler.html#data_handler.TelescopeDataFile">[docs]</a><span class="k">class</span> <span class="nc">TelescopeDataFile</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Telescope Data File.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">,</span> <span class="n">overwrite</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">log</span> <span class="o">=</span> <span class="n">logger</span><span class="o">.</span><span class="n">getChild</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">filename</span> <span class="o">=</span> <span class="n">path</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isfile</span><span class="p">(</span><span class="n">path</span><span class="p">):</span>
+            <span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;File not found, creating file...&quot;</span><span class="p">)</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">fh</span> <span class="o">=</span> <span class="n">h5py</span><span class="o">.</span><span class="n">File</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">filename</span><span class="p">,</span> <span class="s2">&quot;a&quot;</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                <span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="n">e</span><span class="p">)</span>
+                <span class="k">raise</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;File already exists.&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">overwrite</span><span class="p">:</span>
+                <span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Overwriting file&quot;</span><span class="p">)</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">fh</span> <span class="o">=</span> <span class="n">h5py</span><span class="o">.</span><span class="n">File</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">filename</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">)</span>
+                <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                    <span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="n">e</span><span class="p">)</span>
+                    <span class="k">raise</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Opening File as append&quot;</span><span class="p">)</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">fh</span> <span class="o">=</span> <span class="n">h5py</span><span class="o">.</span><span class="n">File</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">filename</span><span class="p">,</span> <span class="s2">&quot;a&quot;</span><span class="p">)</span>
+                <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                    <span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="n">e</span><span class="p">)</span>
+                    <span class="k">raise</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>
+
+<div class="viewcode-block" id="TelescopeDataFile.format"><a class="viewcode-back" href="../data_handler.html#data_handler.TelescopeDataFile.format">[docs]</a>    <span class="k">def</span> <span class="nf">format</span><span class="p">():</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        format TBD</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">pass</span></div>
+
+<div class="viewcode-block" id="TelescopeDataFile.read"><a class="viewcode-back" href="../data_handler.html#data_handler.TelescopeDataFile.read">[docs]</a>    <span class="k">def</span> <span class="nf">read</span><span class="p">():</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        depends on format....</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">pass</span></div></div>
 
 
 <div class="viewcode-block" id="ObservationDataFile"><a class="viewcode-back" href="../data_handler.html#data_handler.ObservationDataFile">[docs]</a><span class="k">class</span> <span class="nc">ObservationDataFile</span><span class="p">:</span>
@@ -464,8 +573,7 @@
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Cheat function. Reads an hdf5 file and generates read statements to then be pasted back into</span>
 <span class="sd">    the class. This method worked because the dataset name was the same as the instance variable name.</span>
-
-<span class="sd">    that is /group/group/adc_i translates to self.fh.adc_i</span>
+<span class="sd">    ie.  /group/group/adc_i translates to self.fh.adc_i</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">f</span> <span class="o">=</span> <span class="n">h5py</span><span class="o">.</span><span class="n">File</span><span class="p">(</span><span class="n">h5</span><span class="p">,</span> <span class="s2">&quot;r&quot;</span><span class="p">)</span>
 
@@ -481,32 +589,91 @@
             <span class="n">v</span><span class="o">.</span><span class="n">visititems</span><span class="p">(</span><span class="n">somefunc</span><span class="p">)</span></div>
 
 
-<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
-    <span class="n">log</span> <span class="o">=</span> <span class="n">logger</span><span class="o">.</span><span class="n">getChild</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
-    <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;create a RawDataFile instance&quot;</span><span class="p">)</span>
+<div class="viewcode-block" id="getdtime"><a class="viewcode-back" href="../data_handler.html#data_handler.getdtime">[docs]</a><span class="k">def</span> <span class="nf">getdtime</span><span class="p">():</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Gets the time in fractional hours since midnight</span>
+<span class="sd">    of the current day with a precision down to seconds.</span>
 
-    <span class="n">f</span> <span class="o">=</span> <span class="s2">&quot;SomeMadeUpName.h5&quot;</span>
-    <span class="n">rdf</span> <span class="o">=</span> <span class="n">RawDataFile</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+<span class="sd">    :return: Fraction of hours since midnight</span>
 
-    <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
-        <span class="s2">&quot;file was created as it didn&#39;t exist, but if it&#39;s reread: an exeception will be caught&quot;</span>
+<span class="sd">    :rtype: Float</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">t</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">localtime</span><span class="p">()</span>
+    <span class="n">t1</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">mktime</span><span class="p">(</span><span class="n">t</span><span class="p">)</span>  <span class="c1"># current time</span>
+
+    <span class="n">t2</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">struct_time</span><span class="p">(</span>
+        <span class="p">(</span>
+            <span class="n">t</span><span class="o">.</span><span class="n">tm_year</span><span class="p">,</span>
+            <span class="n">t</span><span class="o">.</span><span class="n">tm_mon</span><span class="p">,</span>
+            <span class="n">t</span><span class="o">.</span><span class="n">tm_mday</span><span class="p">,</span>
+            <span class="mi">0</span><span class="p">,</span>
+            <span class="mi">0</span><span class="p">,</span>
+            <span class="mi">0</span><span class="p">,</span>
+            <span class="n">t</span><span class="o">.</span><span class="n">tm_wday</span><span class="p">,</span>
+            <span class="n">t</span><span class="o">.</span><span class="n">tm_yday</span><span class="p">,</span>
+            <span class="n">t</span><span class="o">.</span><span class="n">tm_isdst</span><span class="p">,</span>
+            <span class="n">t</span><span class="o">.</span><span class="n">tm_zone</span><span class="p">,</span>
+            <span class="n">t</span><span class="o">.</span><span class="n">tm_gmtoff</span><span class="p">,</span>
+        <span class="p">)</span>
     <span class="p">)</span>
-    <span class="n">rdf</span> <span class="o">=</span> <span class="n">RawDataFile</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+    <span class="n">t2</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">mktime</span><span class="p">(</span><span class="n">t2</span><span class="p">)</span>
+    <span class="k">return</span> <span class="p">(</span><span class="n">t1</span> <span class="o">-</span> <span class="n">t2</span><span class="p">)</span> <span class="o">/</span> <span class="mi">3600</span></div>
 
-    <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;this time, setting the format before next read...&quot;</span><span class="p">)</span>
-    <span class="n">rdf</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="mi">488</span><span class="p">,</span> <span class="mi">1000</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
-    <span class="n">rdf</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
 
-    <span class="k">del</span> <span class="n">rdf</span>
+<div class="viewcode-block" id="get_yymmdd"><a class="viewcode-back" href="../data_handler.html#data_handler.get_yymmdd">[docs]</a><span class="k">def</span> <span class="nf">get_yymmdd</span><span class="p">():</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Duplicate from onrkidpy</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># get today&#39;s date string</span>
+    <span class="n">yy</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">date</span><span class="o">.</span><span class="n">today</span><span class="p">()</span><span class="o">.</span><span class="n">year</span><span class="p">)</span>
+    <span class="n">mm</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">date</span><span class="o">.</span><span class="n">today</span><span class="p">()</span><span class="o">.</span><span class="n">month</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">date</span><span class="o">.</span><span class="n">today</span><span class="p">()</span><span class="o">.</span><span class="n">month</span> <span class="o">&lt;</span> <span class="mi">10</span><span class="p">:</span>
+        <span class="n">mm</span> <span class="o">=</span> <span class="s2">&quot;0&quot;</span> <span class="o">+</span> <span class="n">mm</span>
+    <span class="n">dd</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">date</span><span class="o">.</span><span class="n">today</span><span class="p">()</span><span class="o">.</span><span class="n">day</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">date</span><span class="o">.</span><span class="n">today</span><span class="p">()</span><span class="o">.</span><span class="n">day</span> <span class="o">&lt;</span> <span class="mi">10</span><span class="p">:</span>
+        <span class="n">dd</span> <span class="o">=</span> <span class="s2">&quot;0&quot;</span> <span class="o">+</span> <span class="n">dd</span>
+    <span class="n">yymmdd</span> <span class="o">=</span> <span class="n">yy</span> <span class="o">+</span> <span class="n">mm</span> <span class="o">+</span> <span class="n">dd</span>
+    <span class="k">return</span> <span class="n">yymmdd</span></div>
 
-    <span class="n">rdf</span> <span class="o">=</span> <span class="n">RawDataFile</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
-    <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;n_resonator is currently </span><span class="si">{</span><span class="n">rdf</span><span class="o">.</span><span class="n">n_resonator</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-    <span class="n">rdf</span><span class="o">.</span><span class="n">n_resonator</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="mi">15</span>
-    <span class="n">rdf</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
-    <span class="k">del</span> <span class="n">rdf</span>
-    <span class="n">rdf</span> <span class="o">=</span> <span class="n">RawDataFile</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
 
-    <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;after write and close, n_resonator is now </span><span class="si">{</span><span class="n">rdf</span><span class="o">.</span><span class="n">n_resonator</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<div class="viewcode-block" id="get_last_lo"><a class="viewcode-back" href="../data_handler.html#data_handler.get_last_lo">[docs]</a><span class="k">def</span> <span class="nf">get_last_lo</span><span class="p">(</span><span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Modified function to get the laster sweep file from data.</span>
+<span class="sd">    this function expects a general file format consisting of the</span>
+<span class="sd">    following.</span>
+
+<span class="sd">    .. code::</span>
+
+<span class="sd">        &quot;/data/{yymmdd}/{yymmdd}_LO_Sweep_*_{name}.npy&quot;</span>
+<span class="sd">        example.</span>
+<span class="sd">        /data/20230730/20230730_LO_Sweep_hour15p4622_rfsoc1.npy</span>
+<span class="sd">        /data/20230730/20230730_LO_Sweep_hour15p4625_rfsoc1.npy</span>
+<span class="sd">        /data/20230730/20230730_LO_Sweep_hour15p4628_rfsoc1.npy</span>
+<span class="sd">        /data/20230730/20230730_LO_Sweep_hour15p4675_rfsoc2.npy</span>
+<span class="sd">        /data/20230730/20230730_LO_Sweep_hour15p4678_rfsoc2.npy</span>
+<span class="sd">        /data/20230730/20230730_LO_Sweep_hour15p4681_rfsoc2.npy</span>
+<span class="sd">        /data/20230730/20230730_LO_Sweep_hour15p4683_rfsoc2.npy</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># see if we already have the parent folder for today&#39;s date</span>
+    <span class="n">yymmdd</span> <span class="o">=</span> <span class="n">get_yymmdd</span><span class="p">()</span>
+    <span class="n">date_folder</span> <span class="o">=</span> <span class="s2">&quot;/data/&quot;</span> <span class="o">+</span> <span class="n">yymmdd</span> <span class="o">+</span> <span class="s2">&quot;/&quot;</span>
+    <span class="n">check_date_folder</span> <span class="o">=</span> <span class="n">glob</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="n">date_folder</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="n">check_date_folder</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">return</span> <span class="s2">&quot;&quot;</span>
+
+    <span class="n">fstring</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;/data/</span><span class="si">{</span><span class="n">yymmdd</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">yymmdd</span><span class="si">}</span><span class="s2">_LO_Sweep_*_</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">.npy&quot;</span>
+    <span class="n">g</span> <span class="o">=</span> <span class="n">glob</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="n">fstring</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">g</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">return</span> <span class="s2">&quot;&quot;</span>
+
+    <span class="n">g</span><span class="o">.</span><span class="n">sort</span><span class="p">()</span>
+    <span class="k">return</span> <span class="n">g</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span></div>
+
+
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
+    <span class="k">pass</span>
 </pre></div>
 
            </div>

@@ -1,3 +1,20 @@
+"""
+Overview
+--------
+
+This file is used to simulate UDP data being sent over ethernet 
+in order to test multi-threading in udp2.py.
+
+By default, the data is sent to address 127.0.0.1 (localhost)
+on port 1234. However, the port may be passed in via the command line.
+
+This code runs until interupted via ctrl-c
+
+.. code:: bash
+
+    python udp_sender.py 4096
+
+"""
 import socket
 import random
 import time

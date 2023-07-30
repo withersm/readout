@@ -4,7 +4,7 @@
   <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Welcome to readout’s documentation! &mdash; mKID Readout - KIDPY3 2.0.0 documentation</title>
+  <title>udp_sender module &mdash; mKID Readout - KIDPY3 2.0.0 documentation</title>
       <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -19,7 +19,8 @@
     <script src="_static/js/theme.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
-    <link rel="next" title="host" href="modules.html" /> 
+    <link rel="next" title="udpcap module" href="udpcap.html" />
+    <link rel="prev" title="udp2 module" href="udp2.html" /> 
 </head>
 
 <body class="wy-body-for-nav"> 
@@ -30,7 +31,7 @@
 
           
           
-          <a href="#" class="icon icon-home">
+          <a href="index.html" class="icon icon-home">
             mKID Readout - KIDPY3
           </a>
 <div role="search">
@@ -42,8 +43,21 @@
 </div>
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
               <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
-<ul>
-<li class="toctree-l1"><a class="reference internal" href="modules.html">host</a></li>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="modules.html">host</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="config.html">config module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="data_handler.html">data_handler module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="kidpy.html">kidpy module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sweeps.html">sweeps module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="udp2.html">udp2 module</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">udp_sender module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#overview">Overview</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="udpcap.html">udpcap module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="valon5009.html">valon5009 module</a></li>
+</ul>
+</li>
 </ul>
 
         </div>
@@ -52,17 +66,18 @@
 
     <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
           <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
-          <a href="#">mKID Readout - KIDPY3</a>
+          <a href="index.html">mKID Readout - KIDPY3</a>
       </nav>
 
       <div class="wy-nav-content">
         <div class="rst-content">
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-      <li><a href="#" class="icon icon-home" aria-label="Home"></a></li>
-      <li class="breadcrumb-item active">Welcome to readout’s documentation!</li>
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="modules.html">host</a></li>
+      <li class="breadcrumb-item active">udp_sender module</li>
       <li class="wy-breadcrumbs-aside">
-            <a href="_sources/index.rst.txt" rel="nofollow"> View page source</a>
+            <a href="_sources/udp_sender.rst.txt" rel="nofollow"> View page source</a>
       </li>
   </ul>
   <hr/>
@@ -70,39 +85,27 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
              
-  <section id="welcome-to-readout-s-documentation">
-<h1>Welcome to readout’s documentation!<a class="headerlink" href="#welcome-to-readout-s-documentation" title="Permalink to this heading"></a></h1>
-<div class="toctree-wrapper compound">
-<p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
-<ul>
-<li class="toctree-l1"><a class="reference internal" href="modules.html">host</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="config.html">config module</a></li>
-<li class="toctree-l2"><a class="reference internal" href="data_handler.html">data_handler module</a></li>
-<li class="toctree-l2"><a class="reference internal" href="kidpy.html">kidpy module</a></li>
-<li class="toctree-l2"><a class="reference internal" href="sweeps.html">sweeps module</a></li>
-<li class="toctree-l2"><a class="reference internal" href="udp2.html">udp2 module</a></li>
-<li class="toctree-l2"><a class="reference internal" href="udp_sender.html">udp_sender module</a></li>
-<li class="toctree-l2"><a class="reference internal" href="udpcap.html">udpcap module</a></li>
-<li class="toctree-l2"><a class="reference internal" href="valon5009.html">valon5009 module</a></li>
-</ul>
-</li>
-</ul>
+  <section id="module-udp_sender">
+<span id="udp-sender-module"></span><h1>udp_sender module<a class="headerlink" href="#module-udp_sender" title="Permalink to this heading"></a></h1>
+<section id="overview">
+<h2>Overview<a class="headerlink" href="#overview" title="Permalink to this heading"></a></h2>
+<p>This file is used to simulate UDP data being sent over ethernet 
+in order to test multi-threading in udp2.py.</p>
+<p>By default, the data is sent to address 127.0.0.1 (localhost)
+on port 1234. However, the port may be passed in via the command line.</p>
+<p>This code runs until interupted via ctrl-c</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>udp_sender.py<span class="w"> </span><span class="m">4096</span>
+</pre></div>
 </div>
 </section>
-<section id="indices-and-tables">
-<h1>Indices and tables<a class="headerlink" href="#indices-and-tables" title="Permalink to this heading"></a></h1>
-<ul class="simple">
-<li><p><a class="reference internal" href="genindex.html"><span class="std std-ref">Index</span></a></p></li>
-<li><p><a class="reference internal" href="py-modindex.html"><span class="std std-ref">Module Index</span></a></p></li>
-<li><p><a class="reference internal" href="search.html"><span class="std std-ref">Search Page</span></a></p></li>
-</ul>
 </section>
 
 
            </div>
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
-        <a href="modules.html" class="btn btn-neutral float-right" title="host" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+        <a href="udp2.html" class="btn btn-neutral float-left" title="udp2 module" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="udpcap.html" class="btn btn-neutral float-right" title="udpcap module" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 
   <hr/>

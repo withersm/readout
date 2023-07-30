@@ -1,7 +1,7 @@
-Sweeps module
+udpcap module
 =============
 
-.. automodule:: Sweeps
+.. automodule:: udpcap
    :members:
    :undoc-members:
    :show-inheritance:

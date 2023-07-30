@@ -4,7 +4,7 @@
   <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Sweeps module &mdash; mKID Readout - KIDPY3 2.0.0 documentation</title>
+  <title>sweeps module &mdash; mKID Readout - KIDPY3 2.0.0 documentation</title>
       <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -18,7 +18,9 @@
         <script src="_static/sphinx_highlight.js"></script>
     <script src="_static/js/theme.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
-    <link rel="search" title="Search" href="search.html" /> 
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="udp2 module" href="udp2.html" />
+    <link rel="prev" title="kidpy module" href="kidpy.html" /> 
 </head>
 
 <body class="wy-body-for-nav"> 
@@ -41,8 +43,23 @@
 </div>
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
               <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
-<ul>
-<li class="toctree-l1"><a class="reference internal" href="modules.html">host</a></li>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="modules.html">host</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="config.html">config module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="data_handler.html">data_handler module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="kidpy.html">kidpy module</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">sweeps module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#sweeps.loSweep"><code class="docutils literal notranslate"><span class="pre">loSweep()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#sweeps.plot_sweep"><code class="docutils literal notranslate"><span class="pre">plot_sweep()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#sweeps.sweep"><code class="docutils literal notranslate"><span class="pre">sweep()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="udp2.html">udp2 module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="udp_sender.html">udp_sender module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="udpcap.html">udpcap module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="valon5009.html">valon5009 module</a></li>
+</ul>
+</li>
 </ul>
 
         </div>
@@ -59,7 +76,8 @@
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
       <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
-      <li class="breadcrumb-item active">Sweeps module</li>
+          <li class="breadcrumb-item"><a href="modules.html">host</a></li>
+      <li class="breadcrumb-item active">sweeps module</li>
       <li class="wy-breadcrumbs-aside">
             <a href="_sources/sweeps.rst.txt" rel="nofollow"> View page source</a>
       </li>
@@ -69,19 +87,23 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
              
-  <section id="module-Sweeps">
-<span id="sweeps-module"></span><h1>Sweeps module<a class="headerlink" href="#module-Sweeps" title="Permalink to this heading"></a></h1>
-<p>Sweeps module is where lo sweep code can be accessed.</p>
+  <section id="module-sweeps">
+<span id="sweeps-module"></span><h1>sweeps module<a class="headerlink" href="#module-sweeps" title="Permalink to this heading"></a></h1>
 <dl class="py function">
-<dt class="sig sig-object py" id="Sweeps.loSweep">
-<span class="sig-prename descclassname"><span class="pre">Sweeps.</span></span><span class="sig-name descname"><span class="pre">loSweep</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">loSource</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">udp</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">freqs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">[]</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">f_center</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">400.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">N_steps</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">500</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">freq_step</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">savefile</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'s21'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/Sweeps.html#loSweep"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#Sweeps.loSweep" title="Permalink to this definition"></a></dt>
+<dt class="sig sig-object py" id="sweeps.loSweep">
+<span class="sig-prename descclassname"><span class="pre">sweeps.</span></span><span class="sig-name descname"><span class="pre">loSweep</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">loSource</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">udp</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">freqs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">[]</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">f_center</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">400.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">N_steps</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">500</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">freq_step</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">savefile</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'s21'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/sweeps.html#loSweep"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#sweeps.loSweep" title="Permalink to this definition"></a></dt>
 <dd><p>Perform a stepped frequency sweep centered at f_center and save result as s21.npy file</p>
 <p>f_center: center frequency for sweep in [MHz], default is 400</p>
 </dd></dl>
 
 <dl class="py function">
-<dt class="sig sig-object py" id="Sweeps.sweep">
-<span class="sig-prename descclassname"><span class="pre">Sweeps.</span></span><span class="sig-name descname"><span class="pre">sweep</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">loSource</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">udp</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">f_center</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">freqs</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">N_steps</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">500</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">freq_step</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/Sweeps.html#sweep"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#Sweeps.sweep" title="Permalink to this definition"></a></dt>
+<dt class="sig sig-object py" id="sweeps.plot_sweep">
+<span class="sig-prename descclassname"><span class="pre">sweeps.</span></span><span class="sig-name descname"><span class="pre">plot_sweep</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">s21</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/sweeps.html#plot_sweep"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#sweeps.plot_sweep" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="sweeps.sweep">
+<span class="sig-prename descclassname"><span class="pre">sweeps.</span></span><span class="sig-name descname"><span class="pre">sweep</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">loSource</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">udp</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">f_center</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">freqs</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">N_steps</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">500</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">freq_step</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/sweeps.html#sweep"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#sweeps.sweep" title="Permalink to this definition"></a></dt>
 <dd><p>Actually perform an LO Sweep using valon 5009’s and save the data</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -102,7 +124,10 @@
 
            </div>
           </div>
-          <footer>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="kidpy.html" class="btn btn-neutral float-left" title="kidpy module" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="udp2.html" class="btn btn-neutral float-right" title="udp2 module" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
 
   <hr/>
 

@@ -4,6 +4,7 @@ ________
 
 udp2 is the Next iteration of udpcap. Here, we want to facilitate the process of pulling data
 from multiple channels from multiple RFSOC's in a multiprocessing environment. 
+Unlike udpcap, udp2 utilizes the hdf5 obervation file format defined by data_handler.
 
 .. note::
     A key part of python multiprocessing library is 'pickling'. This is a funny name to describe object serialization. Essentially, our code needs
@@ -12,8 +13,8 @@ from multiple channels from multiple RFSOC's in a multiprocessing environment.
 
 
 :Authors: Cody Roberson
-:Date: 2023-07-26
-:Version: 1.0.0
+:Date: 2023-07-30
+:Version: 2.0.0
 
 
 """
@@ -25,26 +26,35 @@ import numpy as np
 import socket
 import data_handler
 from data_handler import getdtime
-import socket
 from data_handler import RFChannel
+from data_handler import RawDataFile
+from data_handler import get_last_lo
+import socket
+import os
 import time
 import multiprocessing as mp
 
-# logging.basicConfig(format=__LOGFMT, level=logging.DEBUG)
 
 logger = logging.getLogger(__name__)
 
 
 def __data_writer_process(dataqueue, chan: RFChannel, runFlag):
-    """ """
+    """
+    Creates a RawDataFile and populates it with data that is passed to it through
+    the dataqueue parameter. This function runs indefinitely until
+    None is passed through the queue by its partner data_collector_process.
+
+    Data is handled in bursts and the data is chunked allowing us to collect an indefinite amount of data.
+    """
     log = logger.getChild(__name__)
     log.debug(f"began data writer process <{chan.name}>")
 
     # Create HDF5 Datafile
-    raw = data_handler.RawDataFile(chan.raw_filename)
+    raw = RawDataFile(chan.raw_filename, overwrite=True)
     raw.format(0, chan.n_resonator, chan.n_attenuator)
 
-    # Pass in the last LO sweep hhere
+    # Pass in the last LO sweep here
+    raw.append_lo_sweep(get_last_lo(chan.name))
 
     while True:
         # we're done if the queue closes or we don't get any day within 10 seconds
@@ -74,7 +84,14 @@ def __data_writer_process(dataqueue, chan: RFChannel, runFlag):
 
 
 def __data_collector_process(dataqueue, chan: RFChannel, runFlag):
-    """"""
+    """
+    Creates a socket connection and collects udp data. Said data is put in a tuple and
+    passed to it's partner data writer process through the queue. When collection ends, None is possed into the
+    queue to signal that further data will not be passed.
+
+    Data is handed off to the writer in chunks of 488 which allows us to run more efficiently as well as collect data indefinitely.
+
+    """
     log = logger.getChild(__name__)
     log.debug(f"began data collector process <{chan.name}>")
     # Creae Socket
@@ -83,6 +100,7 @@ def __data_collector_process(dataqueue, chan: RFChannel, runFlag):
         s.bind((chan.ip, chan.port))
         s.settimeout(10)
     except Exception as e:
+        dataqueue.put(None)
         return
     # log.debug(f"Socket bound - <{chan.name}>")
     # Take Data
@@ -119,16 +137,50 @@ def exceptionCallback(e):
     raise e
 
 
-def capture(channels: list):
+def capture(channels: list, fn=None, *args):
     """
-    For each RFChannel provided, capture(...) spawns a worker process that does the following:
-        * Generates a RawDataFile
-        * Creates a socket connection on the network
-        * Downlinks data and populates the raw file
+    Begins the capture of readout data. For each channel provided, a pair of downstream processes are created
+    to capture and save data. Due to the fact that the main thread isn't handling data means that it's relatively free to run some other job.
+
+    Two possibilites can occur
+    - A function is provided to capture()
+
+      - After capture() starts its downstream data processes, it executes
+        fn() and passes in arbitrary arguments. Once fn returns,
+        the datacapture processes are then closed down.
+
+    - No function is provided
+
+      - Capture will sleep() for 10 seconds and then end the data capture.
+
+    :param channels: RF channels to capture data from
+    :type channels: List[data_handler.RFChannel]
+
+    :param fn: Pass in a funtion to call during capture.
+
+        .. DANGER::
+            The provided function should not hang indefinitely and returned data is ignored.
+
+    :type fn: function
+
+    :param args: args to pass into fn
+
+    :type args: \*args
+
+    :return: None
+
+    Example
+    -------
+    The following spawns a data read/writer pair for rfsoc and waits 30 seconds.
+
+    .. code::
+
+        rfsoc = data_handler.RFChannel("./rfsoc1_fakedata.h5", "127.0.0.1", 4096, "Stuffed Crust Pizza", 488, 1024, 1)
+        capture([rfsoc], time.sleep, 30)
     """
     log = logger.getChild(__name__)
 
-    if channels is None or channels is []:
+    if channels is None or len(channels) == 0:
         log.warning("Specified list of rfsoc connections is empy/None")
         return
 
@@ -156,14 +208,28 @@ def capture(channels: list):
 
     pool.close()
     log.info("Waiting on capture to complete")
-    _ = input("Press enter to end data collection")
-    log.info("Ending Data Capture; Waiting for child processes to finish")
+    if not fn is None:
+        try:
+            fn(*args)
+        except Exception as e:
+            log.error("While calling fn, an exception occured")
+            log.error(str(e))
+    else:
+        log.debug("No function provided, defaulting to a 10 second collection")
+        time.sleep(10)
+    log.info("\nEnding Data Capture; Waiting for child processes to finish...\n")
     runFlag.value = False
     pool.join()
-    log.info("Finished...")
+    log.info("Capture finished")
 
 
 if __name__ == "__main__":
+    """
+    Test routine. Used insitu of a connected RFSOC. For testing, several terminals were opened
+    and each of them would run udp_sender in order to simulate incomming data.
+    ..code:: bash
+        python udp_sender 4096
+    """
     __LOGFMT = (
         "%(asctime)s|%(levelname)s|%(filename)s|%(lineno)d|%(funcName)s|%(message)s"
     )
@@ -174,6 +240,7 @@ if __name__ == "__main__":
     __logh.flush()
     __logh.setFormatter(logging.Formatter(__LOGFMT))
 
+    log = logger.getChild(__name__ + ".__main__ test block")
     # lets test this thing, shall we?
     rfsoc = data_handler.RFChannel(
         "./rfsoc1_fakedata.h5", "127.0.0.1", 4096, "Stuffed Crust Pizza", 488, 1024, 1
@@ -181,4 +248,7 @@ if __name__ == "__main__":
     rfsoc2 = data_handler.RFChannel(
         "./rfsoc2_fakedata.h5", "127.0.0.1", 4097, "Salad", 488, 1024, 1
     )
-    capture([rfsoc, rfsoc2])
+    start = time.perf_counter_ns()
+    capture([rfsoc, rfsoc2], time.sleep, 10)  # wait 10 seconds
+    stop = time.perf_counter_ns()
+    log.info(f"capture runtime --> {(stop-start) * 1e-6} ms")
