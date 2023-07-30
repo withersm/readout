@@ -30,7 +30,6 @@ from data_handler import RFChannel
 import time
 import multiprocessing as mp
 
-
 # logging.basicConfig(format=__LOGFMT, level=logging.DEBUG)
 
 logger = logging.getLogger(__name__)
@@ -67,11 +66,11 @@ def __data_writer_process(dataqueue, chan: RFChannel, runFlag):
         raw.adc_q[:, indx - 488 : indx] = adcq
         raw.timestamp[indx - 488 : indx] = timestamp
         t2 = time.perf_counter_ns()
-        log.debug("Parsed in this loop's data")
-        log.debug(f"Data Writer deltaT = {(t2-t1)*1e-6} ms")
+        log.debug(f"Parsed in this loop's data <{chan.name}>")
+        log.debug(f"Data Writer deltaT = {(t2-t1)*1e-6} ms for <{chan.name}>")
 
     raw.close()
-    log.debug("Queue closed, closing file and exiting...")
+    log.debug(f"Queue closed, closing file and exiting for <{chan.name}>")
 
 
 def __data_collector_process(dataqueue, chan: RFChannel, runFlag):
@@ -106,12 +105,12 @@ def __data_collector_process(dataqueue, chan: RFChannel, runFlag):
                 ts[k] = getdtime()
             dataqueue.put((idx, i, q, ts))
         except TimeoutError:
-            log.warning("Timed out waiting for data")
+            log.warning(f"Timed out waiting for data <{chan.name}>")
             break
         idx = idx + 488
         t2 = time.perf_counter_ns()
         log.debug(f"datacollector deltaT = {(t2-t1)*1e-6} ms")
-    log.debug("exited while loop, putting None in dataqueue... ")
+    log.debug(f"exited while loop, putting None in dataqueue for <{chan.name}> ")
     dataqueue.put(None)
     s.close()
 
@@ -177,6 +176,9 @@ if __name__ == "__main__":
 
     # lets test this thing, shall we?
     rfsoc = data_handler.RFChannel(
-        "./test_raw.h5", "127.0.0.1", 12345, "sudo rfsoc", 488, 1024, 1
+        "./rfsoc1_fakedata.h5", "127.0.0.1", 4096, "Stuffed Crust Pizza", 488, 1024, 1
     )
-    capture([rfsoc])
+    rfsoc2 = data_handler.RFChannel(
+        "./rfsoc2_fakedata.h5", "127.0.0.1", 4097, "Salad", 488, 1024, 1
+    )
+    capture([rfsoc, rfsoc2])
