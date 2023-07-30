@@ -135,16 +135,15 @@ class RawDataFile:
         self.lo_freq = self.fh.create_dataset(
             "time_ordered_data/lo_freq", (1, n_sample), dtype=h5py.h5t.NATIVE_INT32
         )
-        timestamp_compound_datatype = [
-            ("time", h5py.h5t.NATIVE_DOUBLE),
-            ("packet_number", h5py.h5t.NATIVE_UINT64),
-        ]
+        # timestamp_compound_datatype = [
+        #     ("time", ),
+        #     ("packet_number", h5py.h5t.NATIVE_UINT64),
+        # ]
         self.timestamp = self.fh.create_dataset(
             "time_ordered_data/timestamp",
             (n_sample,),
             chunks=(488,),
-            maxshape=(None,),
-            type=timestamp_compound_datatype,
+            maxshape=(None,)
         )
         self.fh.flush()
 

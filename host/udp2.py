@@ -10,9 +10,12 @@ from multiple channels from multiple RFSOC's in a multiprocessing environment.
     to be convertable into a stream of bytes that can be passed intoa new python interpreter process.
     Certain typs of variables such as h5py objects or sockets can't be pickled. We therefore have to create the h5py/socket objects we need post-pickle. 
 
-:Authors: Cody
+
+:Authors: Cody Roberson
 :Date: 2023-07-26
 :Version: 1.0.0
+
+
 """
 from ctypes import c_bool
 import ctypes
@@ -24,21 +27,22 @@ import data_handler
 from data_handler import getdtime
 import socket
 from data_handler import RFChannel
+import time
 import multiprocessing as mp
 
 __LOGFMT = "%(asctime)s|%(levelname)s|%(filename)s|%(lineno)d|%(funcName)s|%(message)s"
 
 # logging.basicConfig(format=__LOGFMT, level=logging.DEBUG)
-logging.basicConfig(format=__LOGFMT, level=logging.INFO)
+logging.basicConfig(format=__LOGFMT, level=logging.DEBUG)
 logger = logging.getLogger(__name__)
-__logh = logging.FileHandler("./kidpy.log")
+__logh = logging.FileHandler("./udp2.log")
 logging.root.addHandler(__logh)
 logger.log(100, __LOGFMT)
 __logh.flush()
 __logh.setFormatter(logging.Formatter(__LOGFMT))
 
 
-def __data_writer_process(dataqueue, chan: RFChannel):
+def __data_writer_process(dataqueue, chan: RFChannel, runFlag):
     """ """
     log = logger.getChild(__name__)
     log.debug(f"began data writer process <{chan.name}>")
@@ -51,17 +55,26 @@ def __data_writer_process(dataqueue, chan: RFChannel):
 
     while True:
         # we're done if the queue closes
-        obj = dataqueue.get()
+        try:
+            obj = dataqueue.get(True, 10)
+        except:
+            obj = None
         if obj is None:
+            log.debug(f"obj is None <{chan.name}>")
             break
-
+        t1 = time.perf_counter_ns()
+        log.debug(f"Received a queue object<{chan.name}>")
         # re-Allocate Dataset
         indx, adci, adcq, timestamp = obj
         raw.resize(indx)
+        log.debug("resized")
         # Get Data
         raw.adc_i[:, indx - 488 : indx] = adci
         raw.adc_q[:, indx - 488 : indx] = adcq
         raw.timestamp[indx - 488 : indx] = timestamp
+        t2 = time.perf_counter_ns()
+        log.debug("Parsed in this loop's data")
+        log.debug(f"Data Writer deltaT = {(t2-t1)*1e-6} ms")
 
     raw.close()
     log.debug("Queue closed, closing file and exiting...")
@@ -75,36 +88,41 @@ def __data_collector_process(dataqueue, chan: RFChannel, runFlag):
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     try:
         s.bind((chan.ip, chan.port))
-        s.settimeout(1.0)
+        s.settimeout(4)
     except Exception as e:
-        dataqueue.close()
         return
-
+    # log.debug(f"Socket bound - <{chan.name}>")
     # Take Data
     idx = 488
     i = np.zeros((1024, 488))
     q = np.zeros((1024, 488))
     ts = np.zeros(488)
+    log.debug(f"runflag is {runFlag.value}")
 
     while runFlag.value:
-        if (
-            idx >= 2440
-        ):  # prevent runaway, just in case KeyboardInterrupt doesn't work as intended
+        t1 = time.perf_counter_ns()
+        try:
+            i[...] = 0
+            q[...] = 0
+            ts[...] = 0
+            for k in range(488):
+                data = np.frombuffer(bytearray(s.recv(8208)), dtype="<i")[0:2048]
+                i[:, k] = data[0::2]
+                q[:, k] = data[1::2]
+                ts[k] = getdtime()
+            dataqueue.put((idx, i, q, ts))
+        except TimeoutError:
+            log.warning("Timed out waiting for data")
             break
-        i[...] = 0
-        q[...] = 0
-        ts[...] = 0
-        for k in range(488):
-            data = np.frombuffer(bytearray(s.recv(8208)), dtype="<i")[0:2048]
-            i[:, k] = data[0::2]
-            q[:, k] = data[1::2]
-            ts[k] = (getdtime(), 1)
-        dataqueue.put((idx, i, q, ts))
         idx = idx + 488
-
-    dataqueue.close()
+        t2 = time.perf_counter_ns()
+        log.debug(f"datacollector deltaT = {(t2-t1)*1e-6} ms")
+    log.debug("exited while loop, putting None in dataqueue... ")
+    dataqueue.put(None)
     s.close()
 
+def exceptionCallback(e):
+    raise e
 
 def capture(channels: list):
     """
@@ -124,28 +142,27 @@ def capture(channels: list):
     pool = mp.Pool()
 
     log.info("Starting Capture Processes")
-    runFlag = manager.Value(ctypes.c_bool, False)
-    try:
-        for chan in channels:
-            dataqueue = manager.Queue()
-            pool.apply_async(__data_writer_process, (dataqueue, chan))
-            log.debug(f"Spawned data collector process: {chan.name}")
-            pool.apply_async(__data_collector_process, (dataqueue, chan, runFlag))
-            log.debug(f"Spawned data writer process: {chan.name}")
+    runFlag = manager.Value(ctypes.c_bool, True)
 
-        pool.close()
-        log.info("Waiting on capture to complete")
-        pool.join()
-    except KeyboardInterrupt:
-        log.info("Ending Data Capture")
-        runFlag.value = False
+    for chan in channels:
+        dataqueue = manager.Queue()
+        pool.apply_async(__data_writer_process, (dataqueue, chan, runFlag), error_callback=exceptionCallback)
+        log.debug(f"Spawned data collector process: {chan.name}")
+        pool.apply_async(__data_collector_process, (dataqueue, chan, runFlag), error_callback=exceptionCallback)
+        log.debug(f"Spawned data writer process: {chan.name}")
 
+    pool.close()
+    log.info("Waiting on capture to complete")
+    _ = input("Press enter to end data collection")           
+    log.info("Ending Data Capture; Waiting for child processes to finish")
+    runFlag.value = False
+    pool.join()
     log.info("Finished...")
 
 
 if __name__ == "__main__":
     # lets test this thing, shall we?
     rfsoc = data_handler.RFChannel(
-        "./test_raw.h5", "192.168.5.40", 4096, "rfsoc1-test", 488, 1024, 1
+        "./test_raw.h5", "127.0.0.1", 12345, "rfsoc1-test", 488, 1024, 1
     )
     capture([rfsoc])
