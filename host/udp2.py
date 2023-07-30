@@ -30,16 +30,10 @@ from data_handler import RFChannel
 import time
 import multiprocessing as mp
 
-__LOGFMT = "%(asctime)s|%(levelname)s|%(filename)s|%(lineno)d|%(funcName)s|%(message)s"
 
 # logging.basicConfig(format=__LOGFMT, level=logging.DEBUG)
-logging.basicConfig(format=__LOGFMT, level=logging.DEBUG)
+
 logger = logging.getLogger(__name__)
-__logh = logging.FileHandler("./udp2.log")
-logging.root.addHandler(__logh)
-logger.log(100, __LOGFMT)
-__logh.flush()
-__logh.setFormatter(logging.Formatter(__LOGFMT))
 
 
 def __data_writer_process(dataqueue, chan: RFChannel, runFlag):
@@ -54,7 +48,7 @@ def __data_writer_process(dataqueue, chan: RFChannel, runFlag):
     # Pass in the last LO sweep hhere
 
     while True:
-        # we're done if the queue closes
+        # we're done if the queue closes or we don't get any day within 10 seconds
         try:
             obj = dataqueue.get(True, 10)
         except:
@@ -88,7 +82,7 @@ def __data_collector_process(dataqueue, chan: RFChannel, runFlag):
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     try:
         s.bind((chan.ip, chan.port))
-        s.settimeout(4)
+        s.settimeout(10)
     except Exception as e:
         return
     # log.debug(f"Socket bound - <{chan.name}>")
@@ -121,8 +115,10 @@ def __data_collector_process(dataqueue, chan: RFChannel, runFlag):
     dataqueue.put(None)
     s.close()
 
+
 def exceptionCallback(e):
     raise e
+
 
 def capture(channels: list):
     """
@@ -146,14 +142,22 @@ def capture(channels: list):
 
     for chan in channels:
         dataqueue = manager.Queue()
-        pool.apply_async(__data_writer_process, (dataqueue, chan, runFlag), error_callback=exceptionCallback)
+        pool.apply_async(
+            __data_writer_process,
+            (dataqueue, chan, runFlag),
+            error_callback=exceptionCallback,
+        )
         log.debug(f"Spawned data collector process: {chan.name}")
-        pool.apply_async(__data_collector_process, (dataqueue, chan, runFlag), error_callback=exceptionCallback)
+        pool.apply_async(
+            __data_collector_process,
+            (dataqueue, chan, runFlag),
+            error_callback=exceptionCallback,
+        )
         log.debug(f"Spawned data writer process: {chan.name}")
 
     pool.close()
     log.info("Waiting on capture to complete")
-    _ = input("Press enter to end data collection")           
+    _ = input("Press enter to end data collection")
     log.info("Ending Data Capture; Waiting for child processes to finish")
     runFlag.value = False
     pool.join()
@@ -161,8 +165,18 @@ def capture(channels: list):
 
 
 if __name__ == "__main__":
+    __LOGFMT = (
+        "%(asctime)s|%(levelname)s|%(filename)s|%(lineno)d|%(funcName)s|%(message)s"
+    )
+    logging.basicConfig(format=__LOGFMT, level=logging.DEBUG)
+    __logh = logging.FileHandler("./udp2.log")
+    logging.root.addHandler(__logh)
+    logger.log(100, __LOGFMT)
+    __logh.flush()
+    __logh.setFormatter(logging.Formatter(__LOGFMT))
+
     # lets test this thing, shall we?
     rfsoc = data_handler.RFChannel(
-        "./test_raw.h5", "127.0.0.1", 12345, "rfsoc1-test", 488, 1024, 1
+        "./test_raw.h5", "127.0.0.1", 12345, "sudo rfsoc", 488, 1024, 1
     )
     capture([rfsoc])
