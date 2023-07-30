@@ -1,8 +1,3 @@
-"""
-Sweeps module is where lo sweep code can be accessed.
-"""
-
-
 import numpy as np
 import valon5009
 import logging
@@ -10,10 +5,7 @@ import matplotlib.pyplot as plt
 
 logger = logging.getLogger(__name__)
 
-#######################################################
-# Temporary Home for DSP Functions
-# These should get a dedicated DSP python file
-#######################################################
+
 def sweep(loSource, udp, f_center, freqs, N_steps=500, freq_step=0.0):
     """
     Actually perform an LO Sweep using valon 5009's and save the data
@@ -41,7 +33,7 @@ def sweep(loSource, udp, f_center, freqs, N_steps=500, freq_step=0.0):
         flo_step = freq_step
     else:
         flo_step = tone_diff / N_steps
-    
+
     log.info(f"lo step size={flo_step}")
     flo_start = f_center - flo_step * N_steps / 2.0  # 256
     flo_stop = f_center + flo_step * N_steps / 2.0  # 256
@@ -126,18 +118,18 @@ def loSweep(
     print("LO Sweep s21 file saved.")
 
 
-def plot_sweep(s21: np.array):
+def plot_sweep(s21: str):
     log = logger.getChild("def plot_sweep")
-    
-    data = np.load("./s21.npy")
+
+    data = np.load(s21)
     log.info(f"s21 shape={data.shape}")
     ftones = np.concatenate(data[0])
     sweep_Z = np.concatenate(data[1])
     # ftones = data[0][0]
     # sweep_Z = data[1][0]
     mag = 10 * np.log10(np.abs(sweep_Z))
-    
-    plt.figure(figsize=(14,8))
+
+    plt.figure(figsize=(14, 8))
     plt.plot(ftones, mag.real)
     plt.grid()
     plt.show()

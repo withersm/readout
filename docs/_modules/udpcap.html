@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>udpcap &mdash; mKID Readout - KIDPY3 2.0.0 documentation</title>
+      <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../_static/jquery.js"></script>
+        <script src="../_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
+        <script src="../_static/doctools.js"></script>
+        <script src="../_static/sphinx_highlight.js"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            mKID Readout - KIDPY3
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../modules.html">host</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">mKID Readout - KIDPY3</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="index.html">Module code</a></li>
+      <li class="breadcrumb-item active">udpcap</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for udpcap</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">socket</span>
+<span class="kn">from</span> <span class="nn">turtle</span> <span class="kn">import</span> <span class="n">pd</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="k">as</span> <span class="nn">plt</span>
+<span class="kn">from</span> <span class="nn">time</span> <span class="kn">import</span> <span class="n">sleep</span>
+<span class="kn">import</span> <span class="nn">time</span>
+<span class="kn">from</span> <span class="nn">scipy</span> <span class="kn">import</span> <span class="n">signal</span>
+<span class="kn">import</span> <span class="nn">h5py</span>
+<span class="kn">import</span> <span class="nn">multiprocessing</span> <span class="k">as</span> <span class="nn">mproc</span>
+
+<span class="n">DEFAULT_UDP_IP</span> <span class="o">=</span> <span class="s2">&quot;192.168.5.40&quot;</span>
+<span class="n">DEFAULT_UDP_PORT</span> <span class="o">=</span> <span class="mi">4096</span>
+
+
+<div class="viewcode-block" id="ldcHelper"><a class="viewcode-back" href="../udpcap.html#udpcap.ldcHelper">[docs]</a><span class="k">def</span> <span class="nf">ldcHelper</span><span class="p">(</span><span class="n">queue</span><span class="p">,</span> <span class="n">filename</span><span class="p">,</span> <span class="n">nPackets</span><span class="p">):</span>
+
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    ldcHelper is a helper method intended to be used in the udpcap.LongDataCapture method.</span>
+<span class="sd">    This method runs asynchronously to udpcap.LongDataCapture in order to seperate </span>
+<span class="sd">    the array copy and i/o writing phases of data capture.</span>
+
+<span class="sd">     **** This should not be used for any purpose. ****</span>
+<span class="sd">    </span>
+<span class="sd">    queue : multiprocessing.manager.queue</span>
+<span class="sd">        Data Queue we are sourceing data from</span>
+<span class="sd">    </span>
+<span class="sd">    dIn : numpy.array</span>
+<span class="sd">        Numpy array that shall be copied into the h5p5 dataset</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;ldc helper internal function was called&quot;</span><span class="p">)</span>
+    <span class="n">dFile</span> <span class="o">=</span> <span class="n">h5py</span><span class="o">.</span><span class="n">File</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="s1">&#39;w&#39;</span><span class="p">)</span>
+    <span class="n">data</span> <span class="o">=</span> <span class="n">dFile</span><span class="o">.</span><span class="n">create_dataset</span><span class="p">(</span><span class="s2">&quot;PACKETS&quot;</span><span class="p">,(</span><span class="mi">2052</span><span class="p">,</span> <span class="n">nPackets</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">h5py</span><span class="o">.</span><span class="n">h5t</span><span class="o">.</span><span class="n">NATIVE_INT32</span><span class="p">,</span> <span class="n">chunks</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                                <span class="n">maxshape</span><span class="o">=</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">))</span>
+    <span class="n">active</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="k">while</span> <span class="n">active</span><span class="p">:</span>
+        <span class="n">rawData</span> <span class="o">=</span> <span class="n">queue</span><span class="o">.</span><span class="n">get</span><span class="p">()</span>
+        <span class="c1"># print(&quot;rawdata {}&quot;.format(rawData))</span>
+        <span class="k">if</span> <span class="n">rawData</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">d</span><span class="p">,</span> <span class="n">c</span> <span class="o">=</span> <span class="n">rawData</span>
+            <span class="n">data</span><span class="p">[:,</span> <span class="n">c</span><span class="p">]</span> <span class="o">=</span> <span class="n">d</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">active</span> <span class="o">=</span> <span class="kc">False</span>
+            <span class="n">dFile</span><span class="o">.</span><span class="n">flush</span><span class="p">()</span>
+    <span class="n">dFile</span><span class="o">.</span><span class="n">close</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="udpcap"><a class="viewcode-back" href="../udpcap.html#udpcap.udpcap">[docs]</a><span class="k">class</span> <span class="nc">udpcap</span><span class="p">():</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">UDP_IP</span> <span class="o">=</span> <span class="n">DEFAULT_UDP_IP</span><span class="p">,</span> <span class="n">UDP_PORT</span> <span class="o">=</span> <span class="n">DEFAULT_UDP_PORT</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">UDP_IP</span> <span class="o">=</span> <span class="n">UDP_IP</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">UDP_PORT</span> <span class="o">=</span> <span class="n">UDP_PORT</span>
+        <span class="nb">print</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">UDP_IP</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">UDP_PORT</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="udpcap.bindSocket"><a class="viewcode-back" href="../udpcap.html#udpcap.udpcap.bindSocket">[docs]</a>    <span class="k">def</span> <span class="nf">bindSocket</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">sock</span> <span class="o">=</span> <span class="n">socket</span><span class="o">.</span><span class="n">socket</span><span class="p">(</span><span class="n">socket</span><span class="o">.</span><span class="n">AF_INET</span><span class="p">,</span> <span class="n">socket</span><span class="o">.</span><span class="n">SOCK_DGRAM</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">sock</span><span class="o">.</span><span class="n">bind</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">UDP_IP</span><span class="p">,</span><span class="bp">self</span><span class="o">.</span><span class="n">UDP_PORT</span><span class="p">))</span></div>
+
+
+<div class="viewcode-block" id="udpcap.parse_packet"><a class="viewcode-back" href="../udpcap.html#udpcap.udpcap.parse_packet">[docs]</a>    <span class="k">def</span> <span class="nf">parse_packet</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">sock</span><span class="o">.</span><span class="n">recv</span><span class="p">(</span><span class="mi">8208</span> <span class="o">*</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">data</span><span class="p">)</span> <span class="o">&lt;</span>  <span class="mi">8000</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;invalid packet recieved&quot;</span><span class="p">)</span>
+            <span class="k">return</span>
+        <span class="n">datarray</span> <span class="o">=</span> <span class="nb">bytearray</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+        
+        <span class="c1"># now allow a shift of the bytes</span>
+        <span class="n">spec_data</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">frombuffer</span><span class="p">(</span><span class="n">datarray</span><span class="p">,</span> <span class="n">dtype</span> <span class="o">=</span> <span class="s1">&#39;&lt;i&#39;</span><span class="p">)</span>
+        <span class="c1"># offset allows a shift in the bytes</span>
+        <span class="k">return</span> <span class="n">spec_data</span> <span class="c1"># int32 data type</span></div>
+
+
+<div class="viewcode-block" id="udpcap.capture_packets"><a class="viewcode-back" href="../udpcap.html#udpcap.udpcap.capture_packets">[docs]</a>    <span class="k">def</span> <span class="nf">capture_packets</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">N_packets</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        DEPRECATED</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">packets</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="mi">2052</span><span class="p">,</span><span class="n">N_packets</span><span class="p">))</span>
+        <span class="c1">#packets = np.zeros(shape=(2051,N_packets))</span>
+        <span class="n">counter</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">N_packets</span><span class="p">):</span>
+            <span class="n">data_2</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parse_packet</span><span class="p">()</span>
+            <span class="n">packets</span><span class="p">[:,</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">data_2</span> 
+            <span class="k">if</span> <span class="n">i</span><span class="o">%</span><span class="mi">488</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">{}</span><span class="s2">/</span><span class="si">{}</span><span class="s2"> captured (</span><span class="si">{:.3f}</span><span class="s2">% Complete)&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">N_packets</span><span class="p">,</span> 
+                    <span class="p">(</span><span class="n">N_packets</span><span class="o">/</span><span class="mi">488</span><span class="p">)</span><span class="o">*</span><span class="mf">100.0</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">packets</span></div>
+
+
+<div class="viewcode-block" id="udpcap.LongDataCapture"><a class="viewcode-back" href="../udpcap.html#udpcap.udpcap.LongDataCapture">[docs]</a>    <span class="k">def</span> <span class="nf">LongDataCapture</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">fname</span><span class="p">,</span> <span class="n">nPackets</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Captures packets for extended periods of time utilzing pythons Multiprocessing library</span>
+<span class="sd">        fname : string</span>
+<span class="sd">            file name / path where data shall be exported</span>
+<span class="sd">        nPackets : int</span>
+<span class="sd">            Number of packets to save</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;capture </span><span class="si">{}</span><span class="s2"> packets&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">nPackets</span><span class="p">))</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Begin Capture&quot;</span><span class="p">)</span>
+            
+            <span class="c1"># enter while loop</span>
+            
+            <span class="n">manager</span> <span class="o">=</span> <span class="n">mproc</span><span class="o">.</span><span class="n">Manager</span><span class="p">()</span>
+            <span class="n">pool</span> <span class="o">=</span> <span class="n">manager</span><span class="o">.</span><span class="n">Pool</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+            <span class="n">queue</span> <span class="o">=</span> <span class="n">manager</span><span class="o">.</span><span class="n">Queue</span><span class="p">()</span>
+            
+            <span class="n">pool</span><span class="o">.</span><span class="n">apply_async</span><span class="p">(</span><span class="n">ldcHelper</span><span class="p">,</span> <span class="p">(</span><span class="n">queue</span><span class="p">,</span> <span class="n">fname</span><span class="p">,</span> <span class="n">nPackets</span><span class="p">))</span>
+            <span class="n">count</span> <span class="o">=</span> <span class="mi">0</span>
+            <span class="k">while</span> <span class="n">count</span> <span class="o">&lt;</span> <span class="n">nPackets</span><span class="p">:</span>
+                <span class="n">packet</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parse_packet</span><span class="p">()</span>
+                <span class="k">if</span> <span class="n">packet</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="k">continue</span>
+                <span class="n">queue</span><span class="o">.</span><span class="n">put</span><span class="p">((</span><span class="n">packet</span><span class="p">,</span> <span class="n">count</span><span class="p">))</span>
+                <span class="n">count</span> <span class="o">=</span> <span class="n">count</span> <span class="o">+</span> <span class="mi">1</span>
+                <span class="k">if</span> <span class="n">count</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">count</span> <span class="o">%</span> <span class="mi">488</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">{}</span><span class="s2">/</span><span class="si">{}</span><span class="s2"> captured (</span><span class="si">{:.2f}</span><span class="s2">% Complete)&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">count</span><span class="p">,</span> <span class="n">nPackets</span><span class="p">,</span> <span class="p">((</span><span class="n">count</span><span class="o">/</span><span class="n">nPackets</span><span class="p">)</span><span class="o">*</span><span class="mf">100.0</span><span class="p">)))</span>
+            <span class="c1"># create helper process</span>
+            <span class="c1"># capture n packets </span>
+                <span class="c1"># Dispatch helper process to dump data into hdf5 dataset</span>
+            <span class="c1"># continue to capture n packets, never interrupting datataking</span>
+        
+        <span class="k">except</span> <span class="ne">TypeError</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Type error occured&quot;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="kc">False</span>
+
+        <span class="k">except</span> <span class="ne">KeyboardInterrupt</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Interrupted Data Capture&quot;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="kc">False</span>
+        <span class="k">return</span> <span class="kc">True</span></div>
+
+
+<div class="viewcode-block" id="udpcap.shortDataCapture"><a class="viewcode-back" href="../udpcap.html#udpcap.udpcap.shortDataCapture">[docs]</a>    <span class="k">def</span> <span class="nf">shortDataCapture</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">fname</span><span class="p">,</span> <span class="n">nPackets</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Performes sub 60 seconds data captures using only memory. </span>
+<span class="sd">        Data is then transferred to a file after the collection is complete.</span>
+<span class="sd">        N : int</span>
+<span class="sd">            Number of packets to save</span>
+<span class="sd">        fname : string</span>
+<span class="sd">            file name / path</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="k">assert</span> <span class="n">nPackets</span> <span class="o">&lt;</span> <span class="mi">488</span><span class="o">*</span><span class="mi">60</span><span class="p">,</span> <span class="s2">&quot;METHOD NOT INTENDED FOR LONG DATA CAPTURES &gt; 488 packets per second * 60 seconds&quot;</span>
+        <span class="n">pData</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="mi">2052</span><span class="p">,</span> <span class="n">nPackets</span><span class="p">))</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;capture </span><span class="si">{}</span><span class="s2"> packets&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">nPackets</span><span class="p">))</span>
+            <span class="n">dFile</span> <span class="o">=</span> <span class="n">h5py</span><span class="o">.</span><span class="n">File</span><span class="p">(</span><span class="n">fname</span><span class="p">,</span> <span class="s1">&#39;w&#39;</span><span class="p">)</span>
+            <span class="n">pkts</span> <span class="o">=</span> <span class="n">dFile</span><span class="o">.</span><span class="n">create_dataset</span><span class="p">(</span><span class="s2">&quot;PACKETS&quot;</span><span class="p">,(</span><span class="mi">2052</span><span class="p">,</span> <span class="n">nPackets</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">h5py</span><span class="o">.</span><span class="n">h5t</span><span class="o">.</span><span class="n">NATIVE_INT32</span><span class="p">,</span> <span class="n">chunks</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">maxshape</span><span class="o">=</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">))</span>
+            <span class="n">time_stamp</span> <span class="o">=</span> <span class="n">dFile</span><span class="o">.</span><span class="n">create_dataset</span><span class="p">(</span><span class="s2">&quot;TIME&quot;</span><span class="p">,</span> <span class="p">(</span><span class="n">nPackets</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">h5py</span><span class="o">.</span><span class="n">h5t</span><span class="o">.</span><span class="n">NATIVE_FLOAT</span><span class="p">,</span> <span class="n">chunks</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">maxshape</span><span class="o">=</span><span class="p">(</span><span class="kc">None</span><span class="p">))</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Begin Capture&quot;</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">nPackets</span><span class="p">):</span>
+                <span class="n">pData</span><span class="p">[:,</span> <span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parse_packet</span><span class="p">()</span>
+                <span class="n">time_stamp</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+                <span class="k">if</span> <span class="n">i</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">i</span> <span class="o">%</span> <span class="mi">488</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">{}</span><span class="s2">/</span><span class="si">{}</span><span class="s2"> captured (</span><span class="si">{:.2f}</span><span class="s2">% Complete)&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">nPackets</span><span class="p">,</span> <span class="p">((</span><span class="n">i</span><span class="o">/</span><span class="n">nPackets</span><span class="p">)</span><span class="o">*</span><span class="mf">100.0</span><span class="p">)))</span>
+            <span class="n">pkts</span><span class="p">[</span><span class="o">...</span><span class="p">]</span> <span class="o">=</span> <span class="n">pData</span>
+            <span class="n">dFile</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">errorE</span><span class="p">:</span>
+            <span class="k">raise</span><span class="p">(</span><span class="n">errorE</span><span class="p">)</span>
+        <span class="k">return</span> <span class="kc">True</span></div>
+
+<div class="viewcode-block" id="udpcap.release"><a class="viewcode-back" href="../udpcap.html#udpcap.udpcap.release">[docs]</a>    <span class="k">def</span> <span class="nf">release</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">sock</span><span class="o">.</span><span class="n">close</span><span class="p">()</span></div></div>
+
+
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, Arizona State University.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

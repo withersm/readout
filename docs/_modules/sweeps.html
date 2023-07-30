@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Sweeps &mdash; mKID Readout - KIDPY3 2.0.0 documentation</title>
+  <title>sweeps &mdash; mKID Readout - KIDPY3 2.0.0 documentation</title>
       <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -59,7 +59,7 @@
   <ul class="wy-breadcrumbs">
       <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
           <li class="breadcrumb-item"><a href="index.html">Module code</a></li>
-      <li class="breadcrumb-item active">Sweeps</li>
+      <li class="breadcrumb-item active">sweeps</li>
       <li class="wy-breadcrumbs-aside">
       </li>
   </ul>
@@ -68,21 +68,16 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
              
-  <h1>Source code for Sweeps</h1><div class="highlight"><pre>
-<span></span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">Sweeps module is where lo sweep code can be accessed.</span>
-<span class="sd">&quot;&quot;&quot;</span>
-
-
-<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+  <h1>Source code for sweeps</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 <span class="kn">import</span> <span class="nn">valon5009</span>
+<span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="k">as</span> <span class="nn">plt</span>
+
+<span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
 
 
-<span class="c1">#######################################################</span>
-<span class="c1"># Temporary Home for DSP Functions</span>
-<span class="c1"># These should get a dedicated DSP python file</span>
-<span class="c1">#######################################################</span>
-<div class="viewcode-block" id="sweep"><a class="viewcode-back" href="../sweeps.html#Sweeps.sweep">[docs]</a><span class="k">def</span> <span class="nf">sweep</span><span class="p">(</span><span class="n">loSource</span><span class="p">,</span> <span class="n">udp</span><span class="p">,</span> <span class="n">f_center</span><span class="p">,</span> <span class="n">freqs</span><span class="p">,</span> <span class="n">N_steps</span><span class="o">=</span><span class="mi">500</span><span class="p">,</span> <span class="n">freq_step</span><span class="o">=</span><span class="mf">0.0</span><span class="p">):</span>
+<div class="viewcode-block" id="sweep"><a class="viewcode-back" href="../sweeps.html#sweeps.sweep">[docs]</a><span class="k">def</span> <span class="nf">sweep</span><span class="p">(</span><span class="n">loSource</span><span class="p">,</span> <span class="n">udp</span><span class="p">,</span> <span class="n">f_center</span><span class="p">,</span> <span class="n">freqs</span><span class="p">,</span> <span class="n">N_steps</span><span class="o">=</span><span class="mi">500</span><span class="p">,</span> <span class="n">freq_step</span><span class="o">=</span><span class="mf">0.0</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Actually perform an LO Sweep using valon 5009&#39;s and save the data</span>
 
@@ -102,15 +97,20 @@
 
 <span class="sd">    Credit: Dr. Adrian Sinclair (adriankaisinclair@gmail.com)</span>
 <span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">log</span> <span class="o">=</span> <span class="n">logger</span><span class="o">.</span><span class="n">getChild</span><span class="p">(</span><span class="s2">&quot;def-sweep&quot;</span><span class="p">)</span>
     <span class="n">tone_diff</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">freqs</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span> <span class="o">/</span> <span class="mf">1e6</span>  <span class="c1"># MHz</span>
+    <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;tone diff=</span><span class="si">{</span><span class="n">tone_diff</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">freq_step</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
         <span class="n">flo_step</span> <span class="o">=</span> <span class="n">freq_step</span>
     <span class="k">else</span><span class="p">:</span>
         <span class="n">flo_step</span> <span class="o">=</span> <span class="n">tone_diff</span> <span class="o">/</span> <span class="n">N_steps</span>
+
+    <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;lo step size=</span><span class="si">{</span><span class="n">flo_step</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
     <span class="n">flo_start</span> <span class="o">=</span> <span class="n">f_center</span> <span class="o">-</span> <span class="n">flo_step</span> <span class="o">*</span> <span class="n">N_steps</span> <span class="o">/</span> <span class="mf">2.0</span>  <span class="c1"># 256</span>
     <span class="n">flo_stop</span> <span class="o">=</span> <span class="n">f_center</span> <span class="o">+</span> <span class="n">flo_step</span> <span class="o">*</span> <span class="n">N_steps</span> <span class="o">/</span> <span class="mf">2.0</span>  <span class="c1"># 256</span>
 
     <span class="n">flos</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">flo_start</span><span class="p">,</span> <span class="n">flo_stop</span><span class="p">,</span> <span class="n">flo_step</span><span class="p">)</span>
+    <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;len flos </span><span class="si">{</span><span class="n">flos</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
     <span class="n">udp</span><span class="o">.</span><span class="n">bindSocket</span><span class="p">()</span>
 
     <span class="k">def</span> <span class="nf">temp</span><span class="p">(</span><span class="n">lofreq</span><span class="p">):</span>
@@ -143,8 +143,10 @@
         <span class="k">return</span> <span class="n">Z</span>
 
     <span class="n">sweep_Z</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">temp</span><span class="p">(</span><span class="n">lofreq</span><span class="p">)</span> <span class="k">for</span> <span class="n">lofreq</span> <span class="ow">in</span> <span class="n">flos</span><span class="p">])</span>
+    <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;sweepz.shape=</span><span class="si">{</span><span class="n">sweep_Z</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 
     <span class="n">f</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">([</span><span class="n">np</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="n">freqs</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="n">flos</span><span class="p">)])</span>
+    <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;shape of f = </span><span class="si">{</span><span class="n">f</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
     <span class="k">for</span> <span class="n">itone</span><span class="p">,</span> <span class="n">ftone</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">freqs</span><span class="p">):</span>
         <span class="n">f</span><span class="p">[</span><span class="n">itone</span><span class="p">,</span> <span class="p">:]</span> <span class="o">=</span> <span class="n">flos</span> <span class="o">*</span> <span class="mf">1.0e6</span> <span class="o">+</span> <span class="n">ftone</span>
     <span class="c1">#    f = np.array([flos * 1e6 + ftone for ftone in freqs]).flatten()</span>
@@ -161,7 +163,7 @@
     <span class="k">return</span> <span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">sweep_Z_f</span><span class="p">)</span></div>
 
 
-<div class="viewcode-block" id="loSweep"><a class="viewcode-back" href="../sweeps.html#Sweeps.loSweep">[docs]</a><span class="k">def</span> <span class="nf">loSweep</span><span class="p">(</span>
+<div class="viewcode-block" id="loSweep"><a class="viewcode-back" href="../sweeps.html#sweeps.loSweep">[docs]</a><span class="k">def</span> <span class="nf">loSweep</span><span class="p">(</span>
     <span class="n">loSource</span><span class="p">,</span>
     <span class="n">udp</span><span class="p">,</span>
     <span class="n">freqs</span><span class="o">=</span><span class="p">[],</span>
@@ -179,12 +181,29 @@
         <span class="n">loSource</span><span class="p">,</span>
         <span class="n">udp</span><span class="p">,</span>
         <span class="n">f_center</span><span class="p">,</span>
-        <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">freqs</span><span class="p">)</span> <span class="o">/</span> <span class="mi">2</span><span class="p">,</span>
+        <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">freqs</span><span class="p">),</span>
         <span class="n">N_steps</span><span class="o">=</span><span class="n">N_steps</span><span class="p">,</span>
         <span class="n">freq_step</span><span class="o">=</span><span class="n">freq_step</span><span class="p">,</span>
     <span class="p">)</span>
     <span class="n">np</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">savefile</span> <span class="o">+</span> <span class="s2">&quot;.npy&quot;</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">((</span><span class="n">f</span><span class="p">,</span> <span class="n">sweep_Z_f</span><span class="p">)))</span>
     <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;LO Sweep s21 file saved.&quot;</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="plot_sweep"><a class="viewcode-back" href="../sweeps.html#sweeps.plot_sweep">[docs]</a><span class="k">def</span> <span class="nf">plot_sweep</span><span class="p">(</span><span class="n">s21</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
+    <span class="n">log</span> <span class="o">=</span> <span class="n">logger</span><span class="o">.</span><span class="n">getChild</span><span class="p">(</span><span class="s2">&quot;def plot_sweep&quot;</span><span class="p">)</span>
+
+    <span class="n">data</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">s21</span><span class="p">)</span>
+    <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;s21 shape=</span><span class="si">{</span><span class="n">data</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="n">ftones</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+    <span class="n">sweep_Z</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+    <span class="c1"># ftones = data[0][0]</span>
+    <span class="c1"># sweep_Z = data[1][0]</span>
+    <span class="n">mag</span> <span class="o">=</span> <span class="mi">10</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">log10</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">sweep_Z</span><span class="p">))</span>
+
+    <span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">14</span><span class="p">,</span> <span class="mi">8</span><span class="p">))</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">ftones</span><span class="p">,</span> <span class="n">mag</span><span class="o">.</span><span class="n">real</span><span class="p">)</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">grid</span><span class="p">()</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span></div>
 </pre></div>
 
            </div>

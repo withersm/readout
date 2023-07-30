@@ -19,8 +19,8 @@
     <script src="_static/js/theme.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
-    <link rel="next" title="valon5009 module" href="valon5009.html" />
-    <link rel="prev" title="kidpy module" href="kidpy.html" /> 
+    <link rel="next" title="udp_sender module" href="udp_sender.html" />
+    <link rel="prev" title="sweeps module" href="sweeps.html" /> 
 </head>
 
 <body class="wy-body-for-nav"> 
@@ -45,15 +45,18 @@
               <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
 <ul class="current">
 <li class="toctree-l1 current"><a class="reference internal" href="modules.html">host</a><ul class="current">
-<li class="toctree-l2"><a class="reference internal" href="Sweeps.html">Sweeps module</a></li>
 <li class="toctree-l2"><a class="reference internal" href="config.html">config module</a></li>
 <li class="toctree-l2"><a class="reference internal" href="data_handler.html">data_handler module</a></li>
 <li class="toctree-l2"><a class="reference internal" href="kidpy.html">kidpy module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sweeps.html">sweeps module</a></li>
 <li class="toctree-l2 current"><a class="current reference internal" href="#">udp2 module</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="#overview">Overview</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#udp2.capture"><code class="docutils literal notranslate"><span class="pre">capture()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#udp2.exceptionCallback"><code class="docutils literal notranslate"><span class="pre">exceptionCallback()</span></code></a></li>
 </ul>
 </li>
+<li class="toctree-l2"><a class="reference internal" href="udp_sender.html">udp_sender module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="udpcap.html">udpcap module</a></li>
 <li class="toctree-l2"><a class="reference internal" href="valon5009.html">valon5009 module</a></li>
 </ul>
 </li>
@@ -89,7 +92,8 @@
 <section id="overview">
 <h2>Overview<a class="headerlink" href="#overview" title="Permalink to this heading"></a></h2>
 <p>udp2 is the Next iteration of udpcap. Here, we want to facilitate the process of pulling data
-from multiple channels from multiple RFSOC’s in a multiprocessing environment.</p>
+from multiple channels from multiple RFSOC’s in a multiprocessing environment. 
+Unlike udpcap, udp2 utilizes the hdf5 obervation file format defined by data_handler.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>A key part of python multiprocessing library is ‘pickling’. This is a funny name to describe object serialization. Essentially, our code needs
@@ -98,28 +102,68 @@ Certain typs of variables such as h5py objects or sockets can’t be pickled. We
 </div>
 <dl class="field-list simple">
 <dt class="field-odd">Authors<span class="colon">:</span></dt>
-<dd class="field-odd"><p>Cody</p>
+<dd class="field-odd"><p>Cody Roberson</p>
 </dd>
 <dt class="field-even">Date<span class="colon">:</span></dt>
-<dd class="field-even"><p>2023-07-26</p>
+<dd class="field-even"><p>2023-07-30</p>
 </dd>
 <dt class="field-odd">Version<span class="colon">:</span></dt>
-<dd class="field-odd"><p>1.0.0</p>
+<dd class="field-odd"><p>2.0.0</p>
 </dd>
 </dl>
 </section>
 <dl class="py function">
 <dt class="sig sig-object py" id="udp2.capture">
-<span class="sig-prename descclassname"><span class="pre">udp2.</span></span><span class="sig-name descname"><span class="pre">capture</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">channels</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/udp2.html#capture"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#udp2.capture" title="Permalink to this definition"></a></dt>
-<dd><dl class="simple">
-<dt>For each RFChannel provided, capture(…) spawns a worker process that does the following:</dt><dd><ul class="simple">
-<li><p>Generates a RawDataFile</p></li>
-<li><p>Creates a socket connection on the network</p></li>
-<li><p>Downlinks data and populates the raw file</p></li>
+<span class="sig-prename descclassname"><span class="pre">udp2.</span></span><span class="sig-name descname"><span class="pre">capture</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">channels</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fn</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/udp2.html#capture"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#udp2.capture" title="Permalink to this definition"></a></dt>
+<dd><p>Begins the capture of readout data. For each channel provided, a pair of downstream processes are created
+to capture and save data. Due to the fact that the main thread isn’t handling data means that it’s relatively free to run some other job.</p>
+<p>Two possibilites can occur
+- A function is provided to capture()</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>After capture() starts its downstream data processes, it executes
+fn() and passes in arbitrary arguments. Once fn returns,
+the datacapture processes are then closed down.</p></li>
+</ul>
+</div></blockquote>
+<ul class="simple">
+<li><p>No function is provided</p>
+<ul>
+<li><p>Capture will sleep() for 10 seconds and then end the data capture.</p></li>
+</ul>
+</li>
+</ul>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>channels</strong> (<em>List</em><em>[</em><a class="reference internal" href="data_handler.html#data_handler.RFChannel" title="data_handler.RFChannel"><em>data_handler.RFChannel</em></a><em>]</em>) – RF channels to capture data from</p></li>
+<li><p><strong>fn</strong> (<em>function</em>) – <p>Pass in a funtion to call during capture.</p>
+<div class="admonition danger">
+<p class="admonition-title">Danger</p>
+<p>The provided function should not hang indefinitely and returned data is ignored.</p>
+</div>
+</p></li>
+<li><p><strong>args</strong> (<em>*args</em>) – args to pass into fn</p></li>
 </ul>
 </dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>None</p>
+</dd>
 </dl>
+<section id="example">
+<h2>Example<a class="headerlink" href="#example" title="Permalink to this heading"></a></h2>
+<p>The following spawns a data read/writer pair for rfsoc and waits 30 seconds.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">rfsoc</span> <span class="o">=</span> <span class="n">data_handler</span><span class="o">.</span><span class="n">RFChannel</span><span class="p">(</span><span class="s2">&quot;./rfsoc1_fakedata.h5&quot;</span><span class="p">,</span> <span class="s2">&quot;127.0.0.1&quot;</span><span class="p">,</span> <span class="mi">4096</span><span class="p">,</span> <span class="s2">&quot;Stuffed Crust Pizza&quot;</span><span class="p">,</span> <span class="mi">488</span><span class="p">,</span> <span class="mi">1024</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+<span class="n">capture</span><span class="p">([</span><span class="n">rfsoc</span><span class="p">],</span> <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">,</span> <span class="mi">30</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
 </dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="udp2.exceptionCallback">
+<span class="sig-prename descclassname"><span class="pre">udp2.</span></span><span class="sig-name descname"><span class="pre">exceptionCallback</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">e</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/udp2.html#exceptionCallback"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#udp2.exceptionCallback" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
 
 </section>
 
@@ -127,8 +171,8 @@ Certain typs of variables such as h5py objects or sockets can’t be pickled. We
            </div>
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
-        <a href="kidpy.html" class="btn btn-neutral float-left" title="kidpy module" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
-        <a href="valon5009.html" class="btn btn-neutral float-right" title="valon5009 module" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+        <a href="sweeps.html" class="btn btn-neutral float-left" title="sweeps module" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="udp_sender.html" class="btn btn-neutral float-right" title="udp_sender module" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 
   <hr/>

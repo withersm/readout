@@ -27,7 +27,7 @@ import serial.tools.list_ports_linux
 import udpcap
 import datetime
 import valon5009
-import Sweeps
+import sweeps
 import udp2
 import data_handler
 import matplotlib.pyplot as plt
@@ -201,8 +201,6 @@ def write_fList(self, fList, ampList):
         log.error("FAILED TO WRITE WAVEFORM")
 
 
-
-
 def menu(captions, options):
     """Creates menu for terminal interface
     inputs:
@@ -283,13 +281,13 @@ class kidpy:
             "LO Sweep",
             "Exit",
             "ONR kidpy",
-            "Plot accum sample"
+            "Plot accum sample",
         ]
+
     def get_tone_list(self):
         lo_freq = valon5009.Synthesizer.get_frequency(self.valon, valon5009.SYNTH_B)
         tones = lo_freq * 1.0e6 + np.asarray(self.get_last_flist())
         return tones
-
 
     def get_last_flist(self):
         log = logger.getChild("kidpy.get_last_flist")
@@ -416,7 +414,7 @@ class kidpy:
                 # valon should be connected and differentiated as part of bringing kidpy up.
                 os.system("clear")
                 print("LO Sweep")
-                Sweeps.loSweep(
+                sweeps.loSweep(
                     self.valon,
                     self.__udp,
                     self.get_last_flist(),
@@ -425,7 +423,7 @@ class kidpy:
                 )
 
                 # plot result
-                Sweeps.plot_sweep("./s21.npy")
+                sweeps.plot_sweep("./s21.npy")
 
             if opt == 7:  # get system state
                 exit()
@@ -497,8 +495,8 @@ class kidpy:
                             print(
                                 "Taking initial low-resoluation sweep with df = 1 kHz and Deltaf = 100 kHz"
                             )
-                            savefile = onrkidpy.get_filename(type="LO")
-                            Sweeps.loSweep(
+                            savefile = onrkidpy.get_filename(type="LO") + "_rfsoc1"
+                            sweeps.loSweep(
                                 self.valon,
                                 self.__udp,
                                 self.get_last_flist(),
@@ -603,30 +601,30 @@ class kidpy:
                         if onr_opt == 6:
                             # open a new terminal to move the telescope
                             # open a new terminal to move the telescope
-                            # termcmd = (
-                            #     "python3 /home/onrkids/onrkidpy/onr_motor_control.py 12"
-                            # )
-                            # new_term = subprocess.Popen(
-                            #     ["gnome-terminal", "--", "bash", "-c", termcmd],
-                            #     stdin=subprocess.PIPE,
-                            #     stdout=subprocess.PIPE,
-                            #     stderr=subprocess.STDOUT,
-                            # )
+                            termcmd = (
+                                "python3 /home/onrkids/onrkidpy/onr_motor_control.py 12"
+                            )
+                            new_term = subprocess.Popen(
+                                ["gnome-terminal", "--", "bash", "-c", termcmd],
+                                stdin=subprocess.PIPE,
+                                stdout=subprocess.PIPE,
+                                stderr=subprocess.STDOUT,
+                            )
 
                             # then collect the KID data
-                            t = 10
-                            NSAMP = 488 * t
                             os.system("clear")
-                            # print("pretending to collect data")
-                            savefile = onrkidpy.get_filename(type="TOD") + ".hd5"
 
+                            savefile = onrkidpy.get_filename(type="TOD") + ".hd5"
                             rfsoc1 = data_handler.RFChannel(
-                                savefile, "192.168.5.40", 4096, "rfso1", NSAMP, 1024
+                                savefile,
+                                "192.168.5.40",
+                                4096,
+                                "rfsoc1",
+                                0,
+                                1024,
+                                1,
                             )
-                            t = time.time()
-                            udp2.capture([rfsoc1])
-                            log.debug((time.time() - t))
-                            data = data_handler.RawDataFile(savefile)
+                            udp2.capture([rfsoc1], time.sleep, 5)
                             # i = data.adc_i
                             # q = data.adc_q
                             # i = i[10].T
@@ -663,7 +661,7 @@ class kidpy:
                 i = d[0::2].T[50]
                 q = d[1::2].T[50]
                 mag = np.sqrt(i**2 + q**2)
-                y = 10*np.log10(mag/np.max(mag))
+                y = 10 * np.log10(mag / np.max(mag))
                 plt.plot(y)
                 plt.title("Accum (dB)")
                 plt.grid()
