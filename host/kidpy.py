@@ -260,8 +260,8 @@ class kidpy:
             exit()
 
         # Differentiate 5009's connected to the system
-        # self.valon = valon5009.Synthesizer("/dev/IF2System1LO")
-        # self.valon.set_frequency(valon5009.SYNTH_B, default_f_center)
+        self.valon = valon5009.Synthesizer("/dev/IF2System1LO")
+        self.valon.set_frequency(valon5009.SYNTH_B, default_f_center)
         # for v in self.__ValonPorts:
         #    self.valon = valon5009.Synthesizer(v.replace(' ', ''))
 
@@ -495,7 +495,7 @@ class kidpy:
                             print(
                                 "Taking initial low-resoluation sweep with df = 1 kHz and Deltaf = 100 kHz"
                             )
-                            savefile = onrkidpy.get_filename(type="LO") + "_rfsoc1"
+                            savefile = onrkidpy.get_filename(type="LO", chan_name="rfsoc1")
                             sweeps.loSweep(
                                 self.valon,
                                 self.__udp,
@@ -510,7 +510,7 @@ class kidpy:
 
                             # then fit the resonances from that sweep
                             fit_f0, fit_qi, fit_qc = fit_lo.main(
-                                self.get_tone_list(), quickPlot=True, printFlag=True
+                                self.get_tone_list(),savefile+'.npy', quickPlot=True, printFlag=True
                             )
                             adjust_tones = (
                                 input(
@@ -548,7 +548,7 @@ class kidpy:
                             t = int(input("How many seconds of data?: ")) or 0
                             os.system("clear")
                             self.__udp.bindSocket()
-                            savefile = onrkidpy.get_filename(type="TOD") + ".hd5"
+                            savefile = onrkidpy.get_filename(type="TOD", chan_name="rfsoc1") + ".hd5"
                             if t < 60:
                                 self.__udp.shortDataCapture(savefile, 488 * t)
                             else:
@@ -614,7 +614,7 @@ class kidpy:
                             # then collect the KID data
                             os.system("clear")
 
-                            savefile = onrkidpy.get_filename(type="TOD") + ".hd5"
+                            savefile = onrkidpy.get_filename(type="TOD", chan_name="rfsoc1") + ".hd5"
                             rfsoc1 = data_handler.RFChannel(
                                 savefile,
                                 "192.168.5.40",
@@ -624,19 +624,8 @@ class kidpy:
                                 1024,
                                 1,
                             )
-                            udp2.capture([rfsoc1], time.sleep, 5)
-                            # i = data.adc_i
-                            # q = data.adc_q
-                            # i = i[10].T
-                            # q = i[10].T
-                            # mag = np.sqrt(i**2 + q**2)
-                            # plt.plot(mag)
-                            # savefile = onrkidpy.get_filename(type="TOD") + ".hd5"
-                            # if t < 60:
-                            #    self.__udp.shortDataCapture(savefile, 488 * t)
-                            # else:
-                            #    self.__udp.LongDataCapture(savefile, 488 * t)
-                            # self.__udp.release()
+                            udp2.capture([rfsoc1], time.sleep, 30)
+
 
                         if onr_opt == 7:  # Exit
                             onr_loop = False
@@ -645,10 +634,13 @@ class kidpy:
                             fList = self.get_last_flist()
                             fAmps = np.ones(np.size(fList))
                             #                           fAmps[0:10] = 10
-                            pdb.set_trace()
+                            # pdb.set_trace()
                             write_fList(
                                 self, np.ndarray.tolist(fList), np.ndarray.tolist(fAmps)
                             )
+                        if onr_opt==10:
+                            sweeps.plot_sweep_hdf(data_handler.get_last_rdf("rfsoc1"))
+
 
                 else:
                     print("ONR repository does not exist")

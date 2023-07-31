@@ -122,6 +122,7 @@ def __data_collector_process(dataqueue, chan: RFChannel, runFlag):
                 q[:, k] = data[1::2]
                 ts[k] = getdtime()
             dataqueue.put((idx, i, q, ts))
+            # log.info(f"rx 488 pkts")
         except TimeoutError:
             log.warning(f"Timed out waiting for data <{chan.name}>")
             break
@@ -220,6 +221,7 @@ def capture(channels: list, fn=None, *args):
     log.info("\nEnding Data Capture; Waiting for child processes to finish...\n")
     runFlag.value = False
     pool.join()
+    time.sleep(1)
     log.info("Capture finished")
 
 

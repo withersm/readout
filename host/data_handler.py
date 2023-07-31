@@ -223,9 +223,9 @@ class RawDataFile:
             self.sample_rate = self.fh["/global_data/sample_rate"]
             self.tile_number = self.fh["/global_data/tile_number"]
             self.tone_power = self.fh["/global_data/tone_power"]
-            self.lo_sweep = self.fh["global_data/lo_sweep"]
-            if "/time_ordered_data/lo_freq" in self.fh:
-                self.lo_sweep = self.fh["/time_ordered_data/lo_freq"]
+            self.lo_freq = self.fh["/time_ordered_data/lo_freq"]
+            if "/global_data/lo_sweep" in self.fh:
+                self.lo_sweep = self.fh["/global_data/lo_sweep"]
             else:
                 self.lo_sweep = None
 
@@ -245,7 +245,7 @@ class RawDataFile:
         if os.path.isfile(sweeppath):
             log.debug("found sweep file, appending.")
             sweepdata = np.load(sweeppath)
-            self.fh.create_dataset("global_data/lo_sweep", data=sweepdata)
+            self.fh.create_dataset("/global_data/lo_sweep", data=sweepdata)
         else:
             log.warning("Specified sweep file does not exist. Will not append.")
 
@@ -574,15 +574,11 @@ def get_last_lo(name: str):
 
     .. code::
 
-        "/data/{yymmdd}/{yymmdd}_LO_Sweep_*_{name}.npy"
+        "/data/{yymmdd}/{yymmdd}_{name}_LO_Sweep_*.npy"
         example.
-        /data/20230730/20230730_LO_Sweep_hour15p4622_rfsoc1.npy
-        /data/20230730/20230730_LO_Sweep_hour15p4625_rfsoc1.npy
-        /data/20230730/20230730_LO_Sweep_hour15p4628_rfsoc1.npy
-        /data/20230730/20230730_LO_Sweep_hour15p4675_rfsoc2.npy
-        /data/20230730/20230730_LO_Sweep_hour15p4678_rfsoc2.npy
-        /data/20230730/20230730_LO_Sweep_hour15p4681_rfsoc2.npy
-        /data/20230730/20230730_LO_Sweep_hour15p4683_rfsoc2.npy
+        /data/20230730/20230730_rfsoc1_LO_Sweep_hour15p4622.npy
+        /data/20230730/20230730_rfsoc1_LO_Sweep_hour15p4625.npy
+        /data/20230730/20230730_rfsoc1_LO_Sweep_hour15p4628.npy
     """
     # see if we already have the parent folder for today's date
     yymmdd = get_yymmdd()
@@ -591,7 +587,7 @@ def get_last_lo(name: str):
     if np.size(check_date_folder) == 0:
         return ""
 
-    fstring = f"/data/{yymmdd}/{yymmdd}_LO_Sweep_*_{name}.npy"
+    fstring = f"/data/{yymmdd}/{yymmdd}_{name}_LO_Sweep_*.npy"
     g = glob.glob(fstring)
 
     if len(g) == 0:
@@ -600,6 +596,35 @@ def get_last_lo(name: str):
     g.sort()
     return g[-1]
 
+def get_last_rdf(name: str):
+    """
+    Modified function to get the latest RawDataFile
+    following.
 
+    .. code::
+
+        "/data/{yymmdd}/{yymmdd}_{name}_TOD_set*.hd5"
+        example.
+        /data/20230731/20230731_rfsoc1_TOD_set1001.hd5
+        /data/20230731/20230731_rfsoc1_TOD_set1002.hd5
+
+    """
+    # see if we already have the parent folder for today's date
+    yymmdd = get_yymmdd()
+    date_folder = "/data/" + yymmdd + "/"
+    check_date_folder = glob.glob(date_folder)
+    if np.size(check_date_folder) == 0:
+        return ""
+
+    fstring = f"/data/{yymmdd}/{yymmdd}_{name}_TOD_set*.hd5"
+    g = glob.glob(fstring)
+
+    if len(g) == 0:
+        return ""
+
+    g.sort()
+    return g[-1]
+
+#20230731_TOD_set1002
 if __name__ == "__main__":
     pass

@@ -477,7 +477,7 @@ class rfsocInterface:
         )
         self.load_bin_list(freqs)
         self.load_waveform_into_mem(freqs, LUT_I, LUT_Q, DDS_I, DDS_Q)
-        self.last_flist = freqs
+        self.last_flist = freqs/2
         self.last_alist = amps
         # divide by 2 due to Interpolation within the DAC
         return freqs / 2

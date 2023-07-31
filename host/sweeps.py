@@ -2,6 +2,9 @@ import numpy as np
 import valon5009
 import logging
 import matplotlib.pyplot as plt
+import h5py
+import os
+import pdb
 
 logger = logging.getLogger(__name__)
 
@@ -122,6 +125,37 @@ def plot_sweep(s21: str):
     log = logger.getChild("def plot_sweep")
 
     data = np.load(s21)
+    log.info(f"s21 shape={data.shape}")
+    ftones = np.concatenate(data[0])
+    sweep_Z = np.concatenate(data[1])
+    # ftones = data[0][0]
+    # sweep_Z = data[1][0]
+    mag = 10 * np.log10(np.abs(sweep_Z))
+
+    plt.figure(figsize=(14, 8))
+    plt.plot(ftones, mag.real)
+    plt.grid()
+    plt.show()
+
+
+def plot_sweep_hdf(path: str):
+    """
+    plots sweep from provided path to RawDataFile if it exists.
+
+    :param str path:
+        path to RawDataFile
+    """
+    log = logger.getChild("def plot_sweep_hdf")
+
+    if os.path.isfile(path):
+        f = h5py.File(path, 'r')
+    else:
+        log.error("specified hdf5 file not found")
+    if "/global_data/lo_sweep" in f:
+        data = f["/global_data/lo_sweep"]
+    else:
+        log.error("No Sweep Data Found")
+    data = data[:]
     log.info(f"s21 shape={data.shape}")
     ftones = np.concatenate(data[0])
     sweep_Z = np.concatenate(data[1])
