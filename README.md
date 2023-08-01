@@ -51,8 +51,6 @@ Git does not include the bitstream required by the software.
 
 ---
 
-## Usage
-_how will users approach using the library to take data_
 
 
 ### Contributing
@@ -61,16 +59,13 @@ for the future to help keep things clearer in terms of documentation. Examples
 for documention functions and classes are placed in the docs folder.
 
 
-### Modifications
-_How users will further implement their application within or utilizing this library_
-
 ---
 
 ## Documentation
 [SEE Read The Docs](https://asu-astronomical-instrumentation.github.io/readout/docs/build/html/index.html)
 
 ## License
-_text here_
+
 
 ## Development Notes
 

@@ -11,11 +11,9 @@ Unlike udpcap, udp2 utilizes the hdf5 obervation file format defined by data_han
     to be convertable into a stream of bytes that can be passed intoa new python interpreter process.
     Certain typs of variables such as h5py objects or sockets can't be pickled. We therefore have to create the h5py/socket objects we need post-pickle. 
 
-
 :Authors: Cody Roberson
 :Date: 2023-07-30
 :Version: 2.0.0
-
 
 """
 from ctypes import c_bool
@@ -36,7 +34,13 @@ import multiprocessing as mp
 
 
 logger = logging.getLogger(__name__)
+def parse_packet(sock):
 
+        data = sock.recv(8208 * 1)
+        datarray = bytearray(data)
+        spec_data = np.frombuffer(datarray, dtype = '<i')
+
+        return spec_data # int32 data type
 
 def __data_writer_process(dataqueue, chan: RFChannel, runFlag):
     """
@@ -49,12 +53,18 @@ def __data_writer_process(dataqueue, chan: RFChannel, runFlag):
     log = logger.getChild(__name__)
     log.debug(f"began data writer process <{chan.name}>")
 
-    # Create HDF5 Datafile
-    raw = RawDataFile(chan.raw_filename, overwrite=True)
-    raw.format(0, chan.n_resonator, chan.n_attenuator)
-
+    # Create HDF5 Datafile and populate various fields
+    try:
+        raw = RawDataFile(chan.raw_filename, overwrite=True)
+        raw.format(chan.n_sample, chan.n_resonator, chan.n_attenuators)
+        raw.set_global_data(chan)
+    except Exception as e:
+        log.error(str(e))
     # Pass in the last LO sweep here
-    raw.append_lo_sweep(get_last_lo(chan.name))
+    if chan.lo_sweep_filename == "":
+        raw.append_lo_sweep(get_last_lo(chan.name))
+    else:
+        raw.append_lo_sweep(chan.lo_sweep_filename)
 
     while True:
         # we're done if the queue closes or we don't get any day within 10 seconds
@@ -75,6 +85,7 @@ def __data_writer_process(dataqueue, chan: RFChannel, runFlag):
         raw.adc_i[:, indx - 488 : indx] = adci
         raw.adc_q[:, indx - 488 : indx] = adcq
         raw.timestamp[indx - 488 : indx] = timestamp
+        raw.n_sample[0] = indx
         t2 = time.perf_counter_ns()
         log.debug(f"Parsed in this loop's data <{chan.name}>")
         log.debug(f"Data Writer deltaT = {(t2-t1)*1e-6} ms for <{chan.name}>")
@@ -117,9 +128,11 @@ def __data_collector_process(dataqueue, chan: RFChannel, runFlag):
             q[...] = 0
             ts[...] = 0
             for k in range(488):
-                data = np.frombuffer(bytearray(s.recv(8208)), dtype="<i")[0:2048]
-                i[:, k] = data[0::2]
-                q[:, k] = data[1::2]
+                data = s.recv(8208 * 1)
+                datarray = bytearray(data)
+                spec_data = np.frombuffer(datarray, dtype = '<i')
+                i[:, k] = spec_data[0::2][0:1024]
+                q[:, k] = spec_data[1::2][0:1024]
                 ts[k] = getdtime()
             dataqueue.put((idx, i, q, ts))
             # log.info(f"rx 488 pkts")
@@ -134,7 +147,7 @@ def __data_collector_process(dataqueue, chan: RFChannel, runFlag):
     s.close()
 
 
-def exceptionCallback(e):
+def exceptionCallback(e: Exception):
     raise e
 
 

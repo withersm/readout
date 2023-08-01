@@ -1,15 +1,37 @@
 """
-Overview
-________
-
-data_handler defines an interface with whichi readout data is obtained, stored, and manipulated.
-The format specified here is a standard.
-
 :Authors: - Cody Roberson
           - Jack Sayers
           - Daniel Cunnane
-:Date: 2023-07-26
-:Version: 1.0.0
+
+:Date: 2023-08-01
+
+:Version: 2.0.0
+
+Brief overview
+--------------
+Here we define the data types and format that is utilized throughout the project.
+Our primary observation data is stored using HDF5  `HDF5 <https://www.hdfgroup.org/solutions/hdf5/>`_
+via the `h5py python library <https://www.h5py.org/>`_
+
+
+RawDataFile
+--------------
+The RawDataFile class is analogous to standard camera's raw file. Detector data is captured, unprocessed into this file.
+
+
+Dimensions
+--------------
+n_resonator
+
+
+ObservationDataFile
+--------------
+
+
+________
+
+
+
 """
 
 import h5py
@@ -28,24 +50,43 @@ logger = logging.getLogger(__name__)
 @dataclass
 class RFChannel:
     """
-    Data Class used to describe an RFSOC and it's relevant properties. This was created to mostly
-    to be used as a struct to pass around properties inherint to an rfsoc.
+    **Dataclass**; contains the state information relevant to an observation on a 
+    per-RF-chain basis going into a/the cryostat. Each rf channel gets it's own RF chain and
+    subsequently it's own UDP connection. The information used here is pulled into the RawDataFile.
+    
 
-    :param raw_filename: path to where the HDF5 file shall exist.
-    :type raw_filename: str
-    :param ip: ip address of UDP stream to listen to
-    :type ip: str
-    :param port: port of UDP to listen to, default is 4096
-    :type port: int
-    :param name: Friendly Name to call the channel. This is relevant to logs, etc
-    :type name: str
-    :param n_sample: n_samples to take. While this is used to format the rawDataFile, it should be
+    :param str raw_filename: path to where the HDF5 file shall exist.
+
+    :param str ip: ip address of UDP stream to listen to
+
+    :param int port: port of UDP to listen to, default is 4096
+
+    :param str name: Friendly Name to call the channel. This is relevant to logs, etc
+
+    :param int n_sample: n_samples to take. While this is used to format the 
+        rawDataFile, it should be
         left as 0 for now since udp2.capture() dynamically resizes/allocates it's datasets.
-    :type n_sample: int
-    :param n_resonator: n_resonators / resonator tones of interest
-    :type n_attenuator: int
-    :param lo_sweep: path to the LO sweep data with which to append to the rawDataFile.
 
+    :param int n_resonator: Number of resonators we're interested in / Tones we're generating
+        from the RFSOC dac mapped to this Channel. 
+    
+    :param int n_attenuator: Dimension N Attenuators
+    
+    :param np.ndarray baseband_freqs: array of N resonator tones
+
+    :param np.ndarray attenuator_settings: Array of N Attenuator settings
+    
+    :param int sample_rate: Data downlink sample rate ~488 Samples/Second
+
+    :param int tile_number: Which tile this rf channel belongs to
+
+    :param int rfsoc_number: Which rfsoc unit is used
+
+    :param int chan_number: channel # of the rfsoc being used
+
+    :param int ifslice_number: Which IF slice the rfsoc channel # is using.
+
+    :param str lo_sweep_filename: path to the LO sweep data with which to append to the rawDataFile.
 
     """
 
@@ -53,9 +94,17 @@ class RFChannel:
     ip: str
     port: int = 4096
     name: str = "Untitled"
-    n_sample: int = 0
-    n_resonator: int = 1024
-    n_attenuator: int = 1
+    n_sample: int = 488
+    n_resonator: int = 1000
+    n_attenuators: int = 2
+    baseband_freqs: np.ndarray = np.zeros(n_resonator)*1.0
+    tone_powers: np.ndarray = np.zeros(n_resonator)*1.0
+    attenuator_settings: np.ndarray = np.zeros(n_attenuators)*1.0
+    sample_rate: np.ndarray = 488
+    tile_number: int = 0
+    rfsoc_number: int = 0
+    chan_number: int = 0
+    ifslice_number: int = 0
     lo_sweep_filename: str = "/path/to/some_s21_file_here.npy"
 
 
@@ -73,7 +122,6 @@ class RawDataFile:
         desired.
 
     :param n_resonator: (Dimension) The number of resonance tones
-    :param n_attenuator: (Dimension) The number of attenuators used in the RF Channel
     :param overwrite(optional): When true, signals that if an hdf5 file exists, overwrite its contents completely and
         do not contents. By default, this is false and the file is opened in append mode and subsequently read.
     """
@@ -122,28 +170,28 @@ class RawDataFile:
             (1,),
             dtype=h5py.h5t.NATIVE_UINT64,
         )
-        self.n_attenuator = self.fh.create_dataset(
-            "dimension/n_attenuator",
+        self.n_attenuators = self.fh.create_dataset(
+            "dimension/n_attenuators",
             (1,),
             dtype=h5py.h5t.NATIVE_UINT64,
         )
         # ******************************** Global Data ******************************
         self.attenuator_settings = self.fh.create_dataset(
             "global_data/attenuator_settings",
-            (1, n_attenuator),
+            (2,),
             dtype=h5py.h5t.NATIVE_DOUBLE,
         )
-        self.baseband_freq = self.fh.create_dataset(
-            "global_data/baseband_freq", (1, n_resonator), dtype=h5py.h5t.NATIVE_DOUBLE
+        self.baseband_freqs = self.fh.create_dataset(
+            "global_data/baseband_freqs", ( n_resonator,)
         )
         self.sample_rate = self.fh.create_dataset(
-            "global_data/sample_rate", (1,), dtype=h5py.h5t.NATIVE_DOUBLE
+            "global_data/sample_rate", (1,)
         )
         self.tile_number = self.fh.create_dataset(
-            "global_data/tile_number", (1, n_resonator), dtype=h5py.h5t.NATIVE_INT32
+            "global_data/tile_number", (n_resonator,), dtype=h5py.h5t.NATIVE_INT32
         )
-        self.tone_power = self.fh.create_dataset(
-            "global_data/tone_power", (1, n_resonator), dtype=h5py.h5t.NATIVE_DOUBLE
+        self.tone_powers = self.fh.create_dataset(
+            "global_data/tone_powers", (n_resonator,), dtype=h5py.h5t.NATIVE_DOUBLE
         )
         self.rfsoc_number = self.fh.create_dataset(
             "global_data/rfsoc_number", (1,), dtype=h5py.h5t.NATIVE_INT32
@@ -164,22 +212,21 @@ class RawDataFile:
             (1024, n_sample),
             chunks=(1024, 488),
             maxshape=(1024, None),
-            dtype=h5py.h5t.NATIVE_UINT32,
+            dtype=h5py.h5t.STD_I32LE
         )
         self.adc_q = self.fh.create_dataset(
             "time_ordered_data/adc_q",
             (1024, n_sample),
             chunks=(1024, 488),
             maxshape=(1024, None),
-            dtype=h5py.h5t.NATIVE_UINT32,
+            dtype=h5py.h5t.STD_I32LE
         )
         self.lo_freq = self.fh.create_dataset(
-            "time_ordered_data/lo_freq", (1, n_sample), dtype=h5py.h5t.NATIVE_INT32
+            "time_ordered_data/lo_freq", (488,), 
+            chunks=(488,),
+            maxshape=(None,),
         )
-        # timestamp_compound_datatype = [
-        #     ("time", ),
-        #     ("packet_number", h5py.h5t.NATIVE_UINT64),
-        # ]
+
         self.timestamp = self.fh.create_dataset(
             "time_ordered_data/timestamp", (n_sample,), chunks=(488,), maxshape=(None,)
         )
@@ -194,6 +241,18 @@ class RawDataFile:
         self.adc_i.resize((1024, n_sample))
         self.adc_q.resize((1024, n_sample))
         self.timestamp.resize((n_sample,))
+
+    def set_global_data(self, chan: RFChannel):
+        self.attenuator_settings[:] = chan.attenuator_settings
+        self.baseband_freqs[:] = chan.baseband_freqs
+        self.sample_rate[0] = chan.sample_rate
+        self.tile_number[0] = chan.tile_number
+        self.tone_powers[:] = chan.tone_powers
+        self.tile_number[0] = chan.tile_number
+        self.rfsoc_number[0] = chan.rfsoc_number
+        self.ifslice_number[0] = chan.ifslice_number
+        self.n_resonator[0] = chan.n_resonator
+        self.n_attenuators[0] = chan.n_attenuators
 
     def read(self):
         """
@@ -211,18 +270,18 @@ class RawDataFile:
         log = logger.getChild(__name__)
 
         try:
-            self.n_attenuator = self.fh["/dimension/n_attenuator"]
+            self.n_attenuators = self.fh["/dimension/n_attenuators"]
             self.n_resonator = self.fh["/dimension/n_resonator"]
             self.n_sample = self.fh["/dimension/n_sample"]
 
             self.attenuator_settings = self.fh["/global_data/attenuator_settings"]
-            self.baseband_freq = self.fh["/global_data/baseband_freq"]
+            self.baseband_freqs = self.fh["/global_data/baseband_freqs"]
             self.chan_number = self.fh["/global_data/chan_number"]
             self.ifslice_number = self.fh["/global_data/ifslice_number"]
             self.rfsoc_number = self.fh["/global_data/rfsoc_number"]
             self.sample_rate = self.fh["/global_data/sample_rate"]
             self.tile_number = self.fh["/global_data/tile_number"]
-            self.tone_power = self.fh["/global_data/tone_power"]
+            self.tone_powers = self.fh["/global_data/tone_powers"]
             self.lo_freq = self.fh["/time_ordered_data/lo_freq"]
             if "/global_data/lo_sweep" in self.fh:
                 self.lo_sweep = self.fh["/global_data/lo_sweep"]
@@ -314,8 +373,35 @@ class ObservationDataFile:
     :param n_resonator:  the total number of resonances spanning all RFSOCs
     :param n_attenuator: the number of attenuators on each RFSOC -
     """
+    def __init__(self, path, overwrite=False):
+            log = logger.getChild(__name__)
 
-    def __init__(
+            self.filename = path
+            if not os.path.isfile(path):
+                log.debug("File not found, creating file...")
+                try:
+                    self.fh = h5py.File(self.filename, "a")
+                except Exception as e:
+                    log.error(e)
+                    raise
+            else:
+                log.debug("File already exists.")
+                if overwrite:
+                    log.debug("Overwriting file")
+                    try:
+                        self.fh = h5py.File(self.filename, "w")
+                    except Exception as e:
+                        log.error(e)
+                        raise
+                else:
+                    log.debug("Opening File as append")
+                    try:
+                        self.fh = h5py.File(self.filename, "a")
+                    except Exception as e:
+                        log.error(e)
+                        raise
+                    self.read()
+    def format(
         self,
         n_rfsoc: int,
         n_sample: int,

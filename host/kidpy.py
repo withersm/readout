@@ -42,8 +42,7 @@ import logging
 # Configures the logger such that it prints to a screen and file including the format
 __LOGFMT = "%(asctime)s|%(levelname)s|%(filename)s|%(lineno)d|%(funcName)s|%(message)s"
 
-# logging.basicConfig(format=__LOGFMT, level=logging.DEBUG)
-logging.basicConfig(format=__LOGFMT, level=logging.INFO)
+logging.basicConfig(format=__LOGFMT, level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 __logh = logging.FileHandler("./kidpy.log")
 logging.root.addHandler(__logh)
@@ -226,6 +225,27 @@ def menu(captions, options):
         return 999999
     return opt
 
+def AZ_SCAN():
+    log = logger.getChild(__name__)
+    try:
+        if motor.Initialized !=True:
+            print('\033[31m Need to initialize system first.\033[0m')
+        else:
+            savefile = onrkidpy.get_filename(type='AZEL') + '.npz'
+            log.info("Waiting one second for data collection")
+            time.sleep(1)
+            motor.AZ_scan_mode(0.,5.,savefile,position_return=True)
+            time.sleep(1)
+    except OSError:
+        print ('\033[93m OS Error: DAQ could not be initialized: Check comm port and power supply\033[0m')
+        motor.set_ao_zero()
+    except IndexError:
+        print ('\033[93m Index Error: DAQ could not be initialized: Check comm port and power supply\033[0m')
+        motor.set_ao_zero()
+    
+    except KeyboardInterrupt:
+        motor.set_ao_zero()
+        pass 
 
 class kidpy:
     def __init__(self):
@@ -472,7 +492,7 @@ class kidpy:
                             # see if the user wants to shift all the tones (e.g., due to change in loading)
                             tone_shift = (
                                 input(
-                                    "How many kHz to shift the tones before the LO sweep (default is 0)"
+                                    "How many kHz to shift the tones in the band center before the LO sweep (default is 0)"
                                 )
                                 or 0
                             )
@@ -480,9 +500,10 @@ class kidpy:
                                 lo_freq = valon5009.Synthesizer.get_frequency(
                                     self.valon, valon5009.SYNTH_B
                                 )
+                                current_tone_list = self.get_tone_list()
                                 fList = np.ndarray.tolist(
-                                    self.get_tone_list()
-                                    + float(tone_shift) * 1.0e3
+                                    current_tone_list
+                                    + float(tone_shift) * current_tone_list / np.median(current_tone_list) * 1.0e3
                                     - lo_freq * 1.0e6
                                 )
                                 print(
@@ -542,6 +563,7 @@ class kidpy:
                             )
                             if write_new_list:
                                 write_fList(self, np.ndarray.tolist(new_tone_list), [])
+                                np.save(onrkidpy.get_filename(type="TONELIST", chan_name="rfsoc1"), new_tone_list)
                             plt.close("all")
 
                         if onr_opt == 2:  # Stream data to file
@@ -601,30 +623,17 @@ class kidpy:
                         if onr_opt == 6:
                             # open a new terminal to move the telescope
                             # open a new terminal to move the telescope
-                            termcmd = (
-                                "python3 /home/onrkids/onrkidpy/onr_motor_control.py 12"
-                            )
-                            new_term = subprocess.Popen(
-                                ["gnome-terminal", "--", "bash", "-c", termcmd],
-                                stdin=subprocess.PIPE,
-                                stdout=subprocess.PIPE,
-                                stderr=subprocess.STDOUT,
-                            )
 
                             # then collect the KID data
                             os.system("clear")
-
+                            # motor.init_test()
                             savefile = onrkidpy.get_filename(type="TOD", chan_name="rfsoc1") + ".hd5"
-                            rfsoc1 = data_handler.RFChannel(
-                                savefile,
-                                "192.168.5.40",
-                                4096,
-                                "rfsoc1",
-                                0,
-                                1024,
-                                1,
-                            )
-                            udp2.capture([rfsoc1], time.sleep, 30)
+                            bb = self.get_last_flist()
+                            rfsoc1 = data_handler.RFChannel(savefile, "192.168.5.40", 4096, "rfsoc1", baseband_freqs=bb,
+                                                            tone_powers=self.get_last_alist(), n_resonator=len(bb), attenuator_settings=np.array([20.0, 10.0]),
+                                                            tile_number=1, rfsoc_number=1, 
+                                                            lo_sweep_filename=data_handler.get_last_lo("rfsoc1"))
+                            udp2.capture([rfsoc1], time.sleep, 10)
 
 
                         if onr_opt == 7:  # Exit
@@ -646,12 +655,10 @@ class kidpy:
                     print("ONR repository does not exist")
 
             if opt == 9:
-                self.__udp.bindSocket()
-                self.__udp.capture_packets(488)
-                d = self.__udp.capture_packets(100)
-                self.__udp.release()
-                i = d[0::2].T[50]
-                q = d[1::2].T[50]
+                f = data_handler.RawDataFile(data_handler.get_last_rdf("rfsoc1"))
+                i = f.adc_i[:].T[10]
+                q = f.adc_q[:].T[10]
+                print(f"{i.shape}")
                 mag = np.sqrt(i**2 + q**2)
                 y = 10 * np.log10(mag / np.max(mag))
                 plt.plot(y)
