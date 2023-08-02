@@ -105,10 +105,10 @@ Certain typs of variables such as h5py objects or sockets can’t be pickled. We
 <dd class="field-odd"><p>Cody Roberson</p>
 </dd>
 <dt class="field-even">Date<span class="colon">:</span></dt>
-<dd class="field-even"><p>2023-07-30</p>
+<dd class="field-even"><p>2023-08-02</p>
 </dd>
 <dt class="field-odd">Version<span class="colon">:</span></dt>
-<dd class="field-odd"><p>2.0.0</p>
+<dd class="field-odd"><p>2.0.1</p>
 </dd>
 </dl>
 </section>
@@ -136,14 +136,14 @@ the datacapture processes are then closed down.</p></li>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>channels</strong> (<em>List</em><em>[</em><a class="reference internal" href="data_handler.html#data_handler.RFChannel" title="data_handler.RFChannel"><em>data_handler.RFChannel</em></a><em>]</em>) – RF channels to capture data from</p></li>
-<li><p><strong>fn</strong> (<em>function</em>) – <p>Pass in a funtion to call during capture.</p>
+<li><p><strong>channels</strong> (<em>List</em><em>(</em><a class="reference internal" href="data_handler.html#data_handler.RFChannel" title="data_handler.RFChannel"><em>data_handler.RFChannel</em></a><em>)</em>) – RF channels to capture data from</p></li>
+<li><p><strong>fn</strong> (<em>callable</em>) – <p>Pass in a funtion to call during capture.</p>
 <div class="admonition danger">
 <p class="admonition-title">Danger</p>
 <p>The provided function should not hang indefinitely and returned data is ignored.</p>
 </div>
 </p></li>
-<li><p><strong>args</strong> (<em>*args</em>) – args to pass into fn</p></li>
+<li><p><strong>args</strong> (<em>any</em>) – args to pass into fn</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
@@ -153,8 +153,14 @@ the datacapture processes are then closed down.</p></li>
 <section id="example">
 <h2>Example<a class="headerlink" href="#example" title="Permalink to this heading"></a></h2>
 <p>The following spawns a data read/writer pair for rfsoc and waits 30 seconds.</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">rfsoc</span> <span class="o">=</span> <span class="n">data_handler</span><span class="o">.</span><span class="n">RFChannel</span><span class="p">(</span><span class="s2">&quot;./rfsoc1_fakedata.h5&quot;</span><span class="p">,</span> <span class="s2">&quot;127.0.0.1&quot;</span><span class="p">,</span> <span class="mi">4096</span><span class="p">,</span> <span class="s2">&quot;Stuffed Crust Pizza&quot;</span><span class="p">,</span> <span class="mi">488</span><span class="p">,</span> <span class="mi">1024</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
-<span class="n">capture</span><span class="p">([</span><span class="n">rfsoc</span><span class="p">],</span> <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">,</span> <span class="mi">30</span><span class="p">)</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">bb</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_last_flist</span><span class="p">()</span>
+<span class="n">rfsoc1</span> <span class="o">=</span> <span class="n">data_handler</span><span class="o">.</span><span class="n">RFChannel</span><span class="p">(</span><span class="n">savefile</span><span class="p">,</span> <span class="s2">&quot;192.168.5.40&quot;</span><span class="p">,</span> 
+                                <span class="mi">4096</span><span class="p">,</span> <span class="s2">&quot;rfsoc1&quot;</span><span class="p">,</span> <span class="n">baseband_freqs</span><span class="o">=</span><span class="n">bb</span><span class="p">,</span>
+                                <span class="n">tone_powers</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">get_last_alist</span><span class="p">(),</span> 
+                                <span class="n">n_resonator</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">bb</span><span class="p">),</span> <span class="n">attenuator_settings</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">20.0</span><span class="p">,</span> <span class="mf">10.0</span><span class="p">]),</span>
+                                <span class="n">tile_number</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">rfsoc_number</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> 
+                                <span class="n">lo_sweep_filename</span><span class="o">=</span><span class="n">data_handler</span><span class="o">.</span><span class="n">get_last_lo</span><span class="p">(</span><span class="s2">&quot;rfsoc1&quot;</span><span class="p">))</span>
+<span class="n">udp2</span><span class="o">.</span><span class="n">capture</span><span class="p">([</span><span class="n">rfsoc1</span><span class="p">],</span> <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">,</span> <span class="mi">60</span><span class="p">)</span>
 </pre></div>
 </div>
 </section>
@@ -162,7 +168,7 @@ the datacapture processes are then closed down.</p></li>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="udp2.exceptionCallback">
-<span class="sig-prename descclassname"><span class="pre">udp2.</span></span><span class="sig-name descname"><span class="pre">exceptionCallback</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">e</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/udp2.html#exceptionCallback"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#udp2.exceptionCallback" title="Permalink to this definition"></a></dt>
+<span class="sig-prename descclassname"><span class="pre">udp2.</span></span><span class="sig-name descname"><span class="pre">exceptionCallback</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">e</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Exception</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/udp2.html#exceptionCallback"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#udp2.exceptionCallback" title="Permalink to this definition"></a></dt>
 <dd></dd></dl>
 
 </section>

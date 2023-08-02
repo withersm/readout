@@ -113,7 +113,6 @@
 <span class="c1"># Configures the logger such that it prints to a screen and file including the format</span>
 <span class="n">__LOGFMT</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">%(asctime)s</span><span class="s2">|</span><span class="si">%(levelname)s</span><span class="s2">|</span><span class="si">%(filename)s</span><span class="s2">|</span><span class="si">%(lineno)d</span><span class="s2">|</span><span class="si">%(funcName)s</span><span class="s2">|</span><span class="si">%(message)s</span><span class="s2">&quot;</span>
 
-<span class="c1"># logging.basicConfig(format=__LOGFMT, level=logging.DEBUG)</span>
 <span class="n">logging</span><span class="o">.</span><span class="n">basicConfig</span><span class="p">(</span><span class="nb">format</span><span class="o">=</span><span class="n">__LOGFMT</span><span class="p">,</span> <span class="n">level</span><span class="o">=</span><span class="n">logging</span><span class="o">.</span><span class="n">INFO</span><span class="p">)</span>
 <span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
 <span class="n">__logh</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">FileHandler</span><span class="p">(</span><span class="s2">&quot;./kidpy.log&quot;</span><span class="p">)</span>
@@ -297,7 +296,6 @@
         <span class="k">return</span> <span class="mi">999999</span>
     <span class="k">return</span> <span class="n">opt</span></div>
 
-
 <div class="viewcode-block" id="kidpy"><a class="viewcode-back" href="../kidpy.html#kidpy.kidpy">[docs]</a><span class="k">class</span> <span class="nc">kidpy</span><span class="p">:</span>
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="c1"># Pull config</span>
@@ -331,8 +329,8 @@
             <span class="n">exit</span><span class="p">()</span>
 
         <span class="c1"># Differentiate 5009&#39;s connected to the system</span>
-        <span class="c1"># self.valon = valon5009.Synthesizer(&quot;/dev/IF2System1LO&quot;)</span>
-        <span class="c1"># self.valon.set_frequency(valon5009.SYNTH_B, default_f_center)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">valon</span> <span class="o">=</span> <span class="n">valon5009</span><span class="o">.</span><span class="n">Synthesizer</span><span class="p">(</span><span class="s2">&quot;/dev/IF2System1LO&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">valon</span><span class="o">.</span><span class="n">set_frequency</span><span class="p">(</span><span class="n">valon5009</span><span class="o">.</span><span class="n">SYNTH_B</span><span class="p">,</span> <span class="n">default_f_center</span><span class="p">)</span>
         <span class="c1"># for v in self.__ValonPorts:</span>
         <span class="c1">#    self.valon = valon5009.Synthesizer(v.replace(&#39; &#39;, &#39;&#39;))</span>
 
@@ -543,7 +541,7 @@
                             <span class="c1"># see if the user wants to shift all the tones (e.g., due to change in loading)</span>
                             <span class="n">tone_shift</span> <span class="o">=</span> <span class="p">(</span>
                                 <span class="nb">input</span><span class="p">(</span>
-                                    <span class="s2">&quot;How many kHz to shift the tones before the LO sweep (default is 0)&quot;</span>
+                                    <span class="s2">&quot;How many kHz to shift the tones in the band center before the LO sweep (default is 0)&quot;</span>
                                 <span class="p">)</span>
                                 <span class="ow">or</span> <span class="mi">0</span>
                             <span class="p">)</span>
@@ -551,9 +549,10 @@
                                 <span class="n">lo_freq</span> <span class="o">=</span> <span class="n">valon5009</span><span class="o">.</span><span class="n">Synthesizer</span><span class="o">.</span><span class="n">get_frequency</span><span class="p">(</span>
                                     <span class="bp">self</span><span class="o">.</span><span class="n">valon</span><span class="p">,</span> <span class="n">valon5009</span><span class="o">.</span><span class="n">SYNTH_B</span>
                                 <span class="p">)</span>
+                                <span class="n">current_tone_list</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_tone_list</span><span class="p">()</span>
                                 <span class="n">fList</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="o">.</span><span class="n">tolist</span><span class="p">(</span>
-                                    <span class="bp">self</span><span class="o">.</span><span class="n">get_tone_list</span><span class="p">()</span>
-                                    <span class="o">+</span> <span class="nb">float</span><span class="p">(</span><span class="n">tone_shift</span><span class="p">)</span> <span class="o">*</span> <span class="mf">1.0e3</span>
+                                    <span class="n">current_tone_list</span>
+                                    <span class="o">+</span> <span class="nb">float</span><span class="p">(</span><span class="n">tone_shift</span><span class="p">)</span> <span class="o">*</span> <span class="n">current_tone_list</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">median</span><span class="p">(</span><span class="n">current_tone_list</span><span class="p">)</span> <span class="o">*</span> <span class="mf">1.0e3</span>
                                     <span class="o">-</span> <span class="n">lo_freq</span> <span class="o">*</span> <span class="mf">1.0e6</span>
                                 <span class="p">)</span>
                                 <span class="nb">print</span><span class="p">(</span>
@@ -566,7 +565,7 @@
                             <span class="nb">print</span><span class="p">(</span>
                                 <span class="s2">&quot;Taking initial low-resoluation sweep with df = 1 kHz and Deltaf = 100 kHz&quot;</span>
                             <span class="p">)</span>
-                            <span class="n">savefile</span> <span class="o">=</span> <span class="n">onrkidpy</span><span class="o">.</span><span class="n">get_filename</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="s2">&quot;LO&quot;</span><span class="p">)</span> <span class="o">+</span> <span class="s2">&quot;_rfsoc1&quot;</span>
+                            <span class="n">savefile</span> <span class="o">=</span> <span class="n">onrkidpy</span><span class="o">.</span><span class="n">get_filename</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="s2">&quot;LO&quot;</span><span class="p">,</span> <span class="n">chan_name</span><span class="o">=</span><span class="s2">&quot;rfsoc1&quot;</span><span class="p">)</span>
                             <span class="n">sweeps</span><span class="o">.</span><span class="n">loSweep</span><span class="p">(</span>
                                 <span class="bp">self</span><span class="o">.</span><span class="n">valon</span><span class="p">,</span>
                                 <span class="bp">self</span><span class="o">.</span><span class="n">__udp</span><span class="p">,</span>
@@ -581,7 +580,7 @@
 
                             <span class="c1"># then fit the resonances from that sweep</span>
                             <span class="n">fit_f0</span><span class="p">,</span> <span class="n">fit_qi</span><span class="p">,</span> <span class="n">fit_qc</span> <span class="o">=</span> <span class="n">fit_lo</span><span class="o">.</span><span class="n">main</span><span class="p">(</span>
-                                <span class="bp">self</span><span class="o">.</span><span class="n">get_tone_list</span><span class="p">(),</span> <span class="n">quickPlot</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">printFlag</span><span class="o">=</span><span class="kc">True</span>
+                                <span class="bp">self</span><span class="o">.</span><span class="n">get_tone_list</span><span class="p">(),</span><span class="n">savefile</span><span class="o">+</span><span class="s1">&#39;.npy&#39;</span><span class="p">,</span> <span class="n">quickPlot</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">printFlag</span><span class="o">=</span><span class="kc">True</span>
                             <span class="p">)</span>
                             <span class="n">adjust_tones</span> <span class="o">=</span> <span class="p">(</span>
                                 <span class="nb">input</span><span class="p">(</span>
@@ -613,13 +612,14 @@
                             <span class="p">)</span>
                             <span class="k">if</span> <span class="n">write_new_list</span><span class="p">:</span>
                                 <span class="n">write_fList</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="o">.</span><span class="n">tolist</span><span class="p">(</span><span class="n">new_tone_list</span><span class="p">),</span> <span class="p">[])</span>
+                                <span class="n">np</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">onrkidpy</span><span class="o">.</span><span class="n">get_filename</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="s2">&quot;TONELIST&quot;</span><span class="p">,</span> <span class="n">chan_name</span><span class="o">=</span><span class="s2">&quot;rfsoc1&quot;</span><span class="p">),</span> <span class="n">new_tone_list</span><span class="p">)</span>
                             <span class="n">plt</span><span class="o">.</span><span class="n">close</span><span class="p">(</span><span class="s2">&quot;all&quot;</span><span class="p">)</span>
 
                         <span class="k">if</span> <span class="n">onr_opt</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>  <span class="c1"># Stream data to file</span>
                             <span class="n">t</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="nb">input</span><span class="p">(</span><span class="s2">&quot;How many seconds of data?: &quot;</span><span class="p">))</span> <span class="ow">or</span> <span class="mi">0</span>
                             <span class="n">os</span><span class="o">.</span><span class="n">system</span><span class="p">(</span><span class="s2">&quot;clear&quot;</span><span class="p">)</span>
                             <span class="bp">self</span><span class="o">.</span><span class="n">__udp</span><span class="o">.</span><span class="n">bindSocket</span><span class="p">()</span>
-                            <span class="n">savefile</span> <span class="o">=</span> <span class="n">onrkidpy</span><span class="o">.</span><span class="n">get_filename</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="s2">&quot;TOD&quot;</span><span class="p">)</span> <span class="o">+</span> <span class="s2">&quot;.hd5&quot;</span>
+                            <span class="n">savefile</span> <span class="o">=</span> <span class="n">onrkidpy</span><span class="o">.</span><span class="n">get_filename</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="s2">&quot;TOD&quot;</span><span class="p">,</span> <span class="n">chan_name</span><span class="o">=</span><span class="s2">&quot;rfsoc1&quot;</span><span class="p">)</span> <span class="o">+</span> <span class="s2">&quot;.hd5&quot;</span>
                             <span class="k">if</span> <span class="n">t</span> <span class="o">&lt;</span> <span class="mi">60</span><span class="p">:</span>
                                 <span class="bp">self</span><span class="o">.</span><span class="n">__udp</span><span class="o">.</span><span class="n">shortDataCapture</span><span class="p">(</span><span class="n">savefile</span><span class="p">,</span> <span class="mi">488</span> <span class="o">*</span> <span class="n">t</span><span class="p">)</span>
                             <span class="k">else</span><span class="p">:</span>
@@ -672,42 +672,20 @@
                         <span class="k">if</span> <span class="n">onr_opt</span> <span class="o">==</span> <span class="mi">6</span><span class="p">:</span>
                             <span class="c1"># open a new terminal to move the telescope</span>
                             <span class="c1"># open a new terminal to move the telescope</span>
-                            <span class="n">termcmd</span> <span class="o">=</span> <span class="p">(</span>
-                                <span class="s2">&quot;python3 /home/onrkids/onrkidpy/onr_motor_control.py 12&quot;</span>
-                            <span class="p">)</span>
-                            <span class="n">new_term</span> <span class="o">=</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">Popen</span><span class="p">(</span>
-                                <span class="p">[</span><span class="s2">&quot;gnome-terminal&quot;</span><span class="p">,</span> <span class="s2">&quot;--&quot;</span><span class="p">,</span> <span class="s2">&quot;bash&quot;</span><span class="p">,</span> <span class="s2">&quot;-c&quot;</span><span class="p">,</span> <span class="n">termcmd</span><span class="p">],</span>
-                                <span class="n">stdin</span><span class="o">=</span><span class="n">subprocess</span><span class="o">.</span><span class="n">PIPE</span><span class="p">,</span>
-                                <span class="n">stdout</span><span class="o">=</span><span class="n">subprocess</span><span class="o">.</span><span class="n">PIPE</span><span class="p">,</span>
-                                <span class="n">stderr</span><span class="o">=</span><span class="n">subprocess</span><span class="o">.</span><span class="n">STDOUT</span><span class="p">,</span>
-                            <span class="p">)</span>
 
                             <span class="c1"># then collect the KID data</span>
                             <span class="n">os</span><span class="o">.</span><span class="n">system</span><span class="p">(</span><span class="s2">&quot;clear&quot;</span><span class="p">)</span>
+                            <span class="c1"># motor.init_test()</span>
+                            <span class="n">savefile</span> <span class="o">=</span> <span class="n">onrkidpy</span><span class="o">.</span><span class="n">get_filename</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="s2">&quot;TOD&quot;</span><span class="p">,</span> <span class="n">chan_name</span><span class="o">=</span><span class="s2">&quot;rfsoc1&quot;</span><span class="p">)</span> <span class="o">+</span> <span class="s2">&quot;.hd5&quot;</span>
+                            <span class="n">bb</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_last_flist</span><span class="p">()</span>
+                            <span class="n">rfsoc1</span> <span class="o">=</span> <span class="n">data_handler</span><span class="o">.</span><span class="n">RFChannel</span><span class="p">(</span><span class="n">savefile</span><span class="p">,</span> <span class="s2">&quot;192.168.5.40&quot;</span><span class="p">,</span> 
+                                                            <span class="mi">4096</span><span class="p">,</span> <span class="s2">&quot;rfsoc1&quot;</span><span class="p">,</span> <span class="n">baseband_freqs</span><span class="o">=</span><span class="n">bb</span><span class="p">,</span>
+                                                            <span class="n">tone_powers</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">get_last_alist</span><span class="p">(),</span> 
+                                                            <span class="n">n_resonator</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">bb</span><span class="p">),</span> <span class="n">attenuator_settings</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">20.0</span><span class="p">,</span> <span class="mf">10.0</span><span class="p">]),</span>
+                                                            <span class="n">tile_number</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">rfsoc_number</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> 
+                                                            <span class="n">lo_sweep_filename</span><span class="o">=</span><span class="n">data_handler</span><span class="o">.</span><span class="n">get_last_lo</span><span class="p">(</span><span class="s2">&quot;rfsoc1&quot;</span><span class="p">))</span>
+                            <span class="n">udp2</span><span class="o">.</span><span class="n">capture</span><span class="p">([</span><span class="n">rfsoc1</span><span class="p">],</span> <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">,</span> <span class="mi">60</span><span class="p">)</span>
 
-                            <span class="n">savefile</span> <span class="o">=</span> <span class="n">onrkidpy</span><span class="o">.</span><span class="n">get_filename</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="s2">&quot;TOD&quot;</span><span class="p">)</span> <span class="o">+</span> <span class="s2">&quot;.hd5&quot;</span>
-                            <span class="n">rfsoc1</span> <span class="o">=</span> <span class="n">data_handler</span><span class="o">.</span><span class="n">RFChannel</span><span class="p">(</span>
-                                <span class="n">savefile</span><span class="p">,</span>
-                                <span class="s2">&quot;192.168.5.40&quot;</span><span class="p">,</span>
-                                <span class="mi">4096</span><span class="p">,</span>
-                                <span class="s2">&quot;rfsoc1&quot;</span><span class="p">,</span>
-                                <span class="mi">0</span><span class="p">,</span>
-                                <span class="mi">1024</span><span class="p">,</span>
-                                <span class="mi">1</span><span class="p">,</span>
-                            <span class="p">)</span>
-                            <span class="n">udp2</span><span class="o">.</span><span class="n">capture</span><span class="p">([</span><span class="n">rfsoc1</span><span class="p">],</span> <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">,</span> <span class="mi">5</span><span class="p">)</span>
-                            <span class="c1"># i = data.adc_i</span>
-                            <span class="c1"># q = data.adc_q</span>
-                            <span class="c1"># i = i[10].T</span>
-                            <span class="c1"># q = i[10].T</span>
-                            <span class="c1"># mag = np.sqrt(i**2 + q**2)</span>
-                            <span class="c1"># plt.plot(mag)</span>
-                            <span class="c1"># savefile = onrkidpy.get_filename(type=&quot;TOD&quot;) + &quot;.hd5&quot;</span>
-                            <span class="c1"># if t &lt; 60:</span>
-                            <span class="c1">#    self.__udp.shortDataCapture(savefile, 488 * t)</span>
-                            <span class="c1"># else:</span>
-                            <span class="c1">#    self.__udp.LongDataCapture(savefile, 488 * t)</span>
-                            <span class="c1"># self.__udp.release()</span>
 
                         <span class="k">if</span> <span class="n">onr_opt</span> <span class="o">==</span> <span class="mi">7</span><span class="p">:</span>  <span class="c1"># Exit</span>
                             <span class="n">onr_loop</span> <span class="o">=</span> <span class="kc">False</span>
@@ -716,21 +694,22 @@
                             <span class="n">fList</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_last_flist</span><span class="p">()</span>
                             <span class="n">fAmps</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="n">fList</span><span class="p">))</span>
                             <span class="c1">#                           fAmps[0:10] = 10</span>
-                            <span class="n">pdb</span><span class="o">.</span><span class="n">set_trace</span><span class="p">()</span>
+                            <span class="c1"># pdb.set_trace()</span>
                             <span class="n">write_fList</span><span class="p">(</span>
                                 <span class="bp">self</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="o">.</span><span class="n">tolist</span><span class="p">(</span><span class="n">fList</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="o">.</span><span class="n">tolist</span><span class="p">(</span><span class="n">fAmps</span><span class="p">)</span>
                             <span class="p">)</span>
+                        <span class="k">if</span> <span class="n">onr_opt</span><span class="o">==</span><span class="mi">10</span><span class="p">:</span>
+                            <span class="n">sweeps</span><span class="o">.</span><span class="n">plot_sweep_hdf</span><span class="p">(</span><span class="n">data_handler</span><span class="o">.</span><span class="n">get_last_rdf</span><span class="p">(</span><span class="s2">&quot;rfsoc1&quot;</span><span class="p">))</span>
+
 
                 <span class="k">else</span><span class="p">:</span>
                     <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;ONR repository does not exist&quot;</span><span class="p">)</span>
 
             <span class="k">if</span> <span class="n">opt</span> <span class="o">==</span> <span class="mi">9</span><span class="p">:</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">__udp</span><span class="o">.</span><span class="n">bindSocket</span><span class="p">()</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">__udp</span><span class="o">.</span><span class="n">capture_packets</span><span class="p">(</span><span class="mi">488</span><span class="p">)</span>
-                <span class="n">d</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">__udp</span><span class="o">.</span><span class="n">capture_packets</span><span class="p">(</span><span class="mi">100</span><span class="p">)</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">__udp</span><span class="o">.</span><span class="n">release</span><span class="p">()</span>
-                <span class="n">i</span> <span class="o">=</span> <span class="n">d</span><span class="p">[</span><span class="mi">0</span><span class="p">::</span><span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">T</span><span class="p">[</span><span class="mi">50</span><span class="p">]</span>
-                <span class="n">q</span> <span class="o">=</span> <span class="n">d</span><span class="p">[</span><span class="mi">1</span><span class="p">::</span><span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">T</span><span class="p">[</span><span class="mi">50</span><span class="p">]</span>
+                <span class="n">f</span> <span class="o">=</span> <span class="n">data_handler</span><span class="o">.</span><span class="n">RawDataFile</span><span class="p">(</span><span class="n">data_handler</span><span class="o">.</span><span class="n">get_last_rdf</span><span class="p">(</span><span class="s2">&quot;rfsoc1&quot;</span><span class="p">))</span>
+                <span class="n">i</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">adc_i</span><span class="p">[:]</span><span class="o">.</span><span class="n">T</span><span class="p">[</span><span class="mi">10</span><span class="p">]</span>
+                <span class="n">q</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">adc_q</span><span class="p">[:]</span><span class="o">.</span><span class="n">T</span><span class="p">[</span><span class="mi">10</span><span class="p">]</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">i</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
                 <span class="n">mag</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">i</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="n">q</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>
                 <span class="n">y</span> <span class="o">=</span> <span class="mi">10</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">log10</span><span class="p">(</span><span class="n">mag</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">mag</span><span class="p">))</span>
                 <span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">y</span><span class="p">)</span>

@@ -82,11 +82,9 @@
 <span class="sd">    to be convertable into a stream of bytes that can be passed intoa new python interpreter process.</span>
 <span class="sd">    Certain typs of variables such as h5py objects or sockets can&#39;t be pickled. We therefore have to create the h5py/socket objects we need post-pickle. </span>
 
-
 <span class="sd">:Authors: Cody Roberson</span>
-<span class="sd">:Date: 2023-07-30</span>
-<span class="sd">:Version: 2.0.0</span>
-
+<span class="sd">:Date: 2023-08-02</span>
+<span class="sd">:Version: 2.0.1</span>
 
 <span class="sd">&quot;&quot;&quot;</span>
 <span class="kn">from</span> <span class="nn">ctypes</span> <span class="kn">import</span> <span class="n">c_bool</span>
@@ -108,7 +106,6 @@
 
 <span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
 
-
 <span class="k">def</span> <span class="nf">__data_writer_process</span><span class="p">(</span><span class="n">dataqueue</span><span class="p">,</span> <span class="n">chan</span><span class="p">:</span> <span class="n">RFChannel</span><span class="p">,</span> <span class="n">runFlag</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Creates a RawDataFile and populates it with data that is passed to it through</span>
@@ -118,41 +115,50 @@
 <span class="sd">    Data is handled in bursts and the data is chunked allowing us to collect an indefinite amount of data.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">log</span> <span class="o">=</span> <span class="n">logger</span><span class="o">.</span><span class="n">getChild</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
-    <span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;began data writer process &lt;</span><span class="si">{</span><span class="n">chan</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&gt;&quot;</span><span class="p">)</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;began data writer process &lt;</span><span class="si">{</span><span class="n">chan</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&gt;&quot;</span><span class="p">)</span>
 
-    <span class="c1"># Create HDF5 Datafile</span>
-    <span class="n">raw</span> <span class="o">=</span> <span class="n">RawDataFile</span><span class="p">(</span><span class="n">chan</span><span class="o">.</span><span class="n">raw_filename</span><span class="p">,</span> <span class="n">overwrite</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-    <span class="n">raw</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">chan</span><span class="o">.</span><span class="n">n_resonator</span><span class="p">,</span> <span class="n">chan</span><span class="o">.</span><span class="n">n_attenuator</span><span class="p">)</span>
-
-    <span class="c1"># Pass in the last LO sweep here</span>
-    <span class="n">raw</span><span class="o">.</span><span class="n">append_lo_sweep</span><span class="p">(</span><span class="n">get_last_lo</span><span class="p">(</span><span class="n">chan</span><span class="o">.</span><span class="n">name</span><span class="p">))</span>
-
-    <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
-        <span class="c1"># we&#39;re done if the queue closes or we don&#39;t get any day within 10 seconds</span>
+        <span class="c1"># Create HDF5 Datafile and populate various fields</span>
         <span class="k">try</span><span class="p">:</span>
-            <span class="n">obj</span> <span class="o">=</span> <span class="n">dataqueue</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="kc">True</span><span class="p">,</span> <span class="mi">10</span><span class="p">)</span>
-        <span class="k">except</span><span class="p">:</span>
-            <span class="n">obj</span> <span class="o">=</span> <span class="kc">None</span>
-        <span class="k">if</span> <span class="n">obj</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;obj is None &lt;</span><span class="si">{</span><span class="n">chan</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&gt;&quot;</span><span class="p">)</span>
-            <span class="k">break</span>
-        <span class="n">t1</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">perf_counter_ns</span><span class="p">()</span>
-        <span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Received a queue object&lt;</span><span class="si">{</span><span class="n">chan</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&gt;&quot;</span><span class="p">)</span>
-        <span class="c1"># re-Allocate Dataset</span>
-        <span class="n">indx</span><span class="p">,</span> <span class="n">adci</span><span class="p">,</span> <span class="n">adcq</span><span class="p">,</span> <span class="n">timestamp</span> <span class="o">=</span> <span class="n">obj</span>
-        <span class="n">raw</span><span class="o">.</span><span class="n">resize</span><span class="p">(</span><span class="n">indx</span><span class="p">)</span>
-        <span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;resized&quot;</span><span class="p">)</span>
-        <span class="c1"># Get Data</span>
-        <span class="n">raw</span><span class="o">.</span><span class="n">adc_i</span><span class="p">[:,</span> <span class="n">indx</span> <span class="o">-</span> <span class="mi">488</span> <span class="p">:</span> <span class="n">indx</span><span class="p">]</span> <span class="o">=</span> <span class="n">adci</span>
-        <span class="n">raw</span><span class="o">.</span><span class="n">adc_q</span><span class="p">[:,</span> <span class="n">indx</span> <span class="o">-</span> <span class="mi">488</span> <span class="p">:</span> <span class="n">indx</span><span class="p">]</span> <span class="o">=</span> <span class="n">adcq</span>
-        <span class="n">raw</span><span class="o">.</span><span class="n">timestamp</span><span class="p">[</span><span class="n">indx</span> <span class="o">-</span> <span class="mi">488</span> <span class="p">:</span> <span class="n">indx</span><span class="p">]</span> <span class="o">=</span> <span class="n">timestamp</span>
-        <span class="n">t2</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">perf_counter_ns</span><span class="p">()</span>
-        <span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Parsed in this loop&#39;s data &lt;</span><span class="si">{</span><span class="n">chan</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&gt;&quot;</span><span class="p">)</span>
-        <span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Data Writer deltaT = </span><span class="si">{</span><span class="p">(</span><span class="n">t2</span><span class="o">-</span><span class="n">t1</span><span class="p">)</span><span class="o">*</span><span class="mf">1e-6</span><span class="si">}</span><span class="s2"> ms for &lt;</span><span class="si">{</span><span class="n">chan</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&gt;&quot;</span><span class="p">)</span>
+            <span class="n">raw</span> <span class="o">=</span> <span class="n">RawDataFile</span><span class="p">(</span><span class="n">chan</span><span class="o">.</span><span class="n">raw_filename</span><span class="p">,</span> <span class="n">overwrite</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="n">raw</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">chan</span><span class="o">.</span><span class="n">n_sample</span><span class="p">,</span> <span class="n">chan</span><span class="o">.</span><span class="n">n_resonator</span><span class="p">,</span> <span class="n">chan</span><span class="o">.</span><span class="n">n_attenuators</span><span class="p">)</span>
+            <span class="n">raw</span><span class="o">.</span><span class="n">set_global_data</span><span class="p">(</span><span class="n">chan</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">))</span>
+        <span class="c1"># Pass in the last LO sweep here</span>
+        <span class="k">if</span> <span class="n">chan</span><span class="o">.</span><span class="n">lo_sweep_filename</span> <span class="o">==</span> <span class="s2">&quot;&quot;</span><span class="p">:</span>
+            <span class="n">raw</span><span class="o">.</span><span class="n">append_lo_sweep</span><span class="p">(</span><span class="n">get_last_lo</span><span class="p">(</span><span class="n">chan</span><span class="o">.</span><span class="n">name</span><span class="p">))</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">raw</span><span class="o">.</span><span class="n">append_lo_sweep</span><span class="p">(</span><span class="n">chan</span><span class="o">.</span><span class="n">lo_sweep_filename</span><span class="p">)</span>
 
-    <span class="n">raw</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
-    <span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Queue closed, closing file and exiting for &lt;</span><span class="si">{</span><span class="n">chan</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&gt;&quot;</span><span class="p">)</span>
+        <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
+            <span class="c1"># we&#39;re done if the queue closes or we don&#39;t get any day within 10 seconds</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">obj</span> <span class="o">=</span> <span class="n">dataqueue</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="kc">True</span><span class="p">,</span> <span class="mi">5</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                <span class="n">obj</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="k">if</span> <span class="n">obj</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;obj is None &lt;</span><span class="si">{</span><span class="n">chan</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&gt;&quot;</span><span class="p">)</span>
+                <span class="k">break</span>
+            <span class="n">t1</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">perf_counter_ns</span><span class="p">()</span>
+            <span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Received a queue object&lt;</span><span class="si">{</span><span class="n">chan</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&gt;&quot;</span><span class="p">)</span>
+            <span class="c1"># re-Allocate Dataset</span>
+            <span class="n">indx</span><span class="p">,</span> <span class="n">adci</span><span class="p">,</span> <span class="n">adcq</span><span class="p">,</span> <span class="n">timestamp</span> <span class="o">=</span> <span class="n">obj</span>
+            <span class="n">raw</span><span class="o">.</span><span class="n">resize</span><span class="p">(</span><span class="n">indx</span><span class="p">)</span>
+            <span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;resized&quot;</span><span class="p">)</span>
+            <span class="c1"># Get Data</span>
+            <span class="n">raw</span><span class="o">.</span><span class="n">adc_i</span><span class="p">[:,</span> <span class="n">indx</span> <span class="o">-</span> <span class="mi">488</span> <span class="p">:</span> <span class="n">indx</span><span class="p">]</span> <span class="o">=</span> <span class="n">adci</span>
+            <span class="n">raw</span><span class="o">.</span><span class="n">adc_q</span><span class="p">[:,</span> <span class="n">indx</span> <span class="o">-</span> <span class="mi">488</span> <span class="p">:</span> <span class="n">indx</span><span class="p">]</span> <span class="o">=</span> <span class="n">adcq</span>
+            <span class="n">raw</span><span class="o">.</span><span class="n">timestamp</span><span class="p">[</span><span class="n">indx</span> <span class="o">-</span> <span class="mi">488</span> <span class="p">:</span> <span class="n">indx</span><span class="p">]</span> <span class="o">=</span> <span class="n">timestamp</span>
+            <span class="n">raw</span><span class="o">.</span><span class="n">n_sample</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">indx</span>
+            <span class="n">t2</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">perf_counter_ns</span><span class="p">()</span>
+            <span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Parsed in this loop&#39;s data &lt;</span><span class="si">{</span><span class="n">chan</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&gt;&quot;</span><span class="p">)</span>
+            <span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Data Writer deltaT = </span><span class="si">{</span><span class="p">(</span><span class="n">t2</span><span class="o">-</span><span class="n">t1</span><span class="p">)</span><span class="o">*</span><span class="mf">1e-6</span><span class="si">}</span><span class="s2"> ms for &lt;</span><span class="si">{</span><span class="n">chan</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&gt;&quot;</span><span class="p">)</span>
 
+        <span class="n">raw</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+        <span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Queue closed, closing file and exiting for &lt;</span><span class="si">{</span><span class="n">chan</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&gt;&quot;</span><span class="p">)</span>
+    <span class="k">except</span> <span class="ne">KeyboardInterrupt</span><span class="p">:</span>
+        <span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Keyboard Interrupt Caught. This terminates processes that may be writing to a file. Expect possible hdf5 data corruption&quot;</span><span class="p">)</span>
 
 <span class="k">def</span> <span class="nf">__data_collector_process</span><span class="p">(</span><span class="n">dataqueue</span><span class="p">,</span> <span class="n">chan</span><span class="p">:</span> <span class="n">RFChannel</span><span class="p">,</span> <span class="n">runFlag</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
@@ -164,47 +170,55 @@
 
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">log</span> <span class="o">=</span> <span class="n">logger</span><span class="o">.</span><span class="n">getChild</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
-    <span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;began data collector process &lt;</span><span class="si">{</span><span class="n">chan</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&gt;&quot;</span><span class="p">)</span>
-    <span class="c1"># Creae Socket</span>
-    <span class="n">s</span> <span class="o">=</span> <span class="n">socket</span><span class="o">.</span><span class="n">socket</span><span class="p">(</span><span class="n">socket</span><span class="o">.</span><span class="n">AF_INET</span><span class="p">,</span> <span class="n">socket</span><span class="o">.</span><span class="n">SOCK_DGRAM</span><span class="p">)</span>
     <span class="k">try</span><span class="p">:</span>
-        <span class="n">s</span><span class="o">.</span><span class="n">bind</span><span class="p">((</span><span class="n">chan</span><span class="o">.</span><span class="n">ip</span><span class="p">,</span> <span class="n">chan</span><span class="o">.</span><span class="n">port</span><span class="p">))</span>
-        <span class="n">s</span><span class="o">.</span><span class="n">settimeout</span><span class="p">(</span><span class="mi">10</span><span class="p">)</span>
-    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-        <span class="n">dataqueue</span><span class="o">.</span><span class="n">put</span><span class="p">(</span><span class="kc">None</span><span class="p">)</span>
-        <span class="k">return</span>
-    <span class="c1"># log.debug(f&quot;Socket bound - &lt;{chan.name}&gt;&quot;)</span>
-    <span class="c1"># Take Data</span>
-    <span class="n">idx</span> <span class="o">=</span> <span class="mi">488</span>
-    <span class="n">i</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="mi">1024</span><span class="p">,</span> <span class="mi">488</span><span class="p">))</span>
-    <span class="n">q</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="mi">1024</span><span class="p">,</span> <span class="mi">488</span><span class="p">))</span>
-    <span class="n">ts</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">488</span><span class="p">)</span>
-    <span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;runflag is </span><span class="si">{</span><span class="n">runFlag</span><span class="o">.</span><span class="n">value</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-
-    <span class="k">while</span> <span class="n">runFlag</span><span class="o">.</span><span class="n">value</span><span class="p">:</span>
-        <span class="n">t1</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">perf_counter_ns</span><span class="p">()</span>
+        <span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;began data collector process &lt;</span><span class="si">{</span><span class="n">chan</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&gt;&quot;</span><span class="p">)</span>
+        <span class="c1"># Creae Socket</span>
+        <span class="n">s</span> <span class="o">=</span> <span class="n">socket</span><span class="o">.</span><span class="n">socket</span><span class="p">(</span><span class="n">socket</span><span class="o">.</span><span class="n">AF_INET</span><span class="p">,</span> <span class="n">socket</span><span class="o">.</span><span class="n">SOCK_DGRAM</span><span class="p">)</span>
         <span class="k">try</span><span class="p">:</span>
-            <span class="n">i</span><span class="p">[</span><span class="o">...</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
-            <span class="n">q</span><span class="p">[</span><span class="o">...</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
-            <span class="n">ts</span><span class="p">[</span><span class="o">...</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
-            <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">488</span><span class="p">):</span>
-                <span class="n">data</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">frombuffer</span><span class="p">(</span><span class="nb">bytearray</span><span class="p">(</span><span class="n">s</span><span class="o">.</span><span class="n">recv</span><span class="p">(</span><span class="mi">8208</span><span class="p">)),</span> <span class="n">dtype</span><span class="o">=</span><span class="s2">&quot;&lt;i&quot;</span><span class="p">)[</span><span class="mi">0</span><span class="p">:</span><span class="mi">2048</span><span class="p">]</span>
-                <span class="n">i</span><span class="p">[:,</span> <span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="mi">0</span><span class="p">::</span><span class="mi">2</span><span class="p">]</span>
-                <span class="n">q</span><span class="p">[:,</span> <span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="mi">1</span><span class="p">::</span><span class="mi">2</span><span class="p">]</span>
-                <span class="n">ts</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="n">getdtime</span><span class="p">()</span>
-            <span class="n">dataqueue</span><span class="o">.</span><span class="n">put</span><span class="p">((</span><span class="n">idx</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">q</span><span class="p">,</span> <span class="n">ts</span><span class="p">))</span>
-        <span class="k">except</span> <span class="ne">TimeoutError</span><span class="p">:</span>
-            <span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Timed out waiting for data &lt;</span><span class="si">{</span><span class="n">chan</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&gt;&quot;</span><span class="p">)</span>
-            <span class="k">break</span>
-        <span class="n">idx</span> <span class="o">=</span> <span class="n">idx</span> <span class="o">+</span> <span class="mi">488</span>
-        <span class="n">t2</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">perf_counter_ns</span><span class="p">()</span>
-        <span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;datacollector deltaT = </span><span class="si">{</span><span class="p">(</span><span class="n">t2</span><span class="o">-</span><span class="n">t1</span><span class="p">)</span><span class="o">*</span><span class="mf">1e-6</span><span class="si">}</span><span class="s2"> ms&quot;</span><span class="p">)</span>
-    <span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;exited while loop, putting None in dataqueue for &lt;</span><span class="si">{</span><span class="n">chan</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&gt; &quot;</span><span class="p">)</span>
-    <span class="n">dataqueue</span><span class="o">.</span><span class="n">put</span><span class="p">(</span><span class="kc">None</span><span class="p">)</span>
-    <span class="n">s</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+            <span class="n">s</span><span class="o">.</span><span class="n">bind</span><span class="p">((</span><span class="n">chan</span><span class="o">.</span><span class="n">ip</span><span class="p">,</span> <span class="n">chan</span><span class="o">.</span><span class="n">port</span><span class="p">))</span>
+            <span class="n">s</span><span class="o">.</span><span class="n">settimeout</span><span class="p">(</span><span class="mi">10</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="n">dataqueue</span><span class="o">.</span><span class="n">put</span><span class="p">(</span><span class="kc">None</span><span class="p">)</span>
+            <span class="k">return</span>
+        <span class="c1"># log.debug(f&quot;Socket bound - &lt;{chan.name}&gt;&quot;)</span>
+        <span class="c1"># Take Data</span>
+        <span class="n">idx</span> <span class="o">=</span> <span class="mi">488</span>
+        <span class="n">i</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="mi">1024</span><span class="p">,</span> <span class="mi">488</span><span class="p">))</span>
+        <span class="n">q</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="mi">1024</span><span class="p">,</span> <span class="mi">488</span><span class="p">))</span>
+        <span class="n">ts</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">488</span><span class="p">)</span>
+        <span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;runflag is </span><span class="si">{</span><span class="n">runFlag</span><span class="o">.</span><span class="n">value</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 
+        <span class="k">while</span> <span class="n">runFlag</span><span class="o">.</span><span class="n">value</span><span class="p">:</span>
+            <span class="n">t1</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">perf_counter_ns</span><span class="p">()</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">i</span><span class="p">[</span><span class="o">...</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
+                <span class="n">q</span><span class="p">[</span><span class="o">...</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
+                <span class="n">ts</span><span class="p">[</span><span class="o">...</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
+                <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">488</span><span class="p">):</span>
+                    <span class="n">data</span> <span class="o">=</span> <span class="n">s</span><span class="o">.</span><span class="n">recv</span><span class="p">(</span><span class="mi">8208</span> <span class="o">*</span> <span class="mi">1</span><span class="p">)</span>
+                    <span class="n">datarray</span> <span class="o">=</span> <span class="nb">bytearray</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+                    <span class="n">spec_data</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">frombuffer</span><span class="p">(</span><span class="n">datarray</span><span class="p">,</span> <span class="n">dtype</span> <span class="o">=</span> <span class="s1">&#39;&lt;i&#39;</span><span class="p">)</span>
+                    <span class="n">i</span><span class="p">[:,</span> <span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="n">spec_data</span><span class="p">[</span><span class="mi">0</span><span class="p">::</span><span class="mi">2</span><span class="p">][</span><span class="mi">0</span><span class="p">:</span><span class="mi">1024</span><span class="p">]</span>
+                    <span class="n">q</span><span class="p">[:,</span> <span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="n">spec_data</span><span class="p">[</span><span class="mi">1</span><span class="p">::</span><span class="mi">2</span><span class="p">][</span><span class="mi">0</span><span class="p">:</span><span class="mi">1024</span><span class="p">]</span>
+                    <span class="n">ts</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="n">getdtime</span><span class="p">()</span>
+                <span class="n">dataqueue</span><span class="o">.</span><span class="n">put</span><span class="p">((</span><span class="n">idx</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">q</span><span class="p">,</span> <span class="n">ts</span><span class="p">))</span>
+                <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;&lt;</span><span class="si">{</span><span class="n">chan</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&gt; rx 488 pkts&quot;</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">TimeoutError</span><span class="p">:</span>
+                <span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Timed out waiting for data &lt;</span><span class="si">{</span><span class="n">chan</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&gt;&quot;</span><span class="p">)</span>
+                <span class="k">break</span>
+            <span class="n">idx</span> <span class="o">=</span> <span class="n">idx</span> <span class="o">+</span> <span class="mi">488</span>
+            <span class="n">t2</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">perf_counter_ns</span><span class="p">()</span>
+            <span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;datacollector deltaT = </span><span class="si">{</span><span class="p">(</span><span class="n">t2</span><span class="o">-</span><span class="n">t1</span><span class="p">)</span><span class="o">*</span><span class="mf">1e-6</span><span class="si">}</span><span class="s2"> ms&quot;</span><span class="p">)</span>
+        <span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;exited while loop, putting None in dataqueue for &lt;</span><span class="si">{</span><span class="n">chan</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&gt; &quot;</span><span class="p">)</span>
+        <span class="n">dataqueue</span><span class="o">.</span><span class="n">put</span><span class="p">(</span><span class="kc">None</span><span class="p">)</span>
+        <span class="n">s</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+    <span class="k">except</span> <span class="ne">KeyboardInterrupt</span><span class="p">:</span>
+        <span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Received a keyboard interupt. Data collection may be incomplete.&quot;</span><span class="p">)</span>
+        <span class="n">dataqueue</span><span class="o">.</span><span class="n">put</span><span class="p">(</span><span class="kc">None</span><span class="p">)</span>
 
-<div class="viewcode-block" id="exceptionCallback"><a class="viewcode-back" href="../udp2.html#udp2.exceptionCallback">[docs]</a><span class="k">def</span> <span class="nf">exceptionCallback</span><span class="p">(</span><span class="n">e</span><span class="p">):</span>
+<div class="viewcode-block" id="exceptionCallback"><a class="viewcode-back" href="../udp2.html#udp2.exceptionCallback">[docs]</a><span class="k">def</span> <span class="nf">exceptionCallback</span><span class="p">(</span><span class="n">e</span><span class="p">:</span> <span class="ne">Exception</span><span class="p">):</span>
+    <span class="n">log</span> <span class="o">=</span> <span class="n">logger</span><span class="o">.</span><span class="n">getChild</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+    <span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">))</span>
     <span class="k">raise</span> <span class="n">e</span></div>
 
 
@@ -224,20 +238,14 @@
 
 <span class="sd">      - Capture will sleep() for 10 seconds and then end the data capture.</span>
 
-<span class="sd">    :param channels: RF channels to capture data from</span>
-<span class="sd">    :type channels: List[data_handler.RFChannel]</span>
+<span class="sd">    :param List(data_handler.RFChannel) channels: RF channels to capture data from</span>
 
-<span class="sd">    :param fn: Pass in a funtion to call during capture.</span>
+<span class="sd">    :param callable fn: Pass in a funtion to call during capture.</span>
 
 <span class="sd">        .. DANGER::</span>
 <span class="sd">            The provided function should not hang indefinitely and returned data is ignored.</span>
 
-<span class="sd">    :type fn: function</span>
-
-<span class="sd">    :param args: args to pass into fn</span>
-
-<span class="sd">    :type args: \*args</span>
-
+<span class="sd">    :param any args: args to pass into fn</span>
 <span class="sd">    :return: None</span>
 
 <span class="sd">    Example</span>
@@ -246,8 +254,15 @@
 
 <span class="sd">    .. code::</span>
 
-<span class="sd">        rfsoc = data_handler.RFChannel(&quot;./rfsoc1_fakedata.h5&quot;, &quot;127.0.0.1&quot;, 4096, &quot;Stuffed Crust Pizza&quot;, 488, 1024, 1)</span>
-<span class="sd">        capture([rfsoc], time.sleep, 30)</span>
+<span class="sd">        bb = self.get_last_flist()</span>
+<span class="sd">        rfsoc1 = data_handler.RFChannel(savefile, &quot;192.168.5.40&quot;, </span>
+<span class="sd">                                        4096, &quot;rfsoc1&quot;, baseband_freqs=bb,</span>
+<span class="sd">                                        tone_powers=self.get_last_alist(), </span>
+<span class="sd">                                        n_resonator=len(bb), attenuator_settings=np.array([20.0, 10.0]),</span>
+<span class="sd">                                        tile_number=1, rfsoc_number=1, </span>
+<span class="sd">                                        lo_sweep_filename=data_handler.get_last_lo(&quot;rfsoc1&quot;))</span>
+<span class="sd">        udp2.capture([rfsoc1], time.sleep, 60)</span>
+<span class="sd">        </span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">log</span> <span class="o">=</span> <span class="n">logger</span><span class="o">.</span><span class="n">getChild</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
 
@@ -255,7 +270,7 @@
         <span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Specified list of rfsoc connections is empy/None&quot;</span><span class="p">)</span>
         <span class="k">return</span>
 
-    <span class="c1"># mmmmmmmmmmmmmmmmmmmmm</span>
+    <span class="c1"># setup process pool.</span>
     <span class="n">manager</span> <span class="o">=</span> <span class="n">mp</span><span class="o">.</span><span class="n">Manager</span><span class="p">()</span>
     <span class="n">pool</span> <span class="o">=</span> <span class="n">mp</span><span class="o">.</span><span class="n">Pool</span><span class="p">()</span>
 
@@ -282,15 +297,22 @@
     <span class="k">if</span> <span class="ow">not</span> <span class="n">fn</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
         <span class="k">try</span><span class="p">:</span>
             <span class="n">fn</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">KeyboardInterrupt</span><span class="p">:</span>
+            <span class="n">pool</span><span class="o">.</span><span class="n">terminate</span><span class="p">()</span>
+            <span class="n">pool</span><span class="o">.</span><span class="n">join</span><span class="p">()</span>
         <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
             <span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;While calling fn, an exception occured&quot;</span><span class="p">)</span>
             <span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">))</span>
     <span class="k">else</span><span class="p">:</span>
-        <span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;No function provided, defaulting to a 10 second collection&quot;</span><span class="p">)</span>
-        <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mi">10</span><span class="p">)</span>
-    <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Ending Data Capture; Waiting for child processes to finish...</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;No function provided, defaulting to a 2 second collection&quot;</span><span class="p">)</span>
+        <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
+    <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Ending Data Capture; Waiting for child processes to finish...&quot;</span><span class="p">)</span>
     <span class="n">runFlag</span><span class="o">.</span><span class="n">value</span> <span class="o">=</span> <span class="kc">False</span>
-    <span class="n">pool</span><span class="o">.</span><span class="n">join</span><span class="p">()</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">pool</span><span class="o">.</span><span class="n">join</span><span class="p">()</span>
+    <span class="k">except</span> <span class="ne">KeyboardInterrupt</span><span class="p">:</span>
+        <span class="n">pool</span><span class="o">.</span><span class="n">terminate</span><span class="p">()</span>
+        <span class="n">pool</span><span class="o">.</span><span class="n">join</span><span class="p">()</span>
     <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Capture finished&quot;</span><span class="p">)</span></div>
 
 
