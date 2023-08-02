@@ -25,10 +25,8 @@ n_resonator
 
 
 ObservationDataFile
---------------
-
-
-________
+-------------------
+000
 
 
 
@@ -92,14 +90,14 @@ class RFChannel:
 
     raw_filename: str
     ip: str
+    baseband_freqs: np.ndarray
+    tone_powers: np.ndarray
+    attenuator_settings: np.ndarray
     port: int = 4096
     name: str = "Untitled"
     n_sample: int = 488
     n_resonator: int = 1000
     n_attenuators: int = 2
-    baseband_freqs: np.ndarray = np.zeros(n_resonator)*1.0
-    tone_powers: np.ndarray = np.zeros(n_resonator)*1.0
-    attenuator_settings: np.ndarray = np.zeros(n_attenuators)*1.0
     sample_rate: np.ndarray = 488
     tile_number: int = 0
     rfsoc_number: int = 0
@@ -116,6 +114,7 @@ class RawDataFile:
 
     :param path: /file/path/here/file.h5
     :param n_sample: (Dimension) The number of data samples collected (i.e., sample_rate * length_of_file_in_seconds)
+
     .. note::
         As of a recent change to the data collection process, n_samples is defaulted to 0 and
         repeatedly resized during data collection. This is due to the fact that an indefinite quantity of data was
@@ -306,7 +305,7 @@ class RawDataFile:
             sweepdata = np.load(sweeppath)
             self.fh.create_dataset("/global_data/lo_sweep", data=sweepdata)
         else:
-            log.warning("Specified sweep file does not exist. Will not append.")
+            log.info("Specified sweep file does not exist. Will not append.")
 
     def close(self):
         """

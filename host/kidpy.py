@@ -42,7 +42,7 @@ import logging
 # Configures the logger such that it prints to a screen and file including the format
 __LOGFMT = "%(asctime)s|%(levelname)s|%(filename)s|%(lineno)d|%(funcName)s|%(message)s"
 
-logging.basicConfig(format=__LOGFMT, level=logging.DEBUG)
+logging.basicConfig(format=__LOGFMT, level=logging.INFO)
 logger = logging.getLogger(__name__)
 __logh = logging.FileHandler("./kidpy.log")
 logging.root.addHandler(__logh)
@@ -224,28 +224,6 @@ def menu(captions, options):
         print("Not a valid option")
         return 999999
     return opt
-
-def AZ_SCAN():
-    log = logger.getChild(__name__)
-    try:
-        if motor.Initialized !=True:
-            print('\033[31m Need to initialize system first.\033[0m')
-        else:
-            savefile = onrkidpy.get_filename(type='AZEL') + '.npz'
-            log.info("Waiting one second for data collection")
-            time.sleep(1)
-            motor.AZ_scan_mode(0.,5.,savefile,position_return=True)
-            time.sleep(1)
-    except OSError:
-        print ('\033[93m OS Error: DAQ could not be initialized: Check comm port and power supply\033[0m')
-        motor.set_ao_zero()
-    except IndexError:
-        print ('\033[93m Index Error: DAQ could not be initialized: Check comm port and power supply\033[0m')
-        motor.set_ao_zero()
-    
-    except KeyboardInterrupt:
-        motor.set_ao_zero()
-        pass 
 
 class kidpy:
     def __init__(self):
@@ -629,11 +607,13 @@ class kidpy:
                             # motor.init_test()
                             savefile = onrkidpy.get_filename(type="TOD", chan_name="rfsoc1") + ".hd5"
                             bb = self.get_last_flist()
-                            rfsoc1 = data_handler.RFChannel(savefile, "192.168.5.40", 4096, "rfsoc1", baseband_freqs=bb,
-                                                            tone_powers=self.get_last_alist(), n_resonator=len(bb), attenuator_settings=np.array([20.0, 10.0]),
+                            rfsoc1 = data_handler.RFChannel(savefile, "192.168.5.40", 
+                                                            4096, "rfsoc1", baseband_freqs=bb,
+                                                            tone_powers=self.get_last_alist(), 
+                                                            n_resonator=len(bb), attenuator_settings=np.array([20.0, 10.0]),
                                                             tile_number=1, rfsoc_number=1, 
                                                             lo_sweep_filename=data_handler.get_last_lo("rfsoc1"))
-                            udp2.capture([rfsoc1], time.sleep, 10)
+                            udp2.capture([rfsoc1], time.sleep, 60)
 
 
                         if onr_opt == 7:  # Exit
