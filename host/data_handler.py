@@ -403,15 +403,12 @@ class ObservationDataFile:
 
     def format(
         self,
-        filename,
         n_rfsoc: int,
         n_sample: int,
         n_sample_lo: int,
         n_resonator: int,
         n_attenuator: str,
     ):
-        self.df = h5py.File(filename, "w")
-
         # ***************************** Time Ordered data *************************************
         self.adc_i = self.df.create_dataset(
             "time_ordered_data/adc_i",
