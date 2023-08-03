@@ -151,7 +151,7 @@ def exceptionCallback(e: Exception):
     raise e
 
 
-def capture(channels: list, fn=None, *args):
+def capture(channels: list, fn=None, *args, **kwargs):
     """
     Begins the capture of readout data. For each channel provided, a pair of downstream processes are created
     to capture and save data. Due to the fact that the main thread isn't handling data means that it's relatively free to run some other job.
@@ -190,7 +190,7 @@ def capture(channels: list, fn=None, *args):
                                         n_resonator=len(bb), attenuator_settings=np.array([20.0, 10.0]),
                                         tile_number=1, rfsoc_number=1, 
                                         lo_sweep_filename=data_handler.get_last_lo("rfsoc1"))
-        udp2.capture([rfsoc1], time.sleep, 60)
+        udp2.capture([rfsoc1], time.sleep, 30)
         
     """
     log = logger.getChild(__name__)
@@ -225,7 +225,7 @@ def capture(channels: list, fn=None, *args):
     log.info("Waiting on capture to complete")
     if not fn is None:
         try:
-            fn(*args)
+            fn(*args, **kwargs)
         except KeyboardInterrupt:
             pool.terminate()
             pool.join()

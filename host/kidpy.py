@@ -548,7 +548,7 @@ class kidpy:
                             t = int(input("How many seconds of data?: ")) or 0
                             os.system("clear")
                             self.__udp.bindSocket()
-                            savefile = onrkidpy.get_filename(type="TOD", chan_name="rfsoc1") + ".hd5"
+                            savefile = onrkidpy.get_filename(type="TOD", chan_name="rfsoc1") + ".h5"
                             if t < 60:
                                 self.__udp.shortDataCapture(savefile, 488 * t)
                             else:
@@ -604,16 +604,18 @@ class kidpy:
 
                             # then collect the KID data
                             os.system("clear")
-                            # motor.init_test()
-                            savefile = onrkidpy.get_filename(type="TOD", chan_name="rfsoc1") + ".hd5"
+                            motor.init_test()
+                    
+                            savefile = onrkidpy.get_filename(type="TOD", chan_name="rfsoc1") + ".h5"
+                            # savefile ex 20230802_rfsoc1_TOD_set1001.h5
                             bb = self.get_last_flist()
-                            rfsoc1 = data_handler.RFChannel(savefile, "192.168.5.40", 
-                                                            4096, "rfsoc1", baseband_freqs=bb,
-                                                            tone_powers=self.get_last_alist(), 
+                            rfsoc1 = data_handler.RFChannel(savefile, "192.168.5.40", bb, self.get_last_alist(),
+                                                            port=4096, name="rfsoc1", 
                                                             n_resonator=len(bb), attenuator_settings=np.array([20.0, 10.0]),
                                                             tile_number=1, rfsoc_number=1, 
                                                             lo_sweep_filename=data_handler.get_last_lo("rfsoc1"))
-                            udp2.capture([rfsoc1], time.sleep, 60)
+                            savefile = onrkidpy.get_filename(type='AZEL', azeloffset=1, usingh5=True) + '.h5'
+                            udp2.capture([rfsoc1], motor.AZ_scan_mode, 0.,10.,savefile,position_return=True)
 
 
                         if onr_opt == 7:  # Exit
