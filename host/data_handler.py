@@ -48,10 +48,10 @@ logger = logging.getLogger(__name__)
 @dataclass
 class RFChannel:
     """
-    **Dataclass**; contains the state information relevant to an observation on a 
+    **Dataclass**; contains the state information relevant to an observation on a
     per-RF-chain basis going into a/the cryostat. Each rf channel gets it's own RF chain and
     subsequently it's own UDP connection. The information used here is pulled into the RawDataFile.
-    
+
 
     :param str raw_filename: path to where the HDF5 file shall exist.
 
@@ -61,19 +61,19 @@ class RFChannel:
 
     :param str name: Friendly Name to call the channel. This is relevant to logs, etc
 
-    :param int n_sample: n_samples to take. While this is used to format the 
+    :param int n_sample: n_samples to take. While this is used to format the
         rawDataFile, it should be
         left as 0 for now since udp2.capture() dynamically resizes/allocates it's datasets.
 
     :param int n_resonator: Number of resonators we're interested in / Tones we're generating
-        from the RFSOC dac mapped to this Channel. 
-    
+        from the RFSOC dac mapped to this Channel.
+
     :param int n_attenuator: Dimension N Attenuators
-    
+
     :param np.ndarray baseband_freqs: array of N resonator tones
 
     :param np.ndarray attenuator_settings: Array of N Attenuator settings
-    
+
     :param int sample_rate: Data downlink sample rate ~488 Samples/Second
 
     :param int tile_number: Which tile this rf channel belongs to
@@ -129,7 +129,7 @@ class RawDataFile:
         log = logger.getChild(__name__)
 
         self.filename = path
-        if not os.path.isfile(path):
+        if not os.path.exists(path):
             log.debug("File not found, creating file...")
             try:
                 self.fh = h5py.File(self.filename, "a")
@@ -181,11 +181,9 @@ class RawDataFile:
             dtype=h5py.h5t.NATIVE_DOUBLE,
         )
         self.baseband_freqs = self.fh.create_dataset(
-            "global_data/baseband_freqs", ( n_resonator,)
+            "global_data/baseband_freqs", (n_resonator,)
         )
-        self.sample_rate = self.fh.create_dataset(
-            "global_data/sample_rate", (1,)
-        )
+        self.sample_rate = self.fh.create_dataset("global_data/sample_rate", (1,))
         self.tile_number = self.fh.create_dataset(
             "global_data/tile_number", (n_resonator,), dtype=h5py.h5t.NATIVE_INT32
         )
@@ -211,17 +209,18 @@ class RawDataFile:
             (1024, n_sample),
             chunks=(1024, 488),
             maxshape=(1024, None),
-            dtype=h5py.h5t.STD_I32LE
+            dtype=h5py.h5t.STD_I32LE,
         )
         self.adc_q = self.fh.create_dataset(
             "time_ordered_data/adc_q",
             (1024, n_sample),
             chunks=(1024, 488),
             maxshape=(1024, None),
-            dtype=h5py.h5t.STD_I32LE
+            dtype=h5py.h5t.STD_I32LE,
         )
         self.lo_freq = self.fh.create_dataset(
-            "time_ordered_data/lo_freq", (488,), 
+            "time_ordered_data/lo_freq",
+            (488,),
             chunks=(488,),
             maxshape=(None,),
         )
@@ -245,7 +244,7 @@ class RawDataFile:
         self.attenuator_settings[:] = chan.attenuator_settings
         self.baseband_freqs[:] = chan.baseband_freqs
         self.sample_rate[0] = chan.sample_rate
-        self.tile_number[0] = chan.tile_number
+        self.tile_number[:] = chan.tile_number
         self.tone_powers[:] = chan.tone_powers
         self.tile_number[0] = chan.tile_number
         self.rfsoc_number[0] = chan.rfsoc_number
@@ -300,7 +299,7 @@ class RawDataFile:
         """
         log = logger.getChild(__name__)
         log.debug(f"Checking for file {sweeppath}")
-        if os.path.isfile(sweeppath):
+        if os.path.exists(sweeppath):
             log.debug("found sweep file, appending.")
             sweepdata = np.load(sweeppath)
             self.fh.create_dataset("/global_data/lo_sweep", data=sweepdata)
@@ -323,7 +322,7 @@ class TelescopeDataFile:
         log = logger.getChild(__name__)
 
         self.filename = path
-        if not os.path.isfile(path):
+        if not os.path.exists(path):
             log.debug("File not found, creating file...")
             try:
                 self.fh = h5py.File(self.filename, "a")
@@ -372,42 +371,44 @@ class ObservationDataFile:
     :param n_resonator:  the total number of resonances spanning all RFSOCs
     :param n_attenuator: the number of attenuators on each RFSOC -
     """
-    def __init__(self, path, overwrite=False):
-            log = logger.getChild(__name__)
 
-            self.filename = path
-            if not os.path.isfile(path):
-                log.debug("File not found, creating file...")
+    def __init__(self, path, overwrite=False):
+        log = logger.getChild(__name__)
+
+        self.filename = path
+        if not os.path.exists(path):
+            log.debug("File not found, creating file...")
+            try:
+                self.fh = h5py.File(self.filename, "a")
+            except Exception as e:
+                log.error(e)
+                raise
+        else:
+            log.debug("File already exists.")
+            if overwrite:
+                log.debug("Overwriting file")
+                try:
+                    self.fh = h5py.File(self.filename, "w")
+                except Exception as e:
+                    log.error(e)
+                    raise
+            else:
+                log.debug("Opening File as append")
                 try:
                     self.fh = h5py.File(self.filename, "a")
                 except Exception as e:
                     log.error(e)
                     raise
-            else:
-                log.debug("File already exists.")
-                if overwrite:
-                    log.debug("Overwriting file")
-                    try:
-                        self.fh = h5py.File(self.filename, "w")
-                    except Exception as e:
-                        log.error(e)
-                        raise
-                else:
-                    log.debug("Opening File as append")
-                    try:
-                        self.fh = h5py.File(self.filename, "a")
-                    except Exception as e:
-                        log.error(e)
-                        raise
-                    self.read()
+                self.read()
+
     def format(
         self,
+        filename,
         n_rfsoc: int,
         n_sample: int,
         n_sample_lo: int,
         n_resonator: int,
         n_attenuator: str,
-        filename,
     ):
         self.df = h5py.File(filename, "w")
 
@@ -681,6 +682,7 @@ def get_last_lo(name: str):
     g.sort()
     return g[-1]
 
+
 def get_last_rdf(name: str):
     """
     Modified function to get the latest RawDataFile
@@ -710,6 +712,7 @@ def get_last_rdf(name: str):
     g.sort()
     return g[-1]
 
-#20230731_TOD_set1002
+
+# 20230731_TOD_set1002
 if __name__ == "__main__":
     pass
