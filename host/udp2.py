@@ -240,6 +240,8 @@ def capture(channels: list, fn=None, *args, **kwargs):
         except Exception as e:
             log.error("While calling fn, an exception occured")
             log.error(str(e))
+            pool.terminate()
+            pool.join()
     else:
         log.debug("No function provided, defaulting to a 2 second collection")
         time.sleep(2)
