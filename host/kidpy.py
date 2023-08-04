@@ -469,6 +469,7 @@ class kidpy:
 
                         if onr_opt == 1:  # Run standard calibration LO sweep
                             # see if the user wants to shift all the tones (e.g., due to change in loading)
+                            chan_name = 'rfsoc1'
                             tone_shift = (
                                 input(
                                     "How many kHz to shift the tones in the band center before the LO sweep (default is 0)"
@@ -499,7 +500,7 @@ class kidpy:
                                 "Taking initial low-resoluation sweep with df = 1 kHz and Deltaf = 100 kHz"
                             )
                             savefile = onrkidpy.get_filename(
-                                type="LO", chan_name="rfsoc1"
+                                type="LO", chan_name=chan_name
                             )
                             sweeps.loSweep(
                                 self.valon,
@@ -545,18 +546,33 @@ class kidpy:
                                 * 1.0e6
                             )
                             write_new_list = (
-                                input("Write new list of tones (Default = False)?")
-                                or False
+                                input("Write new list of tones, yes or no (Default = no)?")
+                                or 'no'
                             )
-                            if write_new_list:
+                            if write_new_list == 'yes':
                                 write_fList(self, np.ndarray.tolist(new_tone_list), [])
                                 np.save(
                                     onrkidpy.get_filename(
-                                        type="TONELIST", chan_name="rfsoc1"
+                                        type="TONELIST", chan_name=chan_name
                                     ),
                                     new_tone_list,
                                 )
                             plt.close("all")
+
+                            second_sweep = (input('Perform a second high-resolution sweep, yes or no (Default = no)') or 'no')
+                            if second_sweep == 'yes':
+                                savefile = onrkidpy.get_filename(
+                                type="LO", chan_name=chan_name)
+                                sweeps.loSweep(
+                                self.valon,
+                                self.__udp,
+                                self.get_last_flist(),
+                                valon5009.Synthesizer.get_frequency(
+                                    self.valon, valon5009.SYNTH_B
+                                ),
+                                N_steps=30,
+                                freq_step=0.001,
+                                savefile=savefile,)
 
                         if onr_opt == 2:  # Stream data to file
                             t = int(input("How many seconds of data?: ")) or 0
@@ -619,33 +635,36 @@ class kidpy:
                             # then collect the KID data
                             os.system("clear")
                             motor.init_test()
-
-                            savefile = (
-                                onrkidpy.get_filename(type="TOD", chan_name="rfsoc1")
+                            rfsocfile = (
+                                onrkidpy.get_filename(type="TOD", chan_name="channame")
                                 + ".hd5"
                             )
+                            telefile = rfsocfile.replace('TOD', 'AZEL')
+                            telefile = telefile.replace("_channame", "")
+                            rfsocfile = rfsocfile.replace("channame", "rfsoc1")
                             # Populate the rfchannel with all the relevent details
                             bb = self.get_last_flist()
                             rfsoc1 = data_handler.RFChannel(
-                                savefile,
+                                rfsocfile,
                                 "192.168.5.40",
                                 bb,
                                 self.get_last_alist(),
                                 port=4096,
                                 name="rfsoc1",
-                                n_resonator=len(bb),
+                                n_tones=len(bb),
                                 attenuator_settings=np.array([20.0, 10.0]),
-                                tile_number=1,
+                                tile_number=2,
                                 rfsoc_number=1,
                                 lo_sweep_filename=data_handler.get_last_lo("rfsoc1"),
                             )
-                            savefile = onrkidpy.get_filename(type="AZEL") + ".hd5"
+                            
                             udp2.capture(
                                 [rfsoc1],
                                 motor.AZ_scan_mode,
                                 0.0,
                                 10.0,
-                                savefile,
+                                telefile,
+                                n_repeats=1,
                                 position_return=True,
                             )
 

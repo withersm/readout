@@ -9,7 +9,7 @@ import pdb
 logger = logging.getLogger(__name__)
 
 
-def sweep(loSource, udp, f_center, freqs, N_steps=500, freq_step=0.0):
+def sweep(loSource: valon5009.Synthesizer, udp, f_center, freqs, N_steps=500, freq_step=0.0):
     """
     Actually perform an LO Sweep using valon 5009's and save the data
 
@@ -44,10 +44,11 @@ def sweep(loSource, udp, f_center, freqs, N_steps=500, freq_step=0.0):
     flos = np.arange(flo_start, flo_stop, flo_step)
     log.info(f"len flos {flos.shape}")
     udp.bindSocket()
-
+    actual_los = []
     def temp(lofreq):
         # self.set_ValonLO function here
-        loSource.set_frequency(valon5009.SYNTH_B, lofreq)
+        loSource.set_frequency(valon5009.SYNTH_B, lofreq+0.000001)
+        # actual_los.append(loSource.get_frequency(valon5009.SYNTH_B))
         # Read values and trash initial read, suspecting linear delay is cause..
         Naccums = 50
         I, Q = [], []
@@ -73,7 +74,6 @@ def sweep(loSource, udp, f_center, freqs, N_steps=500, freq_step=0.0):
         print(".", end="")
 
         return Z
-
     sweep_Z = np.array([temp(lofreq) for lofreq in flos])
     log.info(f"sweepz.shape={sweep_Z.shape}")
 

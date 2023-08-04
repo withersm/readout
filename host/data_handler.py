@@ -44,6 +44,7 @@ import glob
 
 logger = logging.getLogger(__name__)
 
+PARAMS_PATH = "/home/onrkids/readout/host/params/"
 
 @dataclass
 class RFChannel:
@@ -93,10 +94,11 @@ class RFChannel:
     baseband_freqs: np.ndarray
     tone_powers: np.ndarray
     attenuator_settings: np.ndarray
+    n_tones: int
+
     port: int = 4096
     name: str = "Untitled"
-    n_sample: int = 488
-    n_resonator: int = 1000
+    n_sample: int = 488    
     n_attenuators: int = 2
     sample_rate: np.ndarray = 488
     tile_number: int = 0
@@ -104,7 +106,7 @@ class RFChannel:
     chan_number: int = 0
     ifslice_number: int = 0
     lo_sweep_filename: str = "/path/to/some_s21_file_here.npy"
-
+    n_fftbins: int = 1024
 
 class RawDataFile:
     """A raw hdf5 data file object for incoming rfsoc-UDP data streams.
@@ -154,18 +156,19 @@ class RawDataFile:
                     raise
                 self.read()
 
-    def format(self, n_sample: int, n_resonator: int, n_attenuator: int):
+    def format(self, n_sample: int, n_tones: int, n_fftbins: int):
         """
         When called, populates the hdf5 file with our desired datasets
         """
         # ********************************* Dimensions *******************************
+        GD = "global_data/"
         self.n_sample = self.fh.create_dataset(
             "dimension/n_sample",
             (1,),
             dtype=h5py.h5t.NATIVE_UINT64,
         )
-        self.n_resonator = self.fh.create_dataset(
-            "dimension/n_resonator",
+        self.n_tones = self.fh.create_dataset(
+            "dimension/n_tones",
             (1,),
             dtype=h5py.h5t.NATIVE_UINT64,
         )
@@ -174,6 +177,14 @@ class RawDataFile:
             (1,),
             dtype=h5py.h5t.NATIVE_UINT64,
         )
+        self.n_fftbins = self.fh.create_dataset(
+            "dimension/n_fftbins",
+            (1,),
+            dtype=h5py.h5t.NATIVE_UINT64,
+        )
+        self.n_fftbins[0] = n_fftbins
+        self.n_sample[0] = n_sample
+        self.n_tones[0] = n_tones
         # ******************************** Global Data ******************************
         self.attenuator_settings = self.fh.create_dataset(
             "global_data/attenuator_settings",
@@ -181,14 +192,14 @@ class RawDataFile:
             dtype=h5py.h5t.NATIVE_DOUBLE,
         )
         self.baseband_freqs = self.fh.create_dataset(
-            "global_data/baseband_freqs", (n_resonator,)
+            "global_data/baseband_freqs", (n_tones,)
         )
         self.sample_rate = self.fh.create_dataset("global_data/sample_rate", (1,))
         self.tile_number = self.fh.create_dataset(
-            "global_data/tile_number", (n_resonator,), dtype=h5py.h5t.NATIVE_INT32
+            "global_data/tile_number", (n_tones,), dtype=h5py.h5t.NATIVE_INT32
         )
         self.tone_powers = self.fh.create_dataset(
-            "global_data/tone_powers", (n_resonator,), dtype=h5py.h5t.NATIVE_DOUBLE
+            "global_data/tone_powers", (n_tones,), dtype=h5py.h5t.NATIVE_DOUBLE
         )
         self.rfsoc_number = self.fh.create_dataset(
             "global_data/rfsoc_number", (1,), dtype=h5py.h5t.NATIVE_INT32
@@ -202,27 +213,36 @@ class RawDataFile:
         self.ifslice_number = self.fh.create_dataset(
             "global_data/ifslice_number", (1,), dtype=h5py.h5t.NATIVE_INT32
         )
+        self.chanmask = self.fh.create_dataset(
+            "global_data/chanmask", (n_tones,), dtype=h5py.h5t.NATIVE_INT32
+        )
+        self.detector_delta_x = self.fh.create_dataset(
+            GD+"detector_delta_x", (n_tones,), dtype=h5py.h5t.NATIVE_DOUBLE
+        )
+        self.detector_delta_y = self.fh.create_dataset(
+            GD+"detector_delta_y", (n_tones,), dtype=h5py.h5t.NATIVE_DOUBLE
+        )
+        self.detector_beam_ampl = self.fh.create_dataset(
+            GD+"detector_beam_ampl", (n_tones,), dtype=h5py.h5t.NATIVE_DOUBLE
+        )
+        self.detector_pol = self.fh.create_dataset(
+            GD+"detector_pol", (n_tones,), dtype=h5py.h5t.NATIVE_INT32
+        )
 
         # ****************************** Time Ordered Data *****************************
         self.adc_i = self.fh.create_dataset(
             "time_ordered_data/adc_i",
-            (1024, n_sample),
-            chunks=(1024, 488),
-            maxshape=(1024, None),
+            (n_fftbins, n_sample),
+            chunks=(n_fftbins, 488),
+            maxshape=(n_fftbins, None),
             dtype=h5py.h5t.STD_I32LE,
         )
         self.adc_q = self.fh.create_dataset(
             "time_ordered_data/adc_q",
-            (1024, n_sample),
-            chunks=(1024, 488),
-            maxshape=(1024, None),
+            (n_fftbins, n_sample),
+            chunks=(n_fftbins, 488),
+            maxshape=(n_fftbins, None),
             dtype=h5py.h5t.STD_I32LE,
-        )
-        self.lo_freq = self.fh.create_dataset(
-            "time_ordered_data/lo_freq",
-            (488,),
-            chunks=(488,),
-            maxshape=(None,),
         )
 
         self.timestamp = self.fh.create_dataset(
@@ -249,8 +269,20 @@ class RawDataFile:
         self.tile_number[0] = chan.tile_number
         self.rfsoc_number[0] = chan.rfsoc_number
         self.ifslice_number[0] = chan.ifslice_number
-        self.n_resonator[0] = chan.n_resonator
         self.n_attenuators[0] = chan.n_attenuators
+        
+        chanmaskpath = PARAMS_PATH + f"chanmask_{chan.name}.npy"
+        detdx = PARAMS_PATH + f"detector_delta_x_tile{chan.tile_number}.npy"
+        detdy = PARAMS_PATH + f"detector_delta_y_tile{chan.tile_number}.npy"
+        det_ba = PARAMS_PATH + f"detector_beam_ampl_tile{chan.tile_number}.npy"
+        det_pol = PARAMS_PATH + f"detector_pol_tile{chan.tile_number}.npy"
+
+        self.chanmask[:] = np.load(chanmaskpath)
+        self.detector_delta_x[:] = np.load(detdx)
+        self.detector_delta_y[:] = np.load(detdy)
+        self.detector_beam_ampl[:] = np.load(det_ba)
+        self.detector_pol[:] = np.load(det_pol)
+            
 
     def read(self):
         """
@@ -269,7 +301,7 @@ class RawDataFile:
 
         try:
             self.n_attenuators = self.fh["/dimension/n_attenuators"]
-            self.n_resonator = self.fh["/dimension/n_resonator"]
+            self.n_tones = self.fh["/dimension/n_tones"]
             self.n_sample = self.fh["/dimension/n_sample"]
 
             self.attenuator_settings = self.fh["/global_data/attenuator_settings"]
@@ -280,7 +312,7 @@ class RawDataFile:
             self.sample_rate = self.fh["/global_data/sample_rate"]
             self.tile_number = self.fh["/global_data/tile_number"]
             self.tone_powers = self.fh["/global_data/tone_powers"]
-            self.lo_freq = self.fh["/time_ordered_data/lo_freq"]
+
             if "/global_data/lo_sweep" in self.fh:
                 self.lo_sweep = self.fh["/global_data/lo_sweep"]
             else:
@@ -360,225 +392,226 @@ class TelescopeDataFile:
         pass
 
 
-class ObservationDataFile:
-    """
-    The main Observation datafile which will encompass the data gatherd during an observation
-    period. raw rfsoc data is migrated into this data file after the observation has concluded.
+# class ObservationDataFile:
+#     """
+#     The main Observation datafile which will encompass the data gatherd during an observation
+#     period. raw rfsoc data is migrated into this data file after the observation has concluded.
 
-    :param n_rfsoc: the number of RFSOCs that will be merged together
-    :param n_sample: the number of data samples collected
-    :param n_sample_lo: the number of data samples collected during the LO sweep prior to the observation
-    :param n_resonator:  the total number of resonances spanning all RFSOCs
-    :param n_attenuator: the number of attenuators on each RFSOC -
-    """
+#     :param n_rfsoc: the number of RFSOCs that will be merged together
+#     :param n_sample: the number of data samples collected
+#     :param n_sample_lo: the number of data samples collected during the LO sweep prior to the observation
+#     :param n_tones:  the total number of resonances spanning all RFSOCs
+#     :param n_attenuator: the number of attenuators on each RFSOC -
+#     """
 
-    def __init__(self, path, overwrite=False):
-        log = logger.getChild(__name__)
+#     def __init__(self, path, overwrite=False):
+#         log = logger.getChild(__name__)
 
-        self.filename = path
-        if not os.path.exists(path):
-            log.debug("File not found, creating file...")
-            try:
-                self.fh = h5py.File(self.filename, "a")
-            except Exception as e:
-                log.error(e)
-                raise
-        else:
-            log.debug("File already exists.")
-            if overwrite:
-                log.debug("Overwriting file")
-                try:
-                    self.fh = h5py.File(self.filename, "w")
-                except Exception as e:
-                    log.error(e)
-                    raise
-            else:
-                log.debug("Opening File as append")
-                try:
-                    self.fh = h5py.File(self.filename, "a")
-                except Exception as e:
-                    log.error(e)
-                    raise
-                self.read()
+#         self.filename = path
+#         if not os.path.exists(path):
+#             log.debug("File not found, creating file...")
+#             try:
+#                 self.fh = h5py.File(self.filename, "a")
+#             except Exception as e:
+#                 log.error(e)
+#                 raise
+#         else:
+#             log.debug("File already exists.")
+#             if overwrite:
+#                 log.debug("Overwriting file")
+#                 try:
+#                     self.fh = h5py.File(self.filename, "w")
+#                 except Exception as e:
+#                     log.error(e)
+#                     raise
+#             else:
+#                 log.debug("Opening File as append")
+#                 try:
+#                     self.fh = h5py.File(self.filename, "a")
+#                 except Exception as e:
+#                     log.error(e)
+#                     raise
+#                 self.read()
 
-    def format(
-        self,
-        n_rfsoc: int,
-        n_sample: int,
-        n_sample_lo: int,
-        n_resonator: int,
-        n_attenuator: str,
-    ):
-        # ***************************** Time Ordered data *************************************
-        self.adc_i = self.df.create_dataset(
-            "time_ordered_data/adc_i",
-            (n_resonator, n_sample),
-            dtype=h5py.h5t.NATIVE_UINT32,
-            chunks=True,
-        )
-        self.adc_i.attrs.create("units", "volts")
-        self.adc_i.attrs.create("dimension_names", "bin_number, packet_number")
+#     def format(
+#         self,
+#         n_rfsoc: int,
+#         n_sample: int,
+#         n_sample_lo: int,
+#         n_resonator: int,
+#         n_attenuator: str,
+#     ):
+#         # ***************************** Time Ordered data *************************************
+#         TOD = "time_ordered_data/"
+#         self.adc_i = self.df.create_dataset(
+#             "time_ordered_data/adc_i",
+#             (n_resonator, n_sample),
+#             dtype=h5py.h5t.NATIVE_UINT32,
+#             chunks=True,
+#         )
+#         self.adc_i.attrs.create("units", "volts")
+#         self.adc_i.attrs.create("dimension_names", "bin_number, packet_number")
 
-        self.adc_q = self.df.create_dataset(
-            "time_ordered_data/adc_i",
-            (n_resonator, n_sample),
-            dtype=h5py.h5t.NATIVE_UINT32,
-            chunks=True,
-        )
-        self.adc_q.attrs.create("units", "volts")
-        self.adc_q.attrs.create("dimension_names", "bin_number, packet_number")
+#         self.adc_q = self.df.create_dataset(
+#             "time_ordered_data/adc_i",
+#             (n_resonator, n_sample),
+#             dtype=h5py.h5t.NATIVE_UINT32,
+#             chunks=True,
+#         )
+#         self.adc_q.attrs.create("units", "volts")
+#         self.adc_q.attrs.create("dimension_names", "bin_number, packet_number")
 
-        self.delta_freq = self.df.create_dataset(
-            "time_ordered_data/delta_freq",
-            (n_resonator, n_sample),
-            dtype=h5py.h5t.NATIVE_DOUBLE,
-        )
+#         self.delta_freq = self.df.create_dataset(
+#             "time_ordered_data/delta_freq",
+#             (n_resonator, n_sample),
+#             dtype=h5py.h5t.NATIVE_DOUBLE,
+#         )
 
-        self.delta_oq = self.df.create_dataset(
-            "time_ordered_data/delta_oq",
-            (n_resonator, n_sample),
-            dtype=h5py.h5t.NATIVE_DOUBLE,
-        )
+#         self.delta_oq = self.df.create_dataset(
+#             "time_ordered_data/delta_oq",
+#             (n_resonator, n_sample),
+#             dtype=h5py.h5t.NATIVE_DOUBLE,
+#         )
 
-        self.detector_delta_azimuth = self.df.create_dataset(
-            "time_ordered_data/detector_delta_azimuth",
-            (n_resonator, n_sample),
-            dtype=h5py.h5t.NATIVE_DOUBLE,
-        )
-        self.detector_delta_elevation = self.df.create_dataset(
-            "time_ordered_data/detector_delta_elevation",
-            (n_resonator, n_sample),
-            dtype=h5py.h5t.NATIVE_DOUBLE,
-        )
-        self.lo_freq = self.df.create_dataset(
-            "time_ordered_data/lo_freq",
-            (1, n_sample),
-            dtype=h5py.h5t.NATIVE_DOUBLE,
-        )
-        self.telescope_azimuth = self.df.create_dataset(
-            "time_ordered_data/telescope_azimuth",
-            (1, n_sample),
-            dtype=h5py.h5t.NATIVE_DOUBLE,
-        )
-        self.telescope_elevation = self.df.create_dataset(
-            "time_ordered_data/telescope_elevation",
-            (1, n_sample),
-            dtype=h5py.h5t.NATIVE_DOUBLE,
-        )
-        self.telescope_elevation = self.df.create_dataset(
-            "time_ordered_data/telescope_elevation",
-            (1, n_sample),
-            dtype=h5py.h5t.NATIVE_DOUBLE,
-        )
-        self.timestamp = self.df.create_dataset(
-            "time_ordered_data/timestamp",
-            (n_rfsoc, n_sample),
-            dtype=h5py.h5t.NATIVE_UINT64,
-        )
-        # *********************************  GLOBAL DATA ****************************************
+#         self.detector_delta_azimuth = self.df.create_dataset(
+#             "time_ordered_data/detector_delta_azimuth",
+#             (n_resonator, n_sample),
+#             dtype=h5py.h5t.NATIVE_DOUBLE,
+#         )
+#         self.detector_delta_elevation = self.df.create_dataset(
+#             "time_ordered_data/detector_delta_elevation",
+#             (n_resonator, n_sample),
+#             dtype=h5py.h5t.NATIVE_DOUBLE,
+#         )
+#         self.lo_freq = self.df.create_dataset(
+#             "time_ordered_data/lo_freq",
+#             (1, n_sample),
+#             dtype=h5py.h5t.NATIVE_DOUBLE,
+#         )
+#         self.telescope_azimuth = self.df.create_dataset(
+#             "time_ordered_data/telescope_azimuth",
+#             (1, n_sample),
+#             dtype=h5py.h5t.NATIVE_DOUBLE,
+#         )
+#         self.telescope_elevation = self.df.create_dataset(
+#             "time_ordered_data/telescope_elevation",
+#             (1, n_sample),
+#             dtype=h5py.h5t.NATIVE_DOUBLE,
+#         )
+#         self.telescope_elevation = self.df.create_dataset(
+#             "time_ordered_data/telescope_elevation",
+#             (1, n_sample),
+#             dtype=h5py.h5t.NATIVE_DOUBLE,
+#         )
+#         self.timestamp = self.df.create_dataset(
+#             "time_ordered_data/timestamp",
+#             (n_rfsoc, n_sample),
+#             dtype=h5py.h5t.NATIVE_UINT64,
+#         )
+#         # *********************************  GLOBAL DATA ****************************************
 
-        self.attenuator_settings = self.df.create_dataset(
-            "global_data/attenuator_settings",
-            (n_rfsoc, n_attenuator),
-            dtype=h5py.h5t.NATIVE_DOUBLE,
-        )
+#         self.attenuator_settings = self.df.create_dataset(
+#             "global_data/attenuator_settings",
+#             (n_rfsoc, n_attenuator),
+#             dtype=h5py.h5t.NATIVE_DOUBLE,
+#         )
 
-        self.baseband_freq = self.df.create_dataset(
-            "global_data/baseband_freq", (1, n_resonator), dtype=h5py.h5t.NATIVE_DOUBLE
-        )
+#         self.baseband_freq = self.df.create_dataset(
+#             "global_data/baseband_freq", (1, n_resonator), dtype=h5py.h5t.NATIVE_DOUBLE
+#         )
 
-        self.channel_mask = self.df.create_dataset(
-            "global_data/channel_mask", (1, n_resonator), dtype=h5py.h5t.NATIVE_DOUBLE
-        )
-        self.detector_delta_x = self.df.create_dataset(
-            "global_data/detector_delta_x",
-            (1, n_resonator),
-            dtype=h5py.h5t.NATIVE_DOUBLE,
-        )
-        self.detector_delta_x = self.df.create_dataset(
-            "global_data/detector_delta_x",
-            (1, n_resonator),
-            dtype=h5py.h5t.NATIVE_DOUBLE,
-        )
+#         self.channel_mask = self.df.create_dataset(
+#             "global_data/channel_mask", (1, n_resonator), dtype=h5py.h5t.NATIVE_DOUBLE
+#         )
+#         self.detector_delta_x = self.df.create_dataset(
+#             "global_data/detector_delta_x",
+#             (1, n_resonator),
+#             dtype=h5py.h5t.NATIVE_DOUBLE,
+#         )
+#         self.detector_delta_x = self.df.create_dataset(
+#             "global_data/detector_delta_x",
+#             (1, n_resonator),
+#             dtype=h5py.h5t.NATIVE_DOUBLE,
+#         )
 
-        self.df_di = self.df.create_dataset(
-            "global_data/df_di", (1, n_resonator), dtype=h5py.h5t.NATIVE_DOUBLE
-        )
-        self.df_dq = self.df.create_dataset(
-            "global_data/df_dq", (1, n_resonator), dtype=h5py.h5t.NATIVE_DOUBLE
-        )
-        self.df_dt = self.df.create_dataset(
-            "global_data/df_dt", (1, n_resonator), dtype=h5py.h5t.NATIVE_DOUBLE
-        )
-        self.doq_di = self.df.create_dataset(
-            "global_data/doq_di", (1, n_resonator), dtype=h5py.h5t.NATIVE_DOUBLE
-        )
-        self.doq_df = self.df.create_dataset(
-            "global_data/doq_df", (1, n_resonator), dtype=h5py.h5t.NATIVE_DOUBLE
-        )
-        self.doq_dt = self.df.create_dataset(
-            "global_data/doq_dt", (1, n_resonator), dtype=h5py.h5t.NATIVE_DOUBLE
-        )
-        self.lo_sweep_adc_i = self.df.create_dataset(
-            "global_data/lo_sweep_adc_i",
-            (n_resonator, n_sample_lo),
-            dtype=h5py.h5t.NATIVE_DOUBLE,
-        )
-        self.lo_sweep_adc_q = self.df.create_dataset(
-            "global_data/lo_sweep_adc_q",
-            (n_resonator, n_sample_lo),
-            dtype=h5py.h5t.NATIVE_DOUBLE,
-        )
-        self.lo_sweep_baseband_freq = self.df.create_dataset(
-            "global_data/lo_sweep_baseband_freq",
-            (1, n_resonator),
-            dtype=h5py.h5t.NATIVE_DOUBLE,
-        )
-        self.lo_sweep_freq = self.df.create_dataset(
-            "global_data/lo_sweep_freq", (1, n_sample_lo), dtype=h5py.h5t.NATIVE_DOUBLE
-        )
-        self.sample_rate = self.df.create_dataset(
-            "global_data/sample_rate", (1,), dtype=h5py.h5t.NATIVE_DOUBLE
-        )
-        self.tile_number = self.df.create_dataset(
-            "global_data/tile_number", (1, n_resonator), dtype=h5py.h5t.NATIVE_INT32
-        )
-        self.tone_power = self.df.create_dataset(
-            "global_data/tone_power", (1, n_resonator), dtype=h5py.h5t.NATIVE_INT32
-        )
-        self.rfsoc_number = self.df.create_dataset(
-            "global_data/rfsoc_number", (1, n_resonator), dtype=h5py.h5t.NATIVE_UINT32
-        )
-        self.ifslice_number = self.df.create_dataset(
-            "global_data/ifslice_number", (1, n_resonator), dtype=h5py.h5t.NATIVE_UINT32
-        )
-        # ********************************** Dimensions ****************************************
-        # Dimensions
-        self.dim_n_rfsoc = self.df.create_dataset(
-            "Dimension/n_rfsoc",
-            (1,),
-            dtype=h5py.h5t.NATIVE_UINT64,
-        )
-        self.dim_n_sample = self.df.create_dataset(
-            "Dimension/n_sample",
-            (1,),
-            dtype=h5py.h5t.NATIVE_UINT64,
-        )
-        self.dim_n_sample_lo = self.df.create_dataset(
-            "Dimension/n_sample_lo",
-            (1,),
-            dtype=h5py.h5t.NATIVE_UINT64,
-        )
-        self.dim_n_resonator = self.df.create_dataset(
-            "Dimension/n_resonator",
-            (1,),
-            dtype=h5py.h5t.NATIVE_UINT64,
-        )
-        self.dim_n_attenuator = self.df.create_dataset(
-            "Dimension/n_attenuator",
-            (1,),
-            dtype=h5py.h5t.NATIVE_UINT64,
-        )
+#         self.df_di = self.df.create_dataset(
+#             "global_data/df_di", (1, n_resonator), dtype=h5py.h5t.NATIVE_DOUBLE
+#         )
+#         self.df_dq = self.df.create_dataset(
+#             "global_data/df_dq", (1, n_resonator), dtype=h5py.h5t.NATIVE_DOUBLE
+#         )
+#         self.df_dt = self.df.create_dataset(
+#             "global_data/df_dt", (1, n_resonator), dtype=h5py.h5t.NATIVE_DOUBLE
+#         )
+#         self.doq_di = self.df.create_dataset(
+#             "global_data/doq_di", (1, n_resonator), dtype=h5py.h5t.NATIVE_DOUBLE
+#         )
+#         self.doq_df = self.df.create_dataset(
+#             "global_data/doq_df", (1, n_resonator), dtype=h5py.h5t.NATIVE_DOUBLE
+#         )
+#         self.doq_dt = self.df.create_dataset(
+#             "global_data/doq_dt", (1, n_resonator), dtype=h5py.h5t.NATIVE_DOUBLE
+#         )
+#         self.lo_sweep_adc_i = self.df.create_dataset(
+#             "global_data/lo_sweep_adc_i",
+#             (n_resonator, n_sample_lo),
+#             dtype=h5py.h5t.NATIVE_DOUBLE,
+#         )
+#         self.lo_sweep_adc_q = self.df.create_dataset(
+#             "global_data/lo_sweep_adc_q",
+#             (n_resonator, n_sample_lo),
+#             dtype=h5py.h5t.NATIVE_DOUBLE,
+#         )
+#         self.lo_sweep_baseband_freq = self.df.create_dataset(
+#             "global_data/lo_sweep_baseband_freq",
+#             (1, n_resonator),
+#             dtype=h5py.h5t.NATIVE_DOUBLE,
+#         )
+#         self.lo_sweep_freq = self.df.create_dataset(
+#             "global_data/lo_sweep_freq", (1, n_sample_lo), dtype=h5py.h5t.NATIVE_DOUBLE
+#         )
+#         self.sample_rate = self.df.create_dataset(
+#             "global_data/sample_rate", (1,), dtype=h5py.h5t.NATIVE_DOUBLE
+#         )
+#         self.tile_number = self.df.create_dataset(
+#             "global_data/tile_number", (1, n_resonator), dtype=h5py.h5t.NATIVE_INT32
+#         )
+#         self.tone_power = self.df.create_dataset(
+#             "global_data/tone_power", (1, n_resonator), dtype=h5py.h5t.NATIVE_INT32
+#         )
+#         self.rfsoc_number = self.df.create_dataset(
+#             "global_data/rfsoc_number", (1, n_resonator), dtype=h5py.h5t.NATIVE_UINT32
+#         )
+#         self.ifslice_number = self.df.create_dataset(
+#             "global_data/ifslice_number", (1, n_resonator), dtype=h5py.h5t.NATIVE_UINT32
+#         )
+#         # ********************************** Dimensions ****************************************
+#         # Dimensions
+#         self.dim_n_rfsoc = self.df.create_dataset(
+#             "Dimension/n_rfsoc",
+#             (1,),
+#             dtype=h5py.h5t.NATIVE_UINT64,
+#         )
+#         self.dim_n_sample = self.df.create_dataset(
+#             "Dimension/n_sample",
+#             (1,),
+#             dtype=h5py.h5t.NATIVE_UINT64,
+#         )
+#         self.dim_n_sample_lo = self.df.create_dataset(
+#             "Dimension/n_sample_lo",
+#             (1,),
+#             dtype=h5py.h5t.NATIVE_UINT64,
+#         )
+#         self.dim_n_resonator = self.df.create_dataset(
+#             "Dimension/n_resonator",
+#             (1,),
+#             dtype=h5py.h5t.NATIVE_UINT64,
+#         )
+#         self.dim_n_attenuator = self.df.create_dataset(
+#             "Dimension/n_attenuator",
+#             (1,),
+#             dtype=h5py.h5t.NATIVE_UINT64,
+#         )
 
 
 def gen_read(h5: str):
@@ -678,6 +711,26 @@ def get_last_lo(name: str):
 
     g.sort()
     return g[-1]
+
+def get_TOD_fset():
+    """
+    Gets the set of hdf5 readout data files for the day.
+    """
+    # see if we already have the parent folder for today's date
+    yymmdd = get_yymmdd()
+    date_folder = "/data/" + yymmdd + "/"
+    check_date_folder = glob.glob(date_folder)
+    if np.size(check_date_folder) == 0:
+        return ""
+
+    fstring = f"/data/{yymmdd}/{yymmdd}_*_TOD_set*.hd5"
+    g = glob.glob(fstring)
+
+    if len(g) == 0:
+        return []
+
+    g.sort()
+    return g
 
 
 def get_last_rdf(name: str):
