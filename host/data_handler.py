@@ -115,20 +115,30 @@ class RawDataFile:
     UDP packets containing our downsampled data streaming from the RFSOC to the readout computer
     will be captured and saved to this hdf5 filetype.
 
-    :param path: /file/path/here/file.h5
-    :param n_sample: (Dimension) The number of data samples collected (i.e., sample_rate * length_of_file_in_seconds)
+    Previously, the user was responsible for specifying n_samples which was used to provision
+    the arrays needed to hold the data. However, this is no longer the case. While the parameter 
+    still exists, it shall be set to 0 as data collection is now dynamic.
 
-    .. note::
-        As of a recent change to the data collection process, n_samples is defaulted to 0 and
-        repeatedly resized during data collection. This is due to the fact that an indefinite quantity of data was
-        desired.
+    :param str path: /file/path/here/file.h5
 
-    :param n_resonator: (Dimension) The number of resonance tones
-    :param overwrite(optional): When true, signals that if an hdf5 file exists, overwrite its contents completely and
-        do not contents. By default, this is false and the file is opened in append mode and subsequently read.
+    :param int n_tones: (Dimension) The number of resonance tones / DAC tones
+
+    :param char filemode:  User Shall provide one of the following: 'r', 'w', 'a'.
+        Filemode denotes how the RDF should be handled. If 'r', then the file is opened as 'read-only'.
+        When the file opened, read() is called. If 'w' is specified, then the file is created, over-writing 
+        a file of the same name if it exists. In this case, read() is not called. The file will be blank until
+        format() is called.
+        The file is opened and read() is called in the case of 'a'
+
+         .. DANGER::
+            Opening with 'w' unintentionally can cause data loss, especially if users are accustomed to
+            the w+ file mode
+
+        
+
     """
 
-    def __init__(self, path, filemode, overwrite=False):
+    def __init__(self, path, filemode):
         log = logger.getChild(__name__)
 
         self.filename = path
@@ -136,9 +146,13 @@ class RawDataFile:
             self.fh = h5py.File(path, "r")
             self.read()
             log.debug(f"Opened {path} for reading.")
-        elif filemode == 'w' or filemode == 'a':
+        elif filemode == 'w':
             self.fh = h5py.File(self.filename, "w")
-            log.debug(f"Opened {path} for writing.")
+            log.debug(f"Opened {path} for (over)writing.")
+        elif filemode == 'a':
+            self.fh = h5py.File(self.filename, "a")
+            self.read()
+            log.debug(f"Opened {path} for writing.")        
         else:
             # do nothing
             pass
@@ -270,6 +284,11 @@ class RawDataFile:
         self.lo_freq[0] = chan.lo_freq
         
         # ONR specific params below this line
+        # TODO: future proofing this shall involve a seperate function 
+        # that appends these datafields based on file name
+        
+        # In kidpy, the user shall call a function along the lines of 
+        # "Append or include External Data".
         chanmaskpath = PARAMS_PATH + f"chanmask_{chan.name}.npy"
         detdx = PARAMS_PATH + f"detector_delta_x_tile{chan.tile_number}.npy"
         detdy = PARAMS_PATH + f"detector_delta_y_tile{chan.tile_number}.npy"
@@ -444,280 +463,16 @@ class RawDataFile:
         self.fh.close()
 
 
-class TelescopeDataFile:
-    """
-    Telescope Data File.
-    """
-
-    def __init__(self, path, overwrite=False) -> None:
-        log = logger.getChild(__name__)
-
-        self.filename = path
-        if not os.path.exists(path):
-            log.debug("File not found, creating file...")
-            try:
-                self.fh = h5py.File(self.filename, "a")
-            except Exception as e:
-                log.error(e)
-                raise
-        else:
-            log.debug("File already exists.")
-            if overwrite:
-                log.debug("Overwriting file")
-                try:
-                    self.fh = h5py.File(self.filename, "w")
-                except Exception as e:
-                    log.error(e)
-                    raise
-            else:
-                log.debug("Opening File as append")
-                try:
-                    self.fh = h5py.File(self.filename, "a")
-                except Exception as e:
-                    log.error(e)
-                    raise
-                self.read()
-
-    def format():
-        """
-        format TBD
-        """
-        pass
-
-    def read():
-        """
-        depends on format....
-        """
-        pass
-
-
-# class ObservationDataFile:
-#     """
-#     The main Observation datafile which will encompass the data gatherd during an observation
-#     period. raw rfsoc data is migrated into this data file after the observation has concluded.
-
-#     :param n_rfsoc: the number of RFSOCs that will be merged together
-#     :param n_sample: the number of data samples collected
-#     :param n_sample_lo: the number of data samples collected during the LO sweep prior to the observation
-#     :param n_tones:  the total number of resonances spanning all RFSOCs
-#     :param n_attenuator: the number of attenuators on each RFSOC -
-#     """
-
-#     def __init__(self, path, overwrite=False):
-#         log = logger.getChild(__name__)
-
-#         self.filename = path
-#         if not os.path.exists(path):
-#             log.debug("File not found, creating file...")
-#             try:
-#                 self.fh = h5py.File(self.filename, "a")
-#             except Exception as e:
-#                 log.error(e)
-#                 raise
-#         else:
-#             log.debug("File already exists.")
-#             if overwrite:
-#                 log.debug("Overwriting file")
-#                 try:
-#                     self.fh = h5py.File(self.filename, "w")
-#                 except Exception as e:
-#                     log.error(e)
-#                     raise
-#             else:
-#                 log.debug("Opening File as append")
-#                 try:
-#                     self.fh = h5py.File(self.filename, "a")
-#                 except Exception as e:
-#                     log.error(e)
-#                     raise
-#                 self.read()
-
-#     def format(
-#         self,
-#         n_rfsoc: int,
-#         n_sample: int,
-#         n_sample_lo: int,
-#         n_resonator: int,
-#         n_attenuator: str,
-#     ):
-#         # ***************************** Time Ordered data *************************************
-#         TOD = "time_ordered_data/"
-#         self.adc_i = self.df.create_dataset(
-#             "time_ordered_data/adc_i",
-#             (n_resonator, n_sample),
-#             dtype=h5py.h5t.NATIVE_UINT32,
-#             chunks=True,
-#         )
-#         self.adc_i.attrs.create("units", "volts")
-#         self.adc_i.attrs.create("dimension_names", "bin_number, packet_number")
-
-#         self.adc_q = self.df.create_dataset(
-#             "time_ordered_data/adc_i",
-#             (n_resonator, n_sample),
-#             dtype=h5py.h5t.NATIVE_UINT32,
-#             chunks=True,
-#         )
-#         self.adc_q.attrs.create("units", "volts")
-#         self.adc_q.attrs.create("dimension_names", "bin_number, packet_number")
-
-#         self.delta_freq = self.df.create_dataset(
-#             "time_ordered_data/delta_freq",
-#             (n_resonator, n_sample),
-#             dtype=h5py.h5t.NATIVE_DOUBLE,
-#         )
-
-#         self.delta_oq = self.df.create_dataset(
-#             "time_ordered_data/delta_oq",
-#             (n_resonator, n_sample),
-#             dtype=h5py.h5t.NATIVE_DOUBLE,
-#         )
-
-#         self.detector_delta_azimuth = self.df.create_dataset(
-#             "time_ordered_data/detector_delta_azimuth",
-#             (n_resonator, n_sample),
-#             dtype=h5py.h5t.NATIVE_DOUBLE,
-#         )
-#         self.detector_delta_elevation = self.df.create_dataset(
-#             "time_ordered_data/detector_delta_elevation",
-#             (n_resonator, n_sample),
-#             dtype=h5py.h5t.NATIVE_DOUBLE,
-#         )
-#         self.lo_freq = self.df.create_dataset(
-#             "time_ordered_data/lo_freq",
-#             (1, n_sample),
-#             dtype=h5py.h5t.NATIVE_DOUBLE,
-#         )
-#         self.telescope_azimuth = self.df.create_dataset(
-#             "time_ordered_data/telescope_azimuth",
-#             (1, n_sample),
-#             dtype=h5py.h5t.NATIVE_DOUBLE,
-#         )
-#         self.telescope_elevation = self.df.create_dataset(
-#             "time_ordered_data/telescope_elevation",
-#             (1, n_sample),
-#             dtype=h5py.h5t.NATIVE_DOUBLE,
-#         )
-#         self.telescope_elevation = self.df.create_dataset(
-#             "time_ordered_data/telescope_elevation",
-#             (1, n_sample),
-#             dtype=h5py.h5t.NATIVE_DOUBLE,
-#         )
-#         self.timestamp = self.df.create_dataset(
-#             "time_ordered_data/timestamp",
-#             (n_rfsoc, n_sample),
-#             dtype=h5py.h5t.NATIVE_UINT64,
-#         )
-#         # *********************************  GLOBAL DATA ****************************************
-
-#         self.attenuator_settings = self.df.create_dataset(
-#             "global_data/attenuator_settings",
-#             (n_rfsoc, n_attenuator),
-#             dtype=h5py.h5t.NATIVE_DOUBLE,
-#         )
-
-#         self.baseband_freq = self.df.create_dataset(
-#             "global_data/baseband_freq", (1, n_resonator), dtype=h5py.h5t.NATIVE_DOUBLE
-#         )
-
-#         self.channel_mask = self.df.create_dataset(
-#             "global_data/channel_mask", (1, n_resonator), dtype=h5py.h5t.NATIVE_DOUBLE
-#         )
-#         self.detector_delta_x = self.df.create_dataset(
-#             "global_data/detector_delta_x",
-#             (1, n_resonator),
-#             dtype=h5py.h5t.NATIVE_DOUBLE,
-#         )
-#         self.detector_delta_x = self.df.create_dataset(
-#             "global_data/detector_delta_x",
-#             (1, n_resonator),
-#             dtype=h5py.h5t.NATIVE_DOUBLE,
-#         )
-
-#         self.df_di = self.df.create_dataset(
-#             "global_data/df_di", (1, n_resonator), dtype=h5py.h5t.NATIVE_DOUBLE
-#         )
-#         self.df_dq = self.df.create_dataset(
-#             "global_data/df_dq", (1, n_resonator), dtype=h5py.h5t.NATIVE_DOUBLE
-#         )
-#         self.df_dt = self.df.create_dataset(
-#             "global_data/df_dt", (1, n_resonator), dtype=h5py.h5t.NATIVE_DOUBLE
-#         )
-#         self.doq_di = self.df.create_dataset(
-#             "global_data/doq_di", (1, n_resonator), dtype=h5py.h5t.NATIVE_DOUBLE
-#         )
-#         self.doq_df = self.df.create_dataset(
-#             "global_data/doq_df", (1, n_resonator), dtype=h5py.h5t.NATIVE_DOUBLE
-#         )
-#         self.doq_dt = self.df.create_dataset(
-#             "global_data/doq_dt", (1, n_resonator), dtype=h5py.h5t.NATIVE_DOUBLE
-#         )
-#         self.lo_sweep_adc_i = self.df.create_dataset(
-#             "global_data/lo_sweep_adc_i",
-#             (n_resonator, n_sample_lo),
-#             dtype=h5py.h5t.NATIVE_DOUBLE,
-#         )
-#         self.lo_sweep_adc_q = self.df.create_dataset(
-#             "global_data/lo_sweep_adc_q",
-#             (n_resonator, n_sample_lo),
-#             dtype=h5py.h5t.NATIVE_DOUBLE,
-#         )
-#         self.lo_sweep_baseband_freq = self.df.create_dataset(
-#             "global_data/lo_sweep_baseband_freq",
-#             (1, n_resonator),
-#             dtype=h5py.h5t.NATIVE_DOUBLE,
-#         )
-#         self.lo_sweep_freq = self.df.create_dataset(
-#             "global_data/lo_sweep_freq", (1, n_sample_lo), dtype=h5py.h5t.NATIVE_DOUBLE
-#         )
-#         self.sample_rate = self.df.create_dataset(
-#             "global_data/sample_rate", (1,), dtype=h5py.h5t.NATIVE_DOUBLE
-#         )
-#         self.tile_number = self.df.create_dataset(
-#             "global_data/tile_number", (1, n_resonator), dtype=h5py.h5t.NATIVE_INT32
-#         )
-#         self.tone_power = self.df.create_dataset(
-#             "global_data/tone_power", (1, n_resonator), dtype=h5py.h5t.NATIVE_INT32
-#         )
-#         self.rfsoc_number = self.df.create_dataset(
-#             "global_data/rfsoc_number", (1, n_resonator), dtype=h5py.h5t.NATIVE_UINT32
-#         )
-#         self.ifslice_number = self.df.create_dataset(
-#             "global_data/ifslice_number", (1, n_resonator), dtype=h5py.h5t.NATIVE_UINT32
-#         )
-#         # ********************************** Dimensions ****************************************
-#         # Dimensions
-#         self.dim_n_rfsoc = self.df.create_dataset(
-#             "Dimension/n_rfsoc",
-#             (1,),
-#             dtype=h5py.h5t.NATIVE_UINT64,
-#         )
-#         self.dim_n_sample = self.df.create_dataset(
-#             "Dimension/n_sample",
-#             (1,),
-#             dtype=h5py.h5t.NATIVE_UINT64,
-#         )
-#         self.dim_n_sample_lo = self.df.create_dataset(
-#             "Dimension/n_sample_lo",
-#             (1,),
-#             dtype=h5py.h5t.NATIVE_UINT64,
-#         )
-#         self.dim_n_resonator = self.df.create_dataset(
-#             "Dimension/n_resonator",
-#             (1,),
-#             dtype=h5py.h5t.NATIVE_UINT64,
-#         )
-#         self.dim_n_attenuator = self.df.create_dataset(
-#             "Dimension/n_attenuator",
-#             (1,),
-#             dtype=h5py.h5t.NATIVE_UINT64,
-#         )
-
-
 def gen_read(h5: str):
     """
-    Cheat function. Reads an hdf5 file and generates read statements to then be pasted back into
-    the class. This method worked because the dataset name was the same as the instance variable name.
-    ie.  /group/group/adc_i translates to self.fh.adc_i
+    Cheat function. Reads an hdf5 file and generates a block of code for reading the data
+    into the relevant class-instance variables. The code block is then written to a file.
+    This method worked because the hdf5 dataset name is identical the same as the variable name.
+
+    .. code::
+        /time_ordered_data/adc_i --> self.fh.adc_i
+        /global_data/somevar --> self.fh.somevar
+
     """
     f = h5py.File(h5, "r")
     rf = open("rawdatafilereadfunction.txt", 'w') #overwrites, previous
@@ -737,38 +492,6 @@ def gen_read(h5: str):
         elif isinstance(v, h5py.Group):
             v.visititems(somefunc)
     rf.close()
-
-
-def getdtime():
-    """
-    Gets the time in fractional hours since midnight
-    of the current day with a precision down to seconds.
-
-    :return: Fraction of hours since midnight
-
-    :rtype: Float
-
-    """
-    t = time.localtime()
-    t1 = time.mktime(t)  # current time
-
-    t2 = time.struct_time(
-        (
-            t.tm_year,
-            t.tm_mon,
-            t.tm_mday,
-            0,
-            0,
-            0,
-            t.tm_wday,
-            t.tm_yday,
-            t.tm_isdst,
-            t.tm_zone,
-            t.tm_gmtoff,
-        )
-    )
-    t2 = time.mktime(t2)
-    return (t1 - t2) / 3600
 
 
 def get_yymmdd():
