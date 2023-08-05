@@ -29,7 +29,8 @@ import socket
 import time
 import multiprocessing as mp
 
-
+RED='\033[0;31m'
+NC='\033[0m' # No Color
 
 logger = logging.getLogger(__name__)
 
@@ -46,12 +47,14 @@ def __data_writer_process(dataqueue, chan: RFChannel, runFlag):
 
     # Create HDF5 Datafile and populate various fields
     try:
-        raw = RawDataFile(chan.raw_filename, overwrite=True)
+        raw = RawDataFile(chan.raw_filename, 'w')
         raw.format(chan.n_sample, chan.n_tones, chan.n_fftbins)
         raw.set_global_data(chan)
     except Exception as e:
-        log.error(str(e))
-        runFlag.value = False
+        errorstr = RED+str(e)+NC
+        log.exception(errorstr)
+        return
+        # raise e
     # Pass in the last LO sweep here
     if chan.lo_sweep_filename == "":
         raw.append_lo_sweep(get_last_lo(chan.name))
@@ -95,6 +98,7 @@ def __data_collector_process(dataqueue, chan: RFChannel, runFlag):
     Data is handed off to the writer in chunks of 488 which allows us to run more efficiently as well as collect data indefinitely.
 
     """
+    import time
     log = logger.getChild(__name__)
     log.debug(f"began data collector process <{chan.name}>")
     # Creae Socket
@@ -104,6 +108,8 @@ def __data_collector_process(dataqueue, chan: RFChannel, runFlag):
         s.settimeout(10)
     except Exception as e:
         dataqueue.put(None)
+        errorstr = RED+str(e)+NC
+        log.exception(errorstr)
         return
     # log.debug(f"Socket bound - <{chan.name}>")
     # Take Data
@@ -125,7 +131,7 @@ def __data_collector_process(dataqueue, chan: RFChannel, runFlag):
                 spec_data = np.frombuffer(datarray, dtype = '<i')
                 i[:, k] = spec_data[0::2][0:1024]
                 q[:, k] = spec_data[1::2][0:1024]
-                ts[k] = getdtime()
+                ts[k] = time.time()
             dataqueue.put((idx, i, q, ts))
             # log.info(f"<{chan.name}> rx 488 pkts")
         except TimeoutError:
@@ -239,7 +245,8 @@ def capture(channels: list, fn=None, *args, **kwargs):
             pool.join()
         except Exception as e:
             log.error("While calling fn, an exception occured")
-            log.error(str(e))
+            errorstr = RED+str(e)+NC
+            log.exception(errorstr)
             pool.terminate()
             pool.join()
     else:
@@ -250,6 +257,8 @@ def capture(channels: list, fn=None, *args, **kwargs):
     try:
         pool.join()
     except KeyboardInterrupt:
+        errorstr = RED+str(e)+NC
+        log.exception(errorstr)
         pool.terminate()
         pool.join()
         return

@@ -107,6 +107,7 @@ class RFChannel:
     ifslice_number: int = 0
     lo_sweep_filename: str = "/path/to/some_s21_file_here.npy"
     n_fftbins: int = 1024
+    lo_freq: float = 400.0
 
 class RawDataFile:
     """A raw hdf5 data file object for incoming rfsoc-UDP data streams.
@@ -127,36 +128,23 @@ class RawDataFile:
         do not contents. By default, this is false and the file is opened in append mode and subsequently read.
     """
 
-    def __init__(self, path, overwrite=False):
+    def __init__(self, path, filemode, overwrite=False):
         log = logger.getChild(__name__)
 
         self.filename = path
-        if not os.path.exists(path):
-            log.debug("File not found, creating file...")
-            try:
-                self.fh = h5py.File(self.filename, "a")
-            except Exception as e:
-                log.error(e)
-                raise
+        if filemode == 'r':
+            self.fh = h5py.File(path, "r")
+            self.read()
+            log.debug(f"Opened {path} for reading.")
+        elif filemode == 'w' or filemode == 'a':
+            self.fh = h5py.File(self.filename, "w")
+            log.debug(f"Opened {path} for writing.")
         else:
-            log.debug("File already exists.")
-            if overwrite:
-                log.debug("Overwriting file")
-                try:
-                    self.fh = h5py.File(self.filename, "w")
-                except Exception as e:
-                    log.error(e)
-                    raise
-            else:
-                log.debug("Opening File as append")
-                try:
-                    self.fh = h5py.File(self.filename, "a")
-                except Exception as e:
-                    log.error(e)
-                    raise
-                self.read()
+            # do nothing
+            pass
 
-    def format(self, n_sample: int, n_tones: int, n_fftbins: int):
+
+    def format(self, n_sample: int, n_tones: int, n_fftbins: int = 1024):
         """
         When called, populates the hdf5 file with our desired datasets
         """
@@ -194,6 +182,9 @@ class RawDataFile:
         self.baseband_freqs = self.fh.create_dataset(
             "global_data/baseband_freqs", (n_tones,)
         )
+        self.detector_dx_dy_elevation_angle = self.fh.create_dataset(
+            "global_data/detector_dx_dy_elevation_angle", (1,), h5py.h5t.NATIVE_DOUBLE
+        )
         self.sample_rate = self.fh.create_dataset("global_data/sample_rate", (1,))
         self.tile_number = self.fh.create_dataset(
             "global_data/tile_number", (n_tones,), dtype=h5py.h5t.NATIVE_INT32
@@ -228,7 +219,13 @@ class RawDataFile:
         self.detector_pol = self.fh.create_dataset(
             GD+"detector_pol", (n_tones,), dtype=h5py.h5t.NATIVE_INT32
         )
-
+        self.dfoverf_per_mK = self.fh.create_dataset(
+            GD+"dfoverf_per_mK", (n_tones,), dtype=h5py.h5t.NATIVE_DOUBLE
+        )
+        self.lo_freq = self.fh.create_dataset(
+            GD+"lo_freq", (1,), dtype=h5py.h5t.NATIVE_DOUBLE
+        )
+        #lo_freq
         # ****************************** Time Ordered Data *****************************
         self.adc_i = self.fh.create_dataset(
             "time_ordered_data/adc_i",
@@ -246,7 +243,7 @@ class RawDataFile:
         )
 
         self.timestamp = self.fh.create_dataset(
-            "time_ordered_data/timestamp", (n_sample,), chunks=(488,), maxshape=(None,)
+            "time_ordered_data/timestamp", (n_sample,), chunks=(488,), maxshape=(None,), dtype=h5py.h5t.IEEE_F64LE
         )
         self.fh.flush()
 
@@ -270,18 +267,24 @@ class RawDataFile:
         self.rfsoc_number[0] = chan.rfsoc_number
         self.ifslice_number[0] = chan.ifslice_number
         self.n_attenuators[0] = chan.n_attenuators
+        self.lo_freq[0] = chan.lo_freq
         
+        # ONR specific params below this line
         chanmaskpath = PARAMS_PATH + f"chanmask_{chan.name}.npy"
         detdx = PARAMS_PATH + f"detector_delta_x_tile{chan.tile_number}.npy"
         detdy = PARAMS_PATH + f"detector_delta_y_tile{chan.tile_number}.npy"
         det_ba = PARAMS_PATH + f"detector_beam_ampl_tile{chan.tile_number}.npy"
         det_pol = PARAMS_PATH + f"detector_pol_tile{chan.tile_number}.npy"
+        dfoverf_per_mK = PARAMS_PATH + f"dfoverf_per_mK_tile{chan.tile_number}.npy"
+        
 
         self.chanmask[:] = np.load(chanmaskpath)
         self.detector_delta_x[:] = np.load(detdx)
         self.detector_delta_y[:] = np.load(detdy)
+        self.detector_dx_dy_elevation_angle[:] = 89.0
         self.detector_beam_ampl[:] = np.load(det_ba)
         self.detector_pol[:] = np.load(det_pol)
+        self.dfoverf_per_mK[:] = np.load(dfoverf_per_mK)
             
 
     def read(self):
@@ -296,34 +299,130 @@ class RawDataFile:
         .. warning::
             changes to the name of a dataset must be identical to the instance variable identifier with which that dataset belongs.
             self.identifier = self.fh["/some/path/here/identifier"]
+            
         """
         log = logger.getChild(__name__)
 
-        try:
-            self.n_attenuators = self.fh["/dimension/n_attenuators"]
-            self.n_tones = self.fh["/dimension/n_tones"]
-            self.n_sample = self.fh["/dimension/n_sample"]
+        if '/dimension/n_attenuators' in self.fh:
+            self.n_attenuators = self.fh['/dimension/n_attenuators']
+        else:
+            self.n_attenuators = None
 
-            self.attenuator_settings = self.fh["/global_data/attenuator_settings"]
-            self.baseband_freqs = self.fh["/global_data/baseband_freqs"]
-            self.chan_number = self.fh["/global_data/chan_number"]
-            self.ifslice_number = self.fh["/global_data/ifslice_number"]
-            self.rfsoc_number = self.fh["/global_data/rfsoc_number"]
-            self.sample_rate = self.fh["/global_data/sample_rate"]
-            self.tile_number = self.fh["/global_data/tile_number"]
-            self.tone_powers = self.fh["/global_data/tone_powers"]
+        if '/dimension/n_fftbins' in self.fh:
+            self.n_fftbins = self.fh['/dimension/n_fftbins']
+        else:
+            self.n_fftbins = None
 
-            if "/global_data/lo_sweep" in self.fh:
-                self.lo_sweep = self.fh["/global_data/lo_sweep"]
-            else:
-                self.lo_sweep = None
+        if '/dimension/n_sample' in self.fh:
+            self.n_sample = self.fh['/dimension/n_sample']
+        else:
+            self.n_sample = None
 
-            self.timestamp = self.fh["/time_ordered_data/timestamp"]
-            self.adc_i = self.fh["/time_ordered_data/adc_i"]
-            self.adc_q = self.fh["/time_ordered_data/adc_q"]
+        if '/dimension/n_tones' in self.fh:
+            self.n_tones = self.fh['/dimension/n_tones']
+        else:
+            self.n_tones = None
 
-        except Exception as e:
-            log.error(e)
+        if '/global_data/attenuator_settings' in self.fh:
+            self.attenuator_settings = self.fh['/global_data/attenuator_settings']
+        else:
+            self.attenuator_settings = None
+
+        if '/global_data/dfoverf_per_mK' in self.fh:
+            self.dfoverf_per_mK = self.fh['/global_data/dfoverf_per_mK']
+        else:
+            self.dfoverf_per_mK = None
+
+        if '/global_data/baseband_freqs' in self.fh:
+            self.baseband_freqs = self.fh['/global_data/baseband_freqs']
+        else:
+            self.baseband_freqs = None
+
+        if '/global_data/lo_freq' in self.fh:
+            self.lo_freq = self.fh['/global_data/lo_freq']
+        else:
+            self.lo_freq = None
+
+        if '/global_data/chan_number' in self.fh:
+            self.chan_number = self.fh['/global_data/chan_number']
+        else:
+            self.chan_number = None
+
+        if '/global_data/chanmask' in self.fh:
+            self.chanmask = self.fh['/global_data/chanmask']
+        else:
+            self.chanmask = None
+
+        if '/global_data/detector_beam_ampl' in self.fh:
+            self.detector_beam_ampl = self.fh['/global_data/detector_beam_ampl']
+        else:
+            self.detector_beam_ampl = None
+
+        if '/global_data/detector_delta_x' in self.fh:
+            self.detector_delta_x = self.fh['/global_data/detector_delta_x']
+        else:
+            self.detector_delta_x = None
+
+        if '/global_data/detector_delta_y' in self.fh:
+            self.detector_delta_y = self.fh['/global_data/detector_delta_y']
+        else:
+            self.detector_delta_y = None
+
+        if '/global_data/detector_pol' in self.fh:
+            self.detector_pol = self.fh['/global_data/detector_pol']
+        else:
+            self.detector_pol = None
+
+        if '/global_data/ifslice_number' in self.fh:
+            self.ifslice_number = self.fh['/global_data/ifslice_number']
+        else:
+            self.ifslice_number = None
+
+        if '/global_data/lo_sweep' in self.fh:
+            self.lo_sweep = self.fh['/global_data/lo_sweep']
+        else:
+            self.lo_sweep = None
+
+        if '/global_data/rfsoc_number' in self.fh:
+            self.rfsoc_number = self.fh['/global_data/rfsoc_number']
+        else:
+            self.rfsoc_number = None
+
+        if '/global_data/sample_rate' in self.fh:
+            self.sample_rate = self.fh['/global_data/sample_rate']
+        else:
+            self.sample_rate = None
+
+        if '/global_data/tile_number' in self.fh:
+            self.tile_number = self.fh['/global_data/tile_number']
+        else:
+            self.tile_number = None
+
+        if '/global_data/tone_powers' in self.fh:
+            self.tone_powers = self.fh['/global_data/tone_powers']
+        else:
+            self.tone_powers = None
+
+        if "/global_data/detector_dx_dy_elevation_angle" in self.fh:
+            self.detector_dx_dy_elevation_angle = self.fh["/global_data/detector_dx_dy_elevation_angle"]
+        else:
+            self.detector_dx_dy_elevation_angle = None
+
+        if '/time_ordered_data/adc_i' in self.fh:
+            self.adc_i = self.fh['/time_ordered_data/adc_i']
+        else:
+            self.adc_i = None
+
+        if '/time_ordered_data/adc_q' in self.fh:
+            self.adc_q = self.fh['/time_ordered_data/adc_q']
+        else:
+            self.adc_q = None
+
+        if '/time_ordered_data/timestamp' in self.fh:
+            self.timestamp = self.fh['/time_ordered_data/timestamp']
+        else:
+            self.timestamp = None
+
 
     def append_lo_sweep(self, sweeppath: str):
         """
@@ -621,17 +720,23 @@ def gen_read(h5: str):
     ie.  /group/group/adc_i translates to self.fh.adc_i
     """
     f = h5py.File(h5, "r")
+    rf = open("rawdatafilereadfunction.txt", 'w') #overwrites, previous
 
     def somefunc(name, object):
         if isinstance(object, h5py.Dataset):
             prop = object.name.split("/").pop()
-            print(f"self.{prop} = self.fh['{object.name}']")
+            rf.write(f"if '{object.name}' in self.fh:\n")
+            rf.write(f"    self.{prop} = self.fh['{object.name}']\n")
+            rf.write(f"else:\n")
+            rf.write(f"    self.{prop} = None\n\n")
+
 
     for k, v in f.items():
         if isinstance(v, h5py.Dataset):
-            print(f"self.{k} = self.fh['{k}']")
+            pass
         elif isinstance(v, h5py.Group):
             v.visititems(somefunc)
+    rf.close()
 
 
 def getdtime():

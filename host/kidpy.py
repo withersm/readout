@@ -469,7 +469,7 @@ class kidpy:
 
                         if onr_opt == 1:  # Run standard calibration LO sweep
                             # see if the user wants to shift all the tones (e.g., due to change in loading)
-                            chan_name = 'rfsoc1'
+                            chan_name = 'rfsoc2'
                             tone_shift = (
                                 input(
                                     "How many kHz to shift the tones in the band center before the LO sweep (default is 0)"
@@ -579,7 +579,7 @@ class kidpy:
                             os.system("clear")
                             self.__udp.bindSocket()
                             savefile = (
-                                onrkidpy.get_filename(type="TOD", chan_name="rfsoc1")
+                                onrkidpy.get_filename(type="TOD", chan_name="rfsoc2")
                                 + ".hd5"
                             )
                             if t < 60:
@@ -641,25 +641,26 @@ class kidpy:
                             )
                             telefile = rfsocfile.replace('TOD', 'AZEL')
                             telefile = telefile.replace("_channame", "")
-                            rfsocfile = rfsocfile.replace("channame", "rfsoc1")
+                            rfsocfile = rfsocfile.replace("channame", "rfsoc2")
                             # Populate the rfchannel with all the relevent details
                             bb = self.get_last_flist()
-                            rfsoc1 = data_handler.RFChannel(
+                            rfsoc2 = data_handler.RFChannel(
                                 rfsocfile,
                                 "192.168.5.40",
                                 bb,
                                 self.get_last_alist(),
                                 port=4096,
-                                name="rfsoc1",
+                                name="rfsoc2",
                                 n_tones=len(bb),
                                 attenuator_settings=np.array([20.0, 10.0]),
                                 tile_number=2,
-                                rfsoc_number=1,
-                                lo_sweep_filename=data_handler.get_last_lo("rfsoc1"),
+                                rfsoc_number=2,
+                                lo_sweep_filename=data_handler.get_last_lo("rfsoc2"),
+                                lo_freq=self.valon.get_frequency(valon5009.SYNTH_B)*1e6
                             )
                             
                             udp2.capture(
-                                [rfsoc1],
+                                [rfsoc2],
                                 motor.AZ_scan_mode,
                                 0.0,
                                 10.0,
@@ -667,6 +668,7 @@ class kidpy:
                                 n_repeats=1,
                                 position_return=True,
                             )
+
 
                         if onr_opt == 7:  # Exit
                             onr_loop = False
@@ -680,13 +682,13 @@ class kidpy:
                                 self, np.ndarray.tolist(fList), np.ndarray.tolist(fAmps)
                             )
                         if onr_opt == 10:
-                            sweeps.plot_sweep_hdf(data_handler.get_last_rdf("rfsoc1"))
+                            sweeps.plot_sweep_hdf(data_handler.get_last_rdf("rfsoc2"))
 
                 else:
                     print("ONR repository does not exist")
 
             if opt == 9:
-                f = data_handler.RawDataFile(data_handler.get_last_rdf("rfsoc1"))
+                f = data_handler.RawDataFile(data_handler.get_last_rdf("rfsoc2"), 'r')
                 i = f.adc_i[:].T[10]
                 q = f.adc_q[:].T[10]
                 print(f"{i.shape}")
