@@ -2,11 +2,14 @@ import numpy as np
 import valon5009
 import logging
 import matplotlib.pyplot as plt
+import h5py
+import os
+import pdb
 
 logger = logging.getLogger(__name__)
 
 
-def sweep(loSource, udp, f_center, freqs, N_steps=500, freq_step=0.0):
+def sweep(loSource: valon5009.Synthesizer, udp, f_center, freqs, N_steps=500, freq_step=0.0):
     """
     Actually perform an LO Sweep using valon 5009's and save the data
 
@@ -41,10 +44,11 @@ def sweep(loSource, udp, f_center, freqs, N_steps=500, freq_step=0.0):
     flos = np.arange(flo_start, flo_stop, flo_step)
     log.info(f"len flos {flos.shape}")
     udp.bindSocket()
-
+    actual_los = []
     def temp(lofreq):
         # self.set_ValonLO function here
-        loSource.set_frequency(valon5009.SYNTH_B, lofreq)
+        loSource.set_frequency(valon5009.SYNTH_B, lofreq+0.000001)
+        # actual_los.append(loSource.get_frequency(valon5009.SYNTH_B))
         # Read values and trash initial read, suspecting linear delay is cause..
         Naccums = 50
         I, Q = [], []
@@ -70,7 +74,6 @@ def sweep(loSource, udp, f_center, freqs, N_steps=500, freq_step=0.0):
         print(".", end="")
 
         return Z
-
     sweep_Z = np.array([temp(lofreq) for lofreq in flos])
     log.info(f"sweepz.shape={sweep_Z.shape}")
 
@@ -122,6 +125,37 @@ def plot_sweep(s21: str):
     log = logger.getChild("def plot_sweep")
 
     data = np.load(s21)
+    log.info(f"s21 shape={data.shape}")
+    ftones = np.concatenate(data[0])
+    sweep_Z = np.concatenate(data[1])
+    # ftones = data[0][0]
+    # sweep_Z = data[1][0]
+    mag = 10 * np.log10(np.abs(sweep_Z))
+
+    plt.figure(figsize=(14, 8))
+    plt.plot(ftones, mag.real)
+    plt.grid()
+    plt.show()
+
+
+def plot_sweep_hdf(path: str):
+    """
+    plots sweep from provided path to RawDataFile if it exists.
+
+    :param str path:
+        path to RawDataFile
+    """
+    log = logger.getChild("def plot_sweep_hdf")
+
+    if os.path.isfile(path):
+        f = h5py.File(path, 'r')
+    else:
+        log.error("specified hdf5 file not found")
+    if "/global_data/lo_sweep" in f:
+        data = f["/global_data/lo_sweep"]
+    else:
+        log.error("No Sweep Data Found")
+    data = data[:]
     log.info(f"s21 shape={data.shape}")
     ftones = np.concatenate(data[0])
     sweep_Z = np.concatenate(data[1])
