@@ -21,10 +21,10 @@ import logging
 import numpy as np
 import socket
 
-from data_handler import getdtime
+# from data_handler import getdtime
 from data_handler import RFChannel
 from data_handler import RawDataFile
-from data_handler import get_last_lo
+# from data_handler import get_last_lo  :FIXME
 import socket
 import time
 import multiprocessing as mp
@@ -57,7 +57,8 @@ def __data_writer_process(dataqueue, chan: RFChannel, runFlag):
         # raise e
     # Pass in the last LO sweep here
     if chan.lo_sweep_filename == "":
-        raw.append_lo_sweep(get_last_lo(chan.name))
+        # raw.append_lo_sweep("")
+        pass
     else:
         raw.append_lo_sweep(chan.lo_sweep_filename)
 

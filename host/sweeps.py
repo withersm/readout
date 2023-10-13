@@ -5,11 +5,12 @@ import matplotlib.pyplot as plt
 import h5py
 import os
 import pdb
+import transceiver
 
 logger = logging.getLogger(__name__)
 
 
-def sweep(loSource: valon5009.Synthesizer, udp, f_center, freqs, N_steps=500, freq_step=0.0):
+def sweep(loSource: transceiver.Transceiver, udp, f_center, freqs, N_steps=500, freq_step=0.0):
     """
     Actually perform an LO Sweep using valon 5009's and save the data
 
@@ -47,7 +48,9 @@ def sweep(loSource: valon5009.Synthesizer, udp, f_center, freqs, N_steps=500, fr
     actual_los = []
     def temp(lofreq):
         # self.set_ValonLO function here
-        loSource.set_frequency(valon5009.SYNTH_B, lofreq+0.000001)
+        # loSource.set_frequency(valon5009.SYNTH_B, lofreq+0.000001)
+        loSource.set_synth_out(lofreq)
+        print(lofreq)
         # actual_los.append(loSource.get_frequency(valon5009.SYNTH_B))
         # Read values and trash initial read, suspecting linear delay is cause..
         Naccums = 50
@@ -90,7 +93,8 @@ def sweep(loSource: valon5009.Synthesizer, udp, f_center, freqs, N_steps=500, fr
     # WITH TIMESTAMP
 
     # set the LO back to the original frequency
-    loSource.set_frequency(valon5009.SYNTH_B, f_center)
+    # loSource.set_frequency(valon5009.SYNTH_B, f_center)
+    loSource.set_synth_out
 
     return (f, sweep_Z_f)
 
@@ -99,7 +103,7 @@ def loSweep(
     loSource,
     udp,
     freqs=[],
-    f_center=400.0,
+    f_center=6000.0,
     N_steps=500,
     freq_step=1.0,
     savefile="s21",

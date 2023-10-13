@@ -31,18 +31,20 @@ import sweeps
 import udp2
 import data_handler
 import matplotlib.pyplot as plt
+import transceiver
 
 # from datetime import date
 # from datetime import datetime
 import pdb
 import glob
 import logging
+from time import sleep
 
 ### Logging ###
 # Configures the logger such that it prints to a screen and file including the format
 __LOGFMT = "%(asctime)s|%(levelname)s|%(filename)s|%(lineno)d|%(funcName)s|%(message)s"
 
-logging.basicConfig(format=__LOGFMT, level=logging.INFO)
+logging.basicConfig(format=__LOGFMT, level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 __logh = logging.FileHandler("./kidpy.log")
 logging.root.addHandler(__logh)
@@ -52,7 +54,7 @@ __logh.setFormatter(logging.Formatter(__LOGFMT))
 ################
 
 
-default_f_center = 400.0
+default_f_center = 6000
 
 # for the ONR features
 onr_repo_dir = os.path.expanduser("~") + "/onrkidpy"
@@ -259,8 +261,9 @@ class kidpy:
             exit()
 
         # Differentiate 5009's connected to the system
-        self.valon = valon5009.Synthesizer("/dev/IF2System1LO")
-        self.valon.set_frequency(valon5009.SYNTH_B, default_f_center)
+        self.udx1 = transceiver.Transceiver()
+        self.udx1.connect("/dev/IFSLICE2")
+        self.udx1.set_synth_out(default_f_center)
         # for v in self.__ValonPorts:
         #    self.valon = valon5009.Synthesizer(v.replace(' ', ''))
 
@@ -279,12 +282,12 @@ class kidpy:
             "Take Raw Data",
             "LO Sweep",
             "Exit",
-            "ONR kidpy",
-            "Plot accum sample",
+            "Take 10s of Data",
+            "Does Nothing",
         ]
 
     def get_tone_list(self):
-        lo_freq = valon5009.Synthesizer.get_frequency(self.valon, valon5009.SYNTH_B)
+        lo_freq = valon5009.Synthesizer.get_frequency(self.udx1, valon5009.SYNTH_B)
         tones = lo_freq * 1.0e6 + np.asarray(self.get_last_flist())
         return tones
 
@@ -414,7 +417,7 @@ class kidpy:
                 os.system("clear")
                 print("LO Sweep")
                 sweeps.loSweep(
-                    self.valon,
+                    self.udx1,
                     self.__udp,
                     self.get_last_flist(),
                     f_center=default_f_center,
@@ -427,277 +430,30 @@ class kidpy:
             if opt == 7:  # get system state
                 exit()
 
-            if opt == 8:  # ONR version of kidpy
-                if onr_flag:
-                    onr_loop = True
-                    while onr_loop:
-                        onr_caption = [
-                            "\n\t\033[95mKID-PY2 RFSoC Readout (ONR Version)\033[95m"
-                        ]
-                        onr_options = [
-                            "Write Custom Tone List",
-                            "Standard Calibration LO Sweep",
-                            "Stream Data to File",
-                            "Get Cooridinates",
-                            "Set AZ Position",
-                            "Set EL Position",
-                            "Motor Test for Data Acquisition",
-                            "Exit",
-                            "Tone Powers",
-                        ]
-                        onr_opt = menu(onr_caption, onr_options)
-
-                        if onr_opt == 0:  # write stored comb
-                            os.system("clear")
-
-                            # see if the user wants the default list or something different:
-                            tone_file = (
-                                input(
-                                    "What is the tone file you would like to load (default is params/Default_tone_list.npy)"
-                                )
-                                or "params/Default_tone_list.npy"
-                            )
-                            freqfile = np.load(tone_file)
-                            fList = np.ndarray.tolist(freqfile)
-                            aList = []
-                            # aList = np.ndarray.tolist(np.load(amplitude_file)) # doesnt exist yet...
-
-                            print(
-                                "Waiting for the RFSOC to finish writing the custom frequency list"
-                            )
-                            write_fList(self, fList, aList)
-
-                        if onr_opt == 1:  # Run standard calibration LO sweep
-                            # see if the user wants to shift all the tones (e.g., due to change in loading)
-                            chan_name = 'rfsoc2'
-                            tone_shift = (
-                                input(
-                                    "How many kHz to shift the tones in the band center before the LO sweep (default is 0)"
-                                )
-                                or 0
-                            )
-                            if tone_shift != 0:
-                                lo_freq = valon5009.Synthesizer.get_frequency(
-                                    self.valon, valon5009.SYNTH_B
-                                )
-                                current_tone_list = self.get_tone_list()
-                                fList = np.ndarray.tolist(
-                                    current_tone_list
-                                    + float(tone_shift)
-                                    * current_tone_list
-                                    / np.median(current_tone_list)
-                                    * 1.0e3
-                                    - lo_freq * 1.0e6
-                                )
-                                print(
-                                    "Waiting for the RFSOC to finish writing the updated frequency list"
-                                )
-                                write_fList(self, fList, [])
-
-                            # first the low resolution initial sweep
-                            os.system("clear")
-                            print(
-                                "Taking initial low-resoluation sweep with df = 1 kHz and Deltaf = 100 kHz"
-                            )
-                            savefile = onrkidpy.get_filename(
-                                type="LO", chan_name=chan_name
-                            )
-                            sweeps.loSweep(
-                                self.valon,
-                                self.__udp,
-                                self.get_last_flist(),
-                                valon5009.Synthesizer.get_frequency(
-                                    self.valon, valon5009.SYNTH_B
-                                ),
-                                N_steps=200,
-                                freq_step=0.001,
-                                savefile=savefile,
-                            )
-
-                            # then fit the resonances from that sweep
-                            fit_f0, fit_qi, fit_qc = fit_lo.main(
-                                self.get_tone_list(),
-                                savefile + ".npy",
-                                quickPlot=True,
-                                printFlag=True,
-                            )
-                            adjust_tones = (
-                                input(
-                                    "Manually adjust any of the fitted f0 values (y/n)?"
-                                )
-                                or "n"
-                            )
-                            if adjust_tones == "y":
-                                keepgoing = "y"
-                                while keepgoing == "y":
-                                    adjust_index = int(
-                                        input("Index of tone to adjust:  ")
-                                    )
-                                    freq_adjust = float(input("Frequency (in MHz):  "))
-                                    fit_f0[adjust_index] = freq_adjust * 1.0e6
-                                    keepgoing = (
-                                        input("Adjust another tone (y/n)?") or "n"
-                                    )
-                            new_tone_list = (
-                                fit_f0
-                                - valon5009.Synthesizer.get_frequency(
-                                    self.valon, valon5009.SYNTH_B
-                                )
-                                * 1.0e6
-                            )
-                            write_new_list = (
-                                input("Write new list of tones, yes or no (Default = no)?")
-                                or 'no'
-                            )
-                            if write_new_list == 'yes':
-                                write_fList(self, np.ndarray.tolist(new_tone_list), [])
-                                np.save(
-                                    onrkidpy.get_filename(
-                                        type="TONELIST", chan_name=chan_name
-                                    ),
-                                    new_tone_list,
-                                )
-                            plt.close("all")
-
-                            second_sweep = (input('Perform a second high-resolution sweep, yes or no (Default = no)') or 'no')
-                            if second_sweep == 'yes':
-                                savefile = onrkidpy.get_filename(
-                                type="LO", chan_name=chan_name)
-                                sweeps.loSweep(
-                                self.valon,
-                                self.__udp,
-                                self.get_last_flist(),
-                                valon5009.Synthesizer.get_frequency(
-                                    self.valon, valon5009.SYNTH_B
-                                ),
-                                N_steps=30,
-                                freq_step=0.001,
-                                savefile=savefile,)
-
-                        if onr_opt == 2:  # Stream data to file
-                            t = int(input("How many seconds of data?: ")) or 0
-                            os.system("clear")
-                            self.__udp.bindSocket()
-                            savefile = (
-                                onrkidpy.get_filename(type="TOD", chan_name="rfsoc2")
-                                + ".hd5"
-                            )
-                            if t < 60:
-                                self.__udp.shortDataCapture(savefile, 488 * t)
-                            else:
-                                self.__udp.LongDataCapture(savefile, 488 * t)
-                            self.__udp.release()
-
-                        if onr_opt == 3:  # Test a telescope function
-                            motor.init_test()
-                            motor.AZ_Ser_Pos()
-                            print("The AZ position is: ", motor.pfb)
-                            motor.EL_Ser_Pos()
-                            print("The EL position is: ", motor.pos)
-
-                        if onr_opt == 4:
-                            motor.init_test()
-                            pfb = motor.pfb
-                            print("Az Position is: ", pfb)
-                            az_set_pos_req = float(
-                                input(
-                                    "What position do you want to set the motor (-180.000 to 180.000 degrees)?"
-                                )
-                            )
-                            az_set_pos = az_set_pos_req
-                            if az_set_pos > 180000 or az_set_pos < -180000:
-                                print(
-                                    "This position is outside the limits of the Telescope!"
-                                )
-                            else:
-                                motor.setAZposition(az_set_pos)
-                            print("The AZ position is: ", motor.pfb)
-
-                        if onr_opt == 5:
-                            try:
-                                motor.init_test()
-                                pos = motor.pos
-                                print("El Position is: ", pos)
-                                el_set_pos = float(
-                                    input(
-                                        "What position do you want to set the motor (Degrees)?"
-                                    )
-                                )
-                                motor.setELposition(el_set_pos)
-                                print("The EL position is: ", motor.pos)
-                            except:
-                                motor.set_ao_zero()
-                                print(
-                                    "\033[93m UnboundLocalError: DAQ could not be initialized: Check comm port and power supply\033[0m"
-                                )
-
-                        if onr_opt == 6:
-                            # then collect the KID data
-                            os.system("clear")
-                            motor.init_test()
-                            rfsocfile = (
-                                onrkidpy.get_filename(type="TOD", chan_name="channame")
-                                + ".hd5"
-                            )
-                            telefile = rfsocfile.replace('TOD', 'AZEL')
-                            telefile = telefile.replace("_channame", "")
-                            rfsocfile = rfsocfile.replace("channame", "rfsoc2")
-                            # Populate the rfchannel with all the relevent details
-                            bb = self.get_last_flist()
-                            rfsoc2 = data_handler.RFChannel(
-                                rfsocfile,
-                                "192.168.5.40",
-                                bb,
-                                self.get_last_alist(),
-                                port=4096,
-                                name="rfsoc2",
-                                n_tones=len(bb),
-                                attenuator_settings=np.array([20.0, 10.0]),
-                                tile_number=2,
-                                rfsoc_number=2,
-                                lo_sweep_filename=data_handler.get_last_lo("rfsoc2"),
-                                lo_freq=self.valon.get_frequency(valon5009.SYNTH_B)*1e6
-                            )
+            if opt == 8:
+                f = self.get_last_flist()
+                t = time.strftime("%Y%m%d%H%M%S")
+                rfsoc1 = data_handler.RFChannel(
+                f"./ALICPT_RDF_{t}.hd5",
+                "192.168.3.40",
+                self.get_last_flist(),
+                self.get_last_alist(),
+                port=4096,
+                name="rfsoc2",
+                n_tones=len(f),
+                attenuator_settings=np.array([20.0, 10.0]),
+                tile_number=2,
+                rfsoc_number=2,
+                lo_sweep_filename="",
+                lo_freq=default_f_center
+                )
                             
-                            udp2.capture(
-                                [rfsoc2],
-                                motor.AZ_scan_mode,
-                                0.0,
-                                10.0,
-                                telefile,
-                                n_repeats=1,
-                                position_return=True,
-                            )
+                udp2.capture([rfsoc1], sleep, 20)
 
 
-                        if onr_opt == 7:  # Exit
-                            onr_loop = False
-
-                        if onr_opt == 8:  # Tone Powers
-                            fList = self.get_last_flist()
-                            fAmps = np.ones(np.size(fList))
-                            #                           fAmps[0:10] = 10
-                            # pdb.set_trace()
-                            write_fList(
-                                self, np.ndarray.tolist(fList), np.ndarray.tolist(fAmps)
-                            )
-                        if onr_opt == 10:
-                            sweeps.plot_sweep_hdf(data_handler.get_last_rdf("rfsoc2"))
-
-                else:
-                    print("ONR repository does not exist")
 
             if opt == 9:
-                f = data_handler.RawDataFile(data_handler.get_last_rdf("rfsoc2"), 'r')
-                i = f.adc_i[:].T[10]
-                q = f.adc_q[:].T[10]
-                print(f"{i.shape}")
-                mag = np.sqrt(i**2 + q**2)
-                y = 10 * np.log10(mag / np.max(mag))
-                plt.plot(y)
-                plt.title("Accum (dB)")
-                plt.grid()
-                plt.show()
+                pass
             return 0
 
 

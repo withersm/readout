@@ -107,7 +107,7 @@ class RFChannel:
     ifslice_number: int = 0
     lo_sweep_filename: str = "/path/to/some_s21_file_here.npy"
     n_fftbins: int = 1024
-    lo_freq: float = 400.0
+    lo_freq: float = 6000.0
 
 class RawDataFile:
     """A raw hdf5 data file object for incoming rfsoc-UDP data streams.
@@ -289,21 +289,21 @@ class RawDataFile:
         
         # In kidpy, the user shall call a function along the lines of 
         # "Append or include External Data".
-        chanmaskpath = PARAMS_PATH + f"chanmask_{chan.name}.npy"
-        detdx = PARAMS_PATH + f"detector_delta_x_tile{chan.tile_number}.npy"
-        detdy = PARAMS_PATH + f"detector_delta_y_tile{chan.tile_number}.npy"
-        det_ba = PARAMS_PATH + f"detector_beam_ampl_tile{chan.tile_number}.npy"
-        det_pol = PARAMS_PATH + f"detector_pol_tile{chan.tile_number}.npy"
-        dfoverf_per_mK = PARAMS_PATH + f"dfoverf_per_mK_tile{chan.tile_number}.npy"
+        # chanmaskpath = PARAMS_PATH + f"chanmask_{chan.name}.npy"
+        # detdx = PARAMS_PATH + f"detector_delta_x_tile{chan.tile_number}.npy"
+        # detdy = PARAMS_PATH + f"detector_delta_y_tile{chan.tile_number}.npy"
+        # det_ba = PARAMS_PATH + f"detector_beam_ampl_tile{chan.tile_number}.npy"
+        # det_pol = PARAMS_PATH + f"detector_pol_tile{chan.tile_number}.npy"
+        # dfoverf_per_mK = PARAMS_PATH + f"dfoverf_per_mK_tile{chan.tile_number}.npy"
         
 
-        self.chanmask[:] = np.load(chanmaskpath)
-        self.detector_delta_x[:] = np.load(detdx)
-        self.detector_delta_y[:] = np.load(detdy)
-        self.detector_dx_dy_elevation_angle[:] = 89.0
-        self.detector_beam_ampl[:] = np.load(det_ba)
-        self.detector_pol[:] = np.load(det_pol)
-        self.dfoverf_per_mK[:] = np.load(dfoverf_per_mK)
+        # self.chanmask[:] = np.load(chanmaskpath)
+        # self.detector_delta_x[:] = np.load(detdx)
+        # self.detector_delta_y[:] = np.load(detdy)
+        # self.detector_dx_dy_elevation_angle[:] = 89.0
+        # self.detector_beam_ampl[:] = np.load(det_ba)
+        # self.detector_pol[:] = np.load(det_pol)
+        # self.dfoverf_per_mK[:] = np.load(dfoverf_per_mK)
             
 
     def read(self):
@@ -511,7 +511,9 @@ def get_yymmdd():
 
 
 def get_last_lo(name: str):
+    pass
     """
+    :FIXME
     Modified function to get the laster sweep file from data.
     this function expects a general file format consisting of the
     following.
@@ -524,21 +526,21 @@ def get_last_lo(name: str):
         /data/20230730/20230730_rfsoc1_LO_Sweep_hour15p4625.npy
         /data/20230730/20230730_rfsoc1_LO_Sweep_hour15p4628.npy
     """
-    # see if we already have the parent folder for today's date
-    yymmdd = get_yymmdd()
-    date_folder = "/data/" + yymmdd + "/"
-    check_date_folder = glob.glob(date_folder)
-    if np.size(check_date_folder) == 0:
-        return ""
+    # # see if we already have the parent folder for today's date
+    # yymmdd = get_yymmdd()
+    # date_folder = "/data/" + yymmdd + "/"
+    # check_date_folder = glob.glob(date_folder)
+    # if np.size(check_date_folder) == 0:
+    #     return ""
 
-    fstring = f"/data/{yymmdd}/{yymmdd}_{name}_LO_Sweep_*.npy"
-    g = glob.glob(fstring)
+    # fstring = f"/data/{yymmdd}/{yymmdd}_{name}_LO_Sweep_*.npy"
+    # g = glob.glob(fstring)
 
-    if len(g) == 0:
-        return ""
+    # if len(g) == 0:
+    #     return ""
 
-    g.sort()
-    return g[-1]
+    # g.sort()
+    # return g[-1]
 
 def get_TOD_fset():
     """
