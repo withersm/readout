@@ -92,15 +92,27 @@ class Transceiver(object):
             return self.loopback
         else:
             raise ConnectionError("Unable to connect to Transceiver")
-
+    """
+    def toggle_loopback(self):
+        if self.check_connection():
+            # Set loopback
+            self.channel.write(b'tlb\n');
+            time.sleep(.05)
+            resp = self.channel.readline().strip()
+            if resp != b'OK':
+                raise ConnectionError("Something went wrong, failed to set loopback.")
+            return self.get_loopback()
+        else:
+            raise ConnectionError("Unable to connect to Transceiver")
+    """ 
     def set_loopback(self, val: bool):
         if self.check_connection():
             # Set loopback
             self.loopback = val
             if val:
-                self.channel.write(b'set:loopback\nEnable\n');
+            	self.channel.write(b'set:loopback\nEnable\n')
             else:
-                self.channel.write(b'set:loopback\nDisable\n');
+            	self.channel.write(b'set:loopback\nDisable\n')
             time.sleep(.05)
             resp = self.channel.readline().strip()
             if resp != b'OK':

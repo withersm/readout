@@ -32,6 +32,7 @@ import udp2
 import data_handler
 import matplotlib.pyplot as plt
 import transceiver
+import bias_board
 
 # from datetime import date
 # from datetime import datetime
@@ -267,6 +268,8 @@ class kidpy:
         # for v in self.__ValonPorts:
         #    self.valon = valon5009.Synthesizer(v.replace(' ', ''))
 
+        self.bias = bias_board.Bias("/dev/BIASBOARD")
+
         self.__udp = udpcap.udpcap()
         self.current_waveform = []
         self.current_amplitude = []
@@ -278,12 +281,37 @@ class kidpy:
             "Initialize system & UDP conn",
             "Write test comb (single or multitone)",
             "Write stored comb from config file",
-            "I <-> Q Phase offset",
+            "I <-> Q Phase offset [not functional yet]",
             "Take Raw Data",
-            "LO Sweep",
+            "LO Sweep",            
+            "Bias Board Control",
+            "IF Slice Control",
             "Exit",
-            "Take 10s of Data",
-            "Does Nothing",
+        ]
+
+        self.bias_caption = ["Bias board control."]
+        self.__bias_opts = [
+            "Get all I and V Values",
+            "Get TES Channel I",
+            "Get TES Channel V",
+            "Set TES Channel I",
+            "Set TES Channel V",
+            "Set LNA Channel Vd",
+            "Set LNA Channel Vg",
+            "Set LNA Channel Id",
+            "Return"
+        ]
+
+        self.if_caption = ["IF slice control."]
+        self.__if_opts = [
+            "Check connection",
+            "Get loopback",
+            "Set loopback",
+            "Get synthesizer frequency",
+            "Set synthesizer frequency",
+            "Get LO output frequency",
+            "Set LO output frequency",
+            "Return"
         ]
 
     def get_tone_list(self):
@@ -381,6 +409,8 @@ class kidpy:
             if opt == 4:
                 print("Not Implemented")
 
+            """
+
             if opt == 5:
                 t = 0
                 try:
@@ -411,49 +441,299 @@ class kidpy:
                         self.__udp.LongDataCapture(fname, 488 * t)
                     print("Releasing Socket")
                     self.__udp.release()
+            """
+            if opt == 5: # collect raw data
+                t_length = 0
+                try:
+                    t_length = int(input("How many seconds of data?: "))
+                    print(t_length)
+                except ValueError:
+                    print("Error, not a valid Number")
+                except KeyboardInterrupt:
+                    return
+
+                if t_length <= 0:
+                    print("Can't sample 0 seconds")
+                else:
+
+                    f = self.get_last_flist()
+                    t = time.strftime("%Y%m%d%H%M%S")
+                    rfsoc1 = data_handler.RFChannel(
+                    f"./ALICPT_RDF_{t}.hd5",
+                    "192.168.3.40",
+                    self.get_last_flist(),
+                    self.get_last_alist(),
+                    port=4096,
+                    name="rfsoc2",
+                    n_tones=len(f),
+                    attenuator_settings=np.array([20.0, 10.0]),
+                    tile_number=2,
+                    rfsoc_number=2,
+                    lo_sweep_filename="",
+                    lo_freq=default_f_center
+                    )
+                                
+                    udp2.capture([rfsoc1], sleep, t_length)
 
             if opt == 6:  # Lo Sweep
                 # valon should be connected and differentiated as part of bringing kidpy up.
                 os.system("clear")
                 print("LO Sweep")
-                sweeps.loSweep(
-                    self.udx1,
-                    self.__udp,
-                    self.get_last_flist(),
-                    f_center=default_f_center,
-                    freq_step=0,
-                )
+                
+                try:
+                    freq_center = float(input('Set frequency center (MHz): '))
+                except ValueError:
+                    print("Error, not a valid Number")
+                except KeyboardInterrupt:
+                    return
+                
+                try:        
+                    freq_step = float(input('Set frequency step (MHz): '))
+                except ValueError:
+                    print("Error, not a valid Number")
+                except KeyboardInterrupt:
+                    return
 
-                # plot result
-                sweeps.plot_sweep("./s21.npy")
+                try:
+                    nsteps = int(input('Set number of frequency steps: '))   
+                except ValueError:
+                    print("Error, not a valid Number")
+                except KeyboardInterrupt:
+                    return 
+                
+                if freq_center < 4000 or freq_center > 8000:
+                    print("Center frequency must be between 4000 and 8000 MHz.")
+                elif freq_step <= 0:
+                    print("Frequency step must be > 0.")
+                elif nsteps <= 0:
+                    print("Number of frequency steps must be > 0.")
+                else:  
+                    filename = sweeps.loSweep(
+                            self.udx1,
+                            self.__udp,
+                            self.get_last_flist(),
+                            f_center=default_f_center,
+                            freq_step=0,
+                            N_steps=nsteps
+                    )
 
-            if opt == 7:  # get system state
+                    # plot result
+                    sweeps.plot_sweep(f"./{filename}.npy")
+
+            if opt == 7: #bias board control
+                #desired options
+                #"Get all I and V Values",
+                #"Get TES Channel I",
+                #"Get TES Channel V",
+                #"Set TES Channel I",
+                #"Set TES Channel V",
+                #"Set LNA Channel Vd",
+                #"Set LNA Channel Vg",
+                #"Set LNA Channel Id",
+                #"Return"
+                
+                while True:                
+                    bias_opt = menu(self.bias_caption, self.__bias_opts)
+
+                    if bias_opt == 0:                
+                        self.bias.getAllIV()
+                    elif bias_opt == 1:
+                        try:
+                            TES_channel = int(input('TES bias channel? (1-4): '))
+                        except ValueError:
+                            print("Error, not a valid Number")
+                        except KeyboardInterrupt:
+                            return
+                        TES_current = self.bias.get_iTES(TES_channel)
+                        print("TES Bias Channel %d current: %.3f mA"%(TES_channel, TES_current))
+                        print("\n\n")
+
+                    elif bias_opt == 2:
+                        try:
+                            TES_channel = int(input('TES bias channel? (1-4): '))
+                        except ValueError:
+                            print("Error, not a valid Number")
+                        except KeyboardInterrupt:
+                            return
+                        TES_voltage = self.bias.get_vTES(TES_channel)
+                        print("TES Bias Channel %d voltage: %.3f uV"%(TES_channel, TES_voltage))
+                        print("\n\n")
+
+                    elif bias_opt == 3:
+                        try:
+                            TES_channel = int(input('TES bias channel? (1-4): '))
+                        except ValueError:
+                            print("Error, not a valid Number")
+                        except KeyboardInterrupt:
+                            return
+                        
+                        try:        
+                            TES_current = float(input('TES current in [mA]? (0-12.5): '))
+                        except ValueError:
+                            print("Error, not a valid Number")
+                        except KeyboardInterrupt:
+                            return
+                        self.bias.iSHUNT(TES_channel, TES_current)
+
+                    elif bias_opt == 4:
+                        try:
+                            TES_channel = int(input('TES bias channel? (1-4): '))
+                        except ValueError:
+                            print("Error, not a valid Number")
+                        except KeyboardInterrupt:
+                            return
+                        
+                        try:        
+                            TES_voltage = float(input('TES voltage in [uV]? (0-5): '))
+                        except ValueError:
+                            print("Error, not a valid Number")
+                        except KeyboardInterrupt:
+                            return
+                        self.bias.vTES(TES_channel, TES_voltage)
+
+                    elif bias_opt == 5:
+                        try:
+                            LNA_channel = int(input('LNA bias channel? (1-2): '))
+                        except ValueError:
+                            print("Error, not a valid Number")
+                        except KeyboardInterrupt:
+                            return
+                        
+                        try:        
+                            LNA_Drain_voltage = float(input('LNA Drain voltage in [V]? : '))
+                        except ValueError:
+                            print("Error, not a valid Number")
+                        except KeyboardInterrupt:
+                            return
+                        if LNA_Drain_voltage>4:
+                            print("High voltage warning! A lower value is preferred.")
+                        else:
+                            self.bias.vLNA_D(LNA_channel, LNA_Drain_voltage)
+
+                    elif bias_opt == 6:
+                        try:
+                            LNA_channel = int(input('LNA bias channel? (1-2): '))
+                        except ValueError:
+                            print("Error, not a valid Number")
+                        except KeyboardInterrupt:
+                            return
+                        
+                        try:        
+                            LNA_Gain_voltage = float(input('LNA drain voltage in [V]? : '))
+                        except ValueError:
+                            print("Error, not a valid Number")
+                        except KeyboardInterrupt:
+                            return
+                        if LNA_Gain_voltage>4:
+                            print("High voltage warning! A lower value is preferred.")
+                        else:
+                            self.bias.vLNA_G(LNA_channel, LNA_Gain_voltage)
+
+                    elif bias_opt == 7:
+                        try:
+                            LNA_channel = int(input('LNA bias channel? (1-2): '))
+                        except ValueError:
+                            print("Error, not a valid Number")
+                        except KeyboardInterrupt:
+                            return
+                        
+                        try:        
+                            LNA_Drain_current = float(input('LNA Drain current in [mA]? : '))
+                        except ValueError:
+                            print("Error, not a valid Number")
+                        except KeyboardInterrupt:
+                            return
+                        if LNA_Drain_current>50:
+                            print("High current warning! A lower value is preferred.")
+                        else:
+                            self.bias.iLNA_D(LNA_channel, LNA_Drain_current)
+
+                    elif bias_opt == 8:
+                        break
+            
+            if opt == 8:# control IF board
+                #"Check connection",
+                #"Get loopback",
+                #"Set loopback",
+                #"Get synthesizer frequency",
+                #"Set synthesizer frequency",
+                #"Get LO output frequency",
+                #"Set LO output frequency",
+                #"Return"
+                while True:
+                    if_opt = menu(self.if_caption, self.__if_opts)
+                    
+                    if if_opt == 0:
+                        # a bool is returned
+                        connection_status = self.udx1.check_connection()
+                        if connection_status:
+                            print("IF Transceiver is connected.\n\n")
+                        else:
+                            print("IF Transceiver is NOT connected.\n\n")
+
+                    elif if_opt == 1:
+                        loopback_status = self.udx1.get_loopback()
+                        if loopback_status:
+                            print("Loopback is on.\n\n")
+                        else:
+                            print("Loopback is off.\n\n")
+
+                    elif if_opt == 2:
+                        try:
+                            loopback_str = input('Set loopback ON? (True or False): ')
+                        except ValueError:
+                            print("Error, not a valid Number")
+                        except KeyboardInterrupt:
+                            return
+                        if loopback_str == "True" or loopback_str == "1":
+                            loopback_bool = True
+                        elif loopback_str == "False" or loopback_str == "0":
+                            loopback_bool = False
+                        else:
+                            loopback_bool =False
+                            print("Wrong parameter. Loopback is off.")
+                        loopback_status = self.udx1.set_loopback(loopback_bool)
+                        if loopback_status:
+                            print("Loopback is on.\n\n")
+                        else:
+                            print("Loopback is off.\n\n")
+                    
+                    elif if_opt == 3:
+                        synth_freq = self.udx1.get_synth_ref()
+                        print("Synthesizer (LO) frequency: %.6f MHz\n\n"%synth_freq)
+
+                    elif if_opt == 4:
+                        try:
+                            synth_freq = float(input('Set Synthesizer Frequency in unit of [MHz] (10-600): '))
+                        except ValueError:
+                            print("Error, not a valid Number")
+                        except KeyboardInterrupt:
+                            return
+                        synth_freq = self.udx1.set_synth_ref(synth_freq)
+                        print("Synthesizer frequency is set to %.6f MHz\n\n"%synth_freq)
+
+                    elif if_opt == 5:
+                        synth_out_freq = float(self.udx1.get_synth_out())
+                        print("Synthesizer (LO) output frequency: %.6f MHz\n\n"%synth_out_freq)
+
+                    elif if_opt == 6:
+                        try:
+                            synth_out= input('Set Synthesizer (LO) output frequency in unit of [MHz] (2500-8600)?: ')
+                        except ValueError:
+                            print("Error, not a valid Number")
+                        except KeyboardInterrupt:
+                            return
+                        synth_out_freq = self.udx1.set_synth_out(synth_out)
+                        print("Synthesizer output frequency: %.6f MHz\n\n"%synth_out_freq)
+
+                    elif if_opt == 7:
+                        break
+
+            if opt == 9:  # get system state
+                self.bias.end()
                 exit()
 
-            if opt == 8:
-                f = self.get_last_flist()
-                t = time.strftime("%Y%m%d%H%M%S")
-                rfsoc1 = data_handler.RFChannel(
-                f"./ALICPT_RDF_{t}.hd5",
-                "192.168.3.40",
-                self.get_last_flist(),
-                self.get_last_alist(),
-                port=4096,
-                name="rfsoc2",
-                n_tones=len(f),
-                attenuator_settings=np.array([20.0, 10.0]),
-                tile_number=2,
-                rfsoc_number=2,
-                lo_sweep_filename="",
-                lo_freq=default_f_center
-                )
-                            
-                udp2.capture([rfsoc1], sleep, 20)
-
-
-
-            if opt == 9:
-                pass
+            
             return 0
 
 

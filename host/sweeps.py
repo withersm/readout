@@ -6,6 +6,7 @@ import h5py
 import os
 import pdb
 import transceiver
+import time
 
 logger = logging.getLogger(__name__)
 
@@ -105,14 +106,14 @@ def loSweep(
     freqs=[],
     f_center=6000.0,
     N_steps=500,
-    freq_step=1.0,
-    savefile="s21",
+    freq_step=1.0
 ):
     """Perform a stepped frequency sweep centered at f_center and save result as s21.npy file
 
     f_center: center frequency for sweep in [MHz], default is 400
     """
     #    print(freqs)
+    t = time.strftime("%Y%m%d%H%M%S")
     f, sweep_Z_f = sweep(
         loSource,
         udp,
@@ -121,8 +122,10 @@ def loSweep(
         N_steps=N_steps,
         freq_step=freq_step,
     )
+    savefile=f"s21_{t}"
     np.save(savefile + ".npy", np.array((f, sweep_Z_f)))
     print("LO Sweep s21 file saved.")
+    return savefile
 
 
 def plot_sweep(s21: str):
