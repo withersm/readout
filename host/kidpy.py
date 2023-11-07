@@ -262,12 +262,14 @@ class kidpy:
             exit()
 
         # Differentiate 5009's connected to the system
+        print("Connecting to Transceiver")
         self.udx1 = transceiver.Transceiver()
         self.udx1.connect("/dev/IFSLICE2")
         self.udx1.set_synth_out(default_f_center)
         # for v in self.__ValonPorts:
         #    self.valon = valon5009.Synthesizer(v.replace(' ', ''))
 
+        print("Connecting to bias board")
         self.bias = bias_board.Bias("/dev/BIASBOARD")
 
         self.__udp = udpcap.udpcap()
@@ -445,20 +447,31 @@ class kidpy:
             if opt == 5: # collect raw data
                 t_length = 0
                 try:
-                    t_length = int(input("How many seconds of data?: "))
+                    t_length = int(input("How many seconds of data?: [0] for continuous data taking: "))
                     print(t_length)
+                    if t_length == 0:
+                        print("Starting continuous data taking... Press [y]+ENTER to stop...\n")
                 except ValueError:
                     print("Error, not a valid Number")
                 except KeyboardInterrupt:
                     return
+                
+                def data_taking_fn(t_length):
+                    # once this function returns, the data taking will stop
+                    # :t_length data taking length in unit of [seconds]
+                    # if t_length <= 0: the data taking will stop with [y]+ENTER
+                    # if t_length  > 0: the function run the sleep function
+                    if t_length <= 0:
+                        while True:
+                            trigger = str(input("Do you wish to stop data taking?:[y]"))
+                            if trigger =='y':
+                                return
+                    else:
+                        time.sleep(t_length)
 
-                if t_length <= 0:
-                    print("Can't sample 0 seconds")
-                else:
-
-                    f = self.get_last_flist()
-                    t = time.strftime("%Y%m%d%H%M%S")
-                    rfsoc1 = data_handler.RFChannel(
+                f = self.get_last_flist()
+                t = time.strftime("%Y%m%d%H%M%S")
+                rfsoc1 = data_handler.RFChannel(
                     f"./ALICPT_RDF_{t}.hd5",
                     "192.168.3.40",
                     self.get_last_flist(),
@@ -471,9 +484,9 @@ class kidpy:
                     rfsoc_number=2,
                     lo_sweep_filename="",
                     lo_freq=default_f_center
-                    )
+                )
                                 
-                    udp2.capture([rfsoc1], sleep, t_length)
+                udp2.capture([rfsoc1], data_taking_fn, t_length)
 
             if opt == 6:  # Lo Sweep
                 # valon should be connected and differentiated as part of bringing kidpy up.
@@ -584,7 +597,7 @@ class kidpy:
                             return
                         
                         try:        
-                            TES_voltage = float(input('TES voltage in [uV]? (0-5): '))
+                            TES_voltage = float(input('TES voltage in [uV]? (0-5V): '))
                         except ValueError:
                             print("Error, not a valid Number")
                         except KeyboardInterrupt:

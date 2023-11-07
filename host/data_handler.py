@@ -143,14 +143,15 @@ class RawDataFile:
 
         self.filename = path
         if filemode == 'r':
-            self.fh = h5py.File(path, "r")
+            self.fh = h5py.File(path, "r", libver='latest', swmr=True) # enable swmr mode -shibo
             self.read()
             log.debug(f"Opened {path} for reading.")
         elif filemode == 'w':
-            self.fh = h5py.File(self.filename, "w")
+            self.fh = h5py.File(self.filename, "w", libver='latest') # add libver='latest' for superblock version
+            self.fh.swmr_mode = True # enable swmr mode -shibo
             log.debug(f"Opened {path} for (over)writing.")
         elif filemode == 'a':
-            self.fh = h5py.File(self.filename, "a")
+            self.fh = h5py.File(self.filename, "a", libver='latest', swmr=True) # add libver='latest' for superblock version
             self.read()
             log.debug(f"Opened {path} for writing.")        
         else:
@@ -260,7 +261,7 @@ class RawDataFile:
             "time_ordered_data/timestamp", (n_sample,), chunks=(488,), maxshape=(None,), dtype=h5py.h5t.IEEE_F64LE
         )
         self.fh.flush()
-
+        
     def resize(self, n_sample: int):
         """
         resize the dynamically allocated datasets. This will mostly be used by udp2.py to

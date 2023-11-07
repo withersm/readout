@@ -63,7 +63,7 @@ def __data_writer_process(dataqueue, chan: RFChannel, runFlag):
         raw.append_lo_sweep(chan.lo_sweep_filename)
 
     while True:
-        # we're done if the queue closes or we don't get any day within 5 seconds
+        # we're done if the queue closes or we don't get any data within 5 seconds
         try:
             obj = dataqueue.get(True, 5)
         except Exception as e:
@@ -82,6 +82,8 @@ def __data_writer_process(dataqueue, chan: RFChannel, runFlag):
         raw.adc_q[:, indx - 488 : indx] = adcq
         raw.timestamp[indx - 488 : indx] = timestamp
         raw.n_sample[0] = indx
+        # flush data to disk -shibo
+        raw.fh.flush() 
         t2 = time.perf_counter_ns()
         log.debug(f"Parsed in this loop's data <{chan.name}>")
         log.debug(f"Data Writer deltaT = {(t2-t1)*1e-6} ms for <{chan.name}>")
