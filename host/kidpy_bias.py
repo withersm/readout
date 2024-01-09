@@ -576,8 +576,8 @@ class kidpy:
                 
                 if freq_center < 4000 or freq_center > 8000:
                     print("Center frequency must be between 4000 and 8000 MHz.")
-                elif freq_step <= 0:
-                    print("Frequency step must be > 0.")
+                #elif freq_step <= 0:
+                #    print("Frequency step must be > 0.")
                 elif nsteps <= 0:
                     print("Number of frequency steps must be > 0.")
                 else:  
@@ -587,7 +587,7 @@ class kidpy:
                             self.get_last_flist(),
                             f_center=freq_center,
                             #f_center=default_f_center,
-                            freq_step=0,
+                            freq_step=freq_step,
                             N_steps=nsteps
                     )
 

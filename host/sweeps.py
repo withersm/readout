@@ -33,6 +33,7 @@ def sweep(loSource: transceiver.Transceiver, udp, f_center, freqs, N_steps=500, 
     """
     log = logger.getChild("def-sweep")
     tone_diff = np.diff(freqs)[0] / 1e6  # MHz
+    print(tone_diff)
     log.info(f"tone diff={tone_diff}")
     if freq_step > 0:
         flo_step = freq_step
