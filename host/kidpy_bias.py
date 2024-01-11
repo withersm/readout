@@ -33,6 +33,7 @@ import data_handler
 import matplotlib.pyplot as plt
 import transceiver
 import bias_board
+import calibration as cal
 
 # from datetime import date
 # from datetime import datetime
@@ -285,7 +286,8 @@ class kidpy:
             "Write stored comb from config file",
             "I <-> Q Phase offset [not functional yet]",
             "Take Raw Data",
-            "LO Sweep",            
+            "LO Sweep", 
+            "Find Frequencies",           
             "Bias Board Control",
             "IF Slice Control",
             "Exit",
@@ -400,6 +402,8 @@ class kidpy:
                 if prompt == "y":
                     print("Waiting for the RFSOC to finish writing the full comb")
                     write_fList(self, [], [])
+                    print(self.get_last_flist())
+                    #print(self.get_tone_list())
                 else:
                     print(
                         "Waiting for the RFSOC to write single {} MHz Tone".format(
@@ -410,6 +414,33 @@ class kidpy:
 
             if opt == 3:  # write stored comb
                 os.system("clear")
+                print("Waiting for the RFSOC to finish writing the full comb")
+                try:
+                    option = int(input('[0] Use most recent frequency list, [1] Input frequency list filename: '))  
+                except ValueError:
+                    print("Error, not a valid Number")
+                except KeyboardInterrupt:
+                    return
+
+                if option == 0:
+                    pass
+                elif option == 1:
+                    filename = input('Filename: ')
+
+                    farray = cal.load_array(f'./frequency_lists/{filename}')
+
+                    print(farray.real)
+
+                    lo = float(filename.split("_")[-2])*1e6
+                    print(lo)
+                    #write_fList(self, farray.real - lo, [])
+                
+
+                
+                #cal.load_array()
+                
+                
+                #write_fList(self, [100e6, 150e6, 175e6], [])
                 # not used
 
             if opt == 4:
@@ -595,7 +626,43 @@ class kidpy:
                     print(filename)
                     sweeps.plot_sweep(f"./{filename}.npy")
 
-            if opt == 7: #bias board control
+            if opt == 7: #find frequencies
+                try:
+                    option = int(input('[0] Use most recent LO sweep, [1] Input LO sweep filename: '))  
+                except ValueError:
+                    print("Error, not a valid Number")
+                except KeyboardInterrupt:
+                    return
+
+                if option == 0:
+                    list_of_files = glob.glob('./lo_sweeps/*.npy')
+                    latest_file = max(list_of_files, key=os.path.getctime)
+                    print(f'Loading: {latest_file}')
+                    freqs, mags = cal.find_minima(latest_file, plot=True)
+
+                    filename_split = latest_file.split("_")
+
+                    cal.save_array(freqs, f'./frequency_lists/freqs_fcenter_{filename_split[-2]}_{time.time()}.npy')
+                    return
+
+
+                elif option == 1:
+                    filename = input('File Name: ')
+
+                    freqs, mags = cal.find_minima('./lo_sweeps/'+filename, plot=True)
+
+                    filename_split = filename.split("_")
+
+                    cal.save_array(freqs, f'./frequency_lists/freqs_fcenter_{filename_split[-2]}_{time.time()}.npy')
+
+                    return
+
+                else:
+                    print("Not a valid option.")
+                    return
+
+
+            if opt == 8: #bias board control
                 #desired options
                 #"Get all I and V Values",
                 #"Get TES Channel I",
@@ -726,7 +793,7 @@ class kidpy:
                     elif bias_opt == 8:
                         break
             
-            if opt == 8:# control IF board
+            if opt == 9:# control IF board
                 #"Check connection",
                 #"Get loopback",
                 #"Set loopback",
@@ -838,7 +905,7 @@ class kidpy:
                     elif if_opt == 11:
                         break
 
-            if opt == 9:  # get system state
+            if opt == 10:  # get system state
                 self.bias.end()
                 exit()
 

@@ -123,7 +123,10 @@ def loSweep(
         N_steps=N_steps,
         freq_step=freq_step,
     )
-    savefile=f"s21_{t}"
+    #savefile=f"s21_{t}"
+    savefile = f"./lo_sweeps/s21_fcenter_{f_center}_{int(time.time())}"
+    
+    
     np.save(savefile + ".npy", np.array((f, sweep_Z_f)))
     print("LO Sweep s21 file saved.")
     return savefile
