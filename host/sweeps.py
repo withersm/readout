@@ -107,7 +107,8 @@ def loSweep(
     freqs=[],
     f_center=6000.0,
     N_steps=500,
-    freq_step=1.0
+    freq_step=1.0,
+    sweep_type=0
 ):
     """Perform a stepped frequency sweep centered at f_center and save result as s21.npy file
 
@@ -124,8 +125,10 @@ def loSweep(
         freq_step=freq_step,
     )
     #savefile=f"s21_{t}"
-    savefile = f"./lo_sweeps/s21_fcenter_{f_center}_{int(time.time())}"
-    
+    if sweep_type == 0:
+        savefile = f"./lo_sweeps/test_comb_fcenter_{f_center}_{int(time.time())}"
+    elif sweep_type == 1:
+        savefile = f"./lo_sweeps/target_comb_fcenter_{f_center}_{int(time.time())}"
     
     np.save(savefile + ".npy", np.array((f, sweep_Z_f)))
     print("LO Sweep s21 file saved.")

@@ -287,7 +287,8 @@ class kidpy:
             "I <-> Q Phase offset [not functional yet]",
             "Take Raw Data",
             "LO Sweep", 
-            "Find Frequencies",           
+            "Find Frequencies",
+            "Compute Calibration (η)",           
             "Bias Board Control",
             "IF Slice Control",
             "Exit",
@@ -423,7 +424,20 @@ class kidpy:
                     return
 
                 if option == 0:
-                    pass
+                    list_of_files = glob.glob('./frequency_lists/*.npy')
+                    latest_file = max(list_of_files, key=os.path.getctime)
+                    print(f'Loading: {latest_file}')
+
+
+                    farray = cal.load_array(latest_file)
+
+                    print(farray.real)
+
+                    lo = float(latest_file.split("_")[-2])*1e6
+                    print(lo)
+                    write_fList(self, farray.real - lo, [])
+
+
                 elif option == 1:
                     filename = input('Filename: ')
 
@@ -433,7 +447,7 @@ class kidpy:
 
                     lo = float(filename.split("_")[-2])*1e6
                     print(lo)
-                    #write_fList(self, farray.real - lo, [])
+                    write_fList(self, farray.real - lo, [])
                 
 
                 
@@ -585,6 +599,13 @@ class kidpy:
                 print("LO Sweep")
                 
                 try:
+                    sweep_type = int(input('[0] Initial sweep, [1] Targeted sweep'))
+                except ValueError:
+                    print("Error, not a valid Number")
+                except KeyboardInterrupt:
+                    return
+                
+                try:
                     freq_center = float(input('Set frequency center (MHz): '))
                 except ValueError:
                     print("Error, not a valid Number")
@@ -619,7 +640,8 @@ class kidpy:
                             f_center=freq_center,
                             #f_center=default_f_center,
                             freq_step=freq_step,
-                            N_steps=nsteps
+                            N_steps=nsteps,
+                            sweep_type=sweep_type
                     )
 
                     # plot result
@@ -642,7 +664,7 @@ class kidpy:
 
                     filename_split = latest_file.split("_")
 
-                    cal.save_array(freqs, f'./frequency_lists/freqs_fcenter_{filename_split[-2]}_{time.time()}.npy')
+                    cal.save_array(freqs, f'./frequency_lists/freqs_fcenter_{filename_split[-2]}_{filename_split[-1]}')
                     return
 
 
@@ -653,16 +675,74 @@ class kidpy:
 
                     filename_split = filename.split("_")
 
-                    cal.save_array(freqs, f'./frequency_lists/freqs_fcenter_{filename_split[-2]}_{time.time()}.npy')
+                    cal.save_array(freqs, f'./frequency_lists/freqs_fcenter_{filename_split[-2]}_{filename_split[-1]}')
 
                     return
 
                 else:
                     print("Not a valid option.")
                     return
+            
+            if opt == 8: #find and save calibration (η)
+                try:
+                    delta_n = int(input('delta_n = '))  
+                except ValueError:
+                    print("Error, not a valid Number")
+                except KeyboardInterrupt:
+                    return
+                
+                try:
+                    option = int(input('[0] Use most recent frequency list, [1] Input frequency list filename: '))  
+                except ValueError:
+                    print("Error, not a valid Number")
+                except KeyboardInterrupt:
+                    return
+                
+                if option == 0:
+                    list_of_files = glob.glob('./frequency_lists/*.npy')
+                    latest_file = max(list_of_files, key=os.path.getctime)
+                    print(f'Loading: {latest_file}')
+                    
+
+                    f0 = cal.load_array(latest_file)
+
+                    print(f0)                
 
 
-            if opt == 8: #bias board control
+                elif option == 1:
+                    filename = input('File Name: ')
+                    f0 = cal.load_array("./frequency_lists/"+filename)
+                    print(f0)
+
+
+                try:
+                    option = int(input('[0] Use most recent LO sweep, [1] Input LO sweep filename: '))  
+                except ValueError:
+                    print("Error, not a valid Number")
+                except KeyboardInterrupt:
+                    return
+                
+                if option == 0:
+                    list_of_files = glob.glob('./lo_sweeps/*.npy')
+                    latest_file = max(list_of_files, key=os.path.getctime)
+                    print(f'Loading: {latest_file}')
+
+                    latest_file_split = latest_file.split("_")
+                    ctime = latest_file_split[-1].split(".")
+
+                    cal.find_calibration(latest_file, f0.real, delta_n, filename=f'./calibration/eta_fcenter_{latest_file_split[-2]}_{ctime[-2]}.txt')                               
+
+
+                elif option == 1:
+                    filename = input('File Name: ')
+                    filename_split = filename.split("_")
+                    ctime = filename_split[-1].split(".")
+                    
+                    cal.find_calibration(filename, f0.real, delta_n, filename=f'./calibration/eta_fcenter_{filename_split[-2]}_{ctime[-2]}.txt')
+
+
+
+            if opt == 9: #bias board control
                 #desired options
                 #"Get all I and V Values",
                 #"Get TES Channel I",
@@ -793,7 +873,7 @@ class kidpy:
                     elif bias_opt == 8:
                         break
             
-            if opt == 9:# control IF board
+            if opt == 10:# control IF board
                 #"Check connection",
                 #"Get loopback",
                 #"Set loopback",
@@ -905,7 +985,7 @@ class kidpy:
                     elif if_opt == 11:
                         break
 
-            if opt == 10:  # get system state
+            if opt == 11:  # get system state
                 self.bias.end()
                 exit()
 

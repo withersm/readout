@@ -46,15 +46,20 @@ def find_calibration(sweep_file, f0, delta_n, filename=None):
     eta = np.array([])
     for freq in f0:
         index =  np.where(ftones==freq)[0]
+        print(index)
         
         f_min = ftones[index-delta_n]
         f_max = ftones[index+delta_n]
         s21_min = sweep_Z[index-delta_n]
         s21_max = sweep_Z[index+delta_n]
         
-        eta = np.append((f_max - f_min) / (s21_max - s21_min), eta)
+        eta = np.append(eta, (f_max - f_min) / (s21_max - s21_min))
+        print(eta)
+
+    print(len(f0))
+    print(len(eta))
         
-    calibration = pd.DataFrame({'f0': freq.real, 'eta': eta})
+    calibration = pd.DataFrame({'f0': f0.real, 'eta': eta})
     
     if filename != None:
         calibration.to_csv(filename,sep=',')
