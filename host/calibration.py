@@ -35,6 +35,12 @@ def load_array(name):
     
     return array
 
+def find_nearest(array, value):
+    array = np.asarray(array)
+    idx = (np.abs(array-value)).argmin()
+
+    return idx, array[idx]
+
 def find_calibration(sweep_file, f0, delta_n, filename=None):
     data = np.load(sweep_file)
 
@@ -45,8 +51,8 @@ def find_calibration(sweep_file, f0, delta_n, filename=None):
 
     eta = np.array([])
     for freq in f0:
-        index =  np.where(ftones==freq)[0]
-        print(index)
+        #index =  np.where(ftones==freq)[0]
+        index, _ = find_nearest(ftones, freq)               
         
         f_min = ftones[index-delta_n]
         f_max = ftones[index+delta_n]
