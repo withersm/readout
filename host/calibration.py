@@ -11,9 +11,8 @@ def find_minima(sweep_file, peak_prominence = 2, plot=False):
     ftones = np.concatenate(data[0])
     sweep_Z = np.concatenate(data[1])
 
-    mag = 10* np.log10(np.abs(sweep_Z))
+    mag = 20* np.log10(np.abs(sweep_Z))
 
-    mag = 10* np.log10(np.abs(sweep_Z))
     maximum=max(mag)
 
     troughs, _= find_peaks(-mag,height=[-maximum,0],prominence=peak_prominence)
@@ -60,7 +59,7 @@ def find_calibration(sweep_file, f0, delta_n, filename=None):
     ftones = np.concatenate(data[0])
     sweep_Z = np.concatenate(data[1])
 
-    mag = 10* np.log10(np.abs(sweep_Z))
+    mag = 20 * np.log10(np.abs(sweep_Z))
 
     eta = np.array([])
     for freq in f0:

@@ -144,7 +144,7 @@ def plot_sweep(s21: str):
     sweep_Z = np.concatenate(data[1])
     # ftones = data[0][0]
     # sweep_Z = data[1][0]
-    mag = 10 * np.log10(np.abs(sweep_Z))
+    mag = 20 * np.log10(np.abs(sweep_Z))
 
     plt.figure(figsize=(14, 8))
     plt.plot(ftones, mag.real)
@@ -175,7 +175,7 @@ def plot_sweep_hdf(path: str):
     sweep_Z = np.concatenate(data[1])
     # ftones = data[0][0]
     # sweep_Z = data[1][0]
-    mag = 10 * np.log10(np.abs(sweep_Z))
+    mag = 20 * np.log10(np.abs(sweep_Z))
 
     plt.figure(figsize=(14, 8))
     plt.plot(ftones, mag.real)

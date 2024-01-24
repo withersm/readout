@@ -41,6 +41,8 @@ import pdb
 import glob
 import logging
 from time import sleep
+import matplotlib
+matplotlib.use('TkAgg')
 
 ### Logging ###
 # Configures the logger such that it prints to a screen and file including the format
@@ -599,7 +601,7 @@ class kidpy:
                 print("LO Sweep")
                 
                 try:
-                    sweep_type = int(input('[0] Initial sweep, [1] Targeted sweep: '))
+                    sweep_type = int(input('[0] Initial sweep, [1] Targeted sweep: 7'))
                 except ValueError:
                     print("Error, not a valid Number")
                 except KeyboardInterrupt:
@@ -647,6 +649,12 @@ class kidpy:
                     # plot result
                     print(filename)
                     sweeps.plot_sweep(f"./{filename}.npy")
+
+                    synth_freq = self.udx1.set_synth_ref(freq_center)
+                    print("Finished sweep. Setting LO back to %.6f MHz\n\n"%synth_freq)
+
+
+
 
             if opt == 7: #find frequencies
                 try:
@@ -819,7 +827,7 @@ class kidpy:
                             print("Error, not a valid Number")
                         except KeyboardInterrupt:
                             return
-                        TES_voltage = self.bias.get_vTES(TES_channel)
+                        TES_voltage = self.bias.get_vTES (TES_channel)
                         print("TES Bias Channel %d voltage: %.3f uV"%(TES_channel, TES_voltage))
                         print("\n\n")
 
