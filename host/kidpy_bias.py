@@ -599,7 +599,7 @@ class kidpy:
                 print("LO Sweep")
                 
                 try:
-                    sweep_type = int(input('[0] Initial sweep, [1] Targeted sweep'))
+                    sweep_type = int(input('[0] Initial sweep, [1] Targeted sweep: '))
                 except ValueError:
                     print("Error, not a valid Number")
                 except KeyboardInterrupt:
@@ -650,38 +650,80 @@ class kidpy:
 
             if opt == 7: #find frequencies
                 try:
+                    find_type = int(input('[0] Initial Peak Find, [1] Targeted Peak Find: '))  
+                except ValueError:
+                    print("Error, not a valid Number")
+                except KeyboardInterrupt:
+                    return
+
+               
+                try:
                     option = int(input('[0] Use most recent LO sweep, [1] Input LO sweep filename: '))  
                 except ValueError:
                     print("Error, not a valid Number")
                 except KeyboardInterrupt:
                     return
 
-                if option == 0:
-                    list_of_files = glob.glob('./lo_sweeps/*.npy')
-                    latest_file = max(list_of_files, key=os.path.getctime)
-                    print(f'Loading: {latest_file}')
-                    freqs, mags = cal.find_minima(latest_file, plot=True)
+                if find_type == 0:    
+                    if option == 0:
+                        list_of_files = glob.glob('./lo_sweeps/*.npy')
+                        latest_file = max(list_of_files, key=os.path.getctime)
+                        print(f'Loading: {latest_file}')
+                        freqs, mags = cal.find_minima(latest_file, plot=True)
 
-                    filename_split = latest_file.split("_")
+                        filename_split = latest_file.split("_")
 
-                    cal.save_array(freqs, f'./frequency_lists/freqs_fcenter_{filename_split[-2]}_{filename_split[-1]}')
-                    return
+                        cal.save_array(freqs, f'./frequency_lists/freqs_fcenter_{filename_split[-2]}_{filename_split[-1]}')
+                        return
 
 
-                elif option == 1:
-                    filename = input('File Name: ')
+                    elif option == 1:
+                        filename = input('File Name: ')
 
-                    freqs, mags = cal.find_minima('./lo_sweeps/'+filename, plot=True)
+                        freqs, mags = cal.find_minima('./lo_sweeps/'+filename, plot=True)
 
-                    filename_split = filename.split("_")
+                        filename_split = filename.split("_")
 
-                    cal.save_array(freqs, f'./frequency_lists/freqs_fcenter_{filename_split[-2]}_{filename_split[-1]}')
+                        cal.save_array(freqs, f'./frequency_lists/freqs_fcenter_{filename_split[-2]}_{filename_split[-1]}')
 
-                    return
+                        return
 
+                    else:
+                        print("Not a valid option.")
+                        return
+                
+                elif find_type == 1:
+                    if option == 0:
+                        list_of_files = glob.glob('./lo_sweeps/*.npy')
+                        latest_file = max(list_of_files, key=os.path.getctime)
+                        print(f'Loading: {latest_file}')
+                        freqs = cal.find_targeted_minima(latest_file)
+
+                        filename_split = latest_file.split("_")
+
+                        cal.save_array(freqs, f'./frequency_lists/freqs_fcenter_{filename_split[-2]}_{filename_split[-1]}')
+                        return
+
+
+                    elif option == 1:
+                        filename = input('File Name: ')
+
+                        freqs = cal.find__targeted_minima('./lo_sweeps/'+filename)
+
+                        filename_split = filename.split("_")
+
+                        cal.save_array(freqs, f'./frequency_lists/freqs_fcenter_{filename_split[-2]}_{filename_split[-1]}')
+
+                        return
+
+                    else:
+                        print("Not a valid option.")
+                        return
+                    
                 else:
                     print("Not a valid option.")
                     return
+
             
             if opt == 8: #find and save calibration (η)
                 try:
@@ -737,7 +779,7 @@ class kidpy:
                     filename = input('File Name: ')
                     filename_split = filename.split("_")
                     ctime = filename_split[-1].split(".")
-                    
+
                     cal.find_calibration(filename, f0.real, delta_n, filename=f'./calibration/eta_fcenter_{filename_split[-2]}_{ctime[-2]}.txt')
 
 

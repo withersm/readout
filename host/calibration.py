@@ -27,6 +27,19 @@ def find_minima(sweep_file, peak_prominence = 2, plot=False):
             
     return(ftones[troughs], mag[troughs].real)
 
+def find_targeted_minima(sweep_file):
+
+    data = np.load(sweep_file)
+    freq = np.zeros(data.shape[1])
+
+    for i in range(data.shape[1]):
+        data_i = data[:,i,:]
+
+        index = np.argmin(np.abs(data_i[1,:]))
+        freq[i] = data_i[0,index].real  
+    
+    return freq  
+
 def save_array(array, name):
     np.save(name, array)
     
