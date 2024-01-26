@@ -22,6 +22,7 @@ def find_minima(sweep_file, peak_prominence = 2, plot=False):
         plt.plot(ftones[troughs], mag[troughs].real,'.')
         plt.xlabel("Frequency (GHz)")
         filename_split = sweep_file.split("_")
+        plt.show()
         plt.savefig(f'./frequency_lists/png/res_loc_fcenter_{filename_split[-2]}_{int(time.time())}.png',dpi=150)
             
     return(ftones[troughs], mag[troughs].real)
