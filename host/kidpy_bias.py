@@ -285,6 +285,7 @@ class kidpy:
             "Write test comb (single or multitone)",
             "Write stored comb from config file",
             "I <-> Q Phase offset [not functional yet]",
+            "Auto Calibration",
             "Take Raw Data",
             "LO Sweep", 
             "Find Frequencies",
@@ -350,6 +351,60 @@ class kidpy:
             log.error("The rfsoc didn't return back our data")
             return None
 
+    """
+    def lo_sweep(self,file_tag=None):
+
+        # valon should be connected and differentiated as part of bringing kidpy up.
+        os.system("clear")
+        print("LO Sweep")
+        
+        try:
+            freq_center = float(input('Set frequency center (MHz): '))
+        except ValueError:
+            print("Error, not a valid Number")
+        except KeyboardInterrupt:
+            return
+        
+        try:        
+            freq_step = float(input('Set frequency step (MHz): '))
+        except ValueError:
+            print("Error, not a valid Number")
+        except KeyboardInterrupt:
+            return
+
+        try:
+            nsteps = int(input('Set number of frequency steps: '))   
+        except ValueError:
+            print("Error, not a valid Number")
+        except KeyboardInterrupt:
+            return 
+        
+        if freq_center < 4000 or freq_center > 8000:
+            print("Center frequency must be between 4000 and 8000 MHz.")
+        #elif freq_step <= 0:
+        #    print("Frequency step must be > 0.")
+        elif nsteps <= 0:
+            print("Number of frequency steps must be > 0.")
+        else:  
+            filename = sweeps.loSweep(
+                    self.udx1,
+                    self.__udp,
+                    self.get_last_flist(),
+                    f_center=freq_center,
+                    #f_center=default_f_center,
+                    freq_step=freq_step,
+                    N_steps=nsteps,
+                    sweep_type=sweep_type
+            )
+
+            # plot result
+            print(filename)
+            sweeps.plot_sweep(f"./{filename}.npy")
+
+            synth_freq = self.udx1.set_synth_out(freq_center)
+            print("Finished sweep. Setting LO back to %.6f MHz\n\n"%synth_freq)
+    """
+    
     def main_opt(self):
         log = logger.getChild(__name__)
         """
@@ -460,6 +515,43 @@ class kidpy:
             if opt == 4:
                 print("Not Implemented")
 
+            
+            
+            if opt == 5: #auto calibration
+                print("Beginning auto calibration procedure.")
+
+                start_time = int(time.time())
+
+                os.mkdir(f'/home/matt/readout/host/auto_calibrations/cal_{start_time}')
+
+                print('Cal Step 1: Initial LO Sweep\n')
+                lo_center = "Input center frequency for initial LO sweep (MHz): "
+                step_size = "Input step size for initial LO sweep (MHz): "
+                step_num = "Input number of steps for initial LO sweep (MHz): "
+                sweep_type = 'initial'
+
+                filename = sweeps.loSweep(
+                            self.udx1,
+                            self.__udp,
+                            self.get_last_flist(),
+                            f_center=lo_center,
+                            #f_center=default_f_center,
+                            freq_step=step_size,
+                            N_steps=step_num,
+                            sweep_type=sweep_type
+                    )
+
+                    # plot result
+                    print(filename)
+                    sweeps.plot_sweep(f"./{filename}.npy")
+
+                    synth_freq = self.udx1.set_synth_out(freq_center)
+                    print("Finished sweep. Setting LO back to %.6f MHz\n\n"%synth_freq)
+
+
+
+
+
             """
 
             if opt == 5:
@@ -493,7 +585,7 @@ class kidpy:
                     print("Releasing Socket")
                     self.__udp.release()
             """
-            if opt == 5: # collect raw data
+            if opt == 6: # collect raw data
                 try:
                     data_taking_opt = int(input("Data taking only [0] or load curve [1]?: "))
                     if data_taking_opt == 0:
@@ -593,7 +685,7 @@ class kidpy:
 
 
 
-            if opt == 6:  # Lo Sweep
+            if opt == 7:  # Lo Sweep
                 # valon should be connected and differentiated as part of bringing kidpy up.
                 os.system("clear")
                 print("LO Sweep")
@@ -654,7 +746,7 @@ class kidpy:
 
 
 
-            if opt == 7: #find frequencies
+            if opt == 8: #find frequencies
                 try:
                     find_type = int(input('[0] Initial Peak Find, [1] Targeted Peak Find: '))  
                 except ValueError:
@@ -731,7 +823,7 @@ class kidpy:
                     return
 
             
-            if opt == 8: #find and save calibration (η)
+            if opt == 9: #find and save calibration (η)
                 try:
                     delta_n = int(input('delta_n = '))  
                 except ValueError:
@@ -790,7 +882,7 @@ class kidpy:
 
 
 
-            if opt == 9: #bias board control
+            if opt == 10: #bias board control
                 #desired options
                 #"Get all I and V Values",
                 #"Get TES Channel I",
@@ -921,7 +1013,7 @@ class kidpy:
                     elif bias_opt == 8:
                         break
             
-            if opt == 10:# control IF board
+            if opt == 11:# control IF board
                 #"Check connection",
                 #"Get loopback",
                 #"Set loopback",
@@ -1033,7 +1125,7 @@ class kidpy:
                     elif if_opt == 11:
                         break
 
-            if opt == 11:  # get system state
+            if opt == 12:  # get system state
                 self.bias.end()
                 exit()
 
