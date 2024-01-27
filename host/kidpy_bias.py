@@ -18,6 +18,7 @@ pubsub channel. Any listening RFSOC(s) would then parse and execute the specifie
 """
 
 import numpy as np
+np.seterr(divide = 'ignore') 
 import sys, os
 import redis
 import json
@@ -285,7 +286,7 @@ class kidpy:
             "Write test comb (single or multitone)",
             "Write stored comb from config file",
             "I <-> Q Phase offset [not functional yet]",
-            "Auto Calibration",
+            "Tone Initalization",
             "Take Raw Data",
             "LO Sweep", 
             "Find Frequencies",
@@ -326,6 +327,16 @@ class kidpy:
 
         #setup tagging for data management
         self.get_data_tag()
+        print(f'Current tone initialization dir. / timestream datatag: {self.__dataTag}')
+
+        #setup LO sweep parameters for auto tone initialization
+        self.__freqStep = float(config['TONEINIT']['freqStep'])
+        self.__nStep = int(config['TONEINIT']['nStep'])
+
+        print(self.__freqStep)
+        print(type(self.__freqStep))
+        print(self.__nStep)
+        print(type(self.__nStep))
         
 
     def get_data_tag(self):
@@ -445,7 +456,7 @@ class kidpy:
             if opt == 999999:
                 pass
             if opt == 0:  # upload firmware
-                os.system("clear")
+                #os.system("clear")
                 cmd = {"cmd": "ulBitstream", "args": []}
                 cmdstr = json.dumps(cmd)
                 self.r.publish("picard", cmdstr)
@@ -455,7 +466,7 @@ class kidpy:
                     print("Done")
 
             if opt == 1:  # Init System & UDP conn.
-                os.system("clear")
+                #os.system("clear")
                 print("Initializing System and UDP Connection")
                 cmd = {"cmd": "initRegs", "args": []}
                 cmdstr = json.dumps(cmd)
@@ -465,7 +476,7 @@ class kidpy:
 
             if opt == 2:  # Write test comb
                 prompt = input("Full test comb? y/n ")
-                os.system("clear")
+                #os.system("clear")
                 if prompt == "y":
                     print("Waiting for the RFSOC to finish writing the full comb")
                     write_fList(self, [], [])
@@ -480,7 +491,7 @@ class kidpy:
                     write_fList(self, [float(self.__customSingleTone)], [])
 
             if opt == 3:  # write stored comb
-                os.system("clear")
+                #os.system("clear")
                 print("Waiting for the RFSOC to finish writing the full comb")
                 try:
                     option = int(input('[0] Use most recent frequency list, [1] Input frequency list filename: '))  
@@ -528,36 +539,142 @@ class kidpy:
 
             
             
-            if opt == 5: #auto calibration
-                print("Beginning auto calibration procedure.")
+            if opt == 5: #tone initalization
+                
+                print("Beginning auto calibration procedure.\n")
+                start_time = time.strftime("%Y%m%d%H%M%S")
+                
+                #Ask for center frequency
+                print('1) Set center frequency...')
+                try:
+                    freq_center = float(input('Set frequency center (MHz): '))
+                except ValueError:
+                    print("Error, not a valid Number")
+                except KeyboardInterrupt:
+                    return
+                
+                if freq_center < 4000 or freq_center > 8000:
+                    print("Center frequency must be between 4000 and 8000 MHz.\nAborting...")
+                    return
+                
+                #Create Directory
+                os.mkdir(f'{self.__saveData}/tone_initializations/fcenter_{freq_center}_{start_time}')
+                self.get_data_tag()
 
-                start_time = int(time.time())
+                #Load Test Comb
+                print('\n2) Loading test comb...')
+                
+                print("Waiting for the RFSOC to finish writing the full comb")
+                write_fList(self, [], [])
+                print(self.get_last_flist())
 
-                os.mkdir(f'/home/matt/readout/host/auto_calibrations/cal_{start_time}')
+                #Initial LO Sweep
+                print('\n3) Performing initial LO sweep...')
+                                
+                initial_lo_filename = sweeps.loSweep(
+                        self.udx1,
+                        self.__udp,
+                        self.get_last_flist(),
+                        f_center=freq_center,
+                        freq_step=self.__freqStep,
+                        N_steps=self.__nStep,
+                        file_path=f'{self.__saveData}/tone_initializations/{self.__dataTag}',
+                        file_tag='initial'
+                )
 
-                print('Cal Step 1: Initial LO Sweep\n')
-                lo_center = "Input center frequency for initial LO sweep (MHz): "
-                step_size = "Input step size for initial LO sweep (MHz): "
-                step_num = "Input number of steps for initial LO sweep (MHz): "
-                sweep_type = 'initial'
+                # plot result
+                print(initial_lo_filename)
+                sweeps.plot_sweep(f"{initial_lo_filename}.npy")
 
-                filename = sweeps.loSweep(
-                            self.udx1,
-                            self.__udp,
-                            self.get_last_flist(),
-                            f_center=lo_center,
-                            #f_center=default_f_center,
-                            freq_step=step_size,
-                            N_steps=step_num,
-                            sweep_type=sweep_type
-                    )
+                synth_freq = self.udx1.set_synth_out(freq_center)
+                print("\nFinished sweep. Setting LO back to %.6f MHz\n\n"%synth_freq)
+                
 
-                    # plot result
-                    print(filename)
-                    sweeps.plot_sweep(f"./{filename}.npy")
+                #Find Freqs.
+                print('\n4) Finding tones frequencies from initial lo sweep...')
+                print(f'Loading: {initial_lo_filename}.npy')
+                freqs, mags = cal.find_minima(f'{initial_lo_filename}.npy', plot=True, figpath=f'{self.__saveData}/tone_initializations/{self.__dataTag}', figname=f'peakfind_{initial_lo_filename.split("/")[-1]}')
 
-                    synth_freq = self.udx1.set_synth_out(freq_center)
-                    print("Finished sweep. Setting LO back to %.6f MHz\n\n"%synth_freq)
+                initial_freq_list_filename = f'{self.__saveData}/tone_initializations/{self.__dataTag}/freq_list_{initial_lo_filename.split("/")[-1]}'
+                cal.save_array(freqs, initial_freq_list_filename)
+                                
+                #Load Targeted Comb
+                print('\n5) Loading targeted comb...')
+                print(f'Loading tones from: {initial_freq_list_filename}.npy')
+
+                farray = cal.load_array(f'{initial_freq_list_filename}.npy')
+
+                print(farray.real)
+
+                lo = float(initial_freq_list_filename.split("_")[-2])*1e6
+                print(lo)
+                #write_fList(self, farray.real - lo, []) #turned off for testing because I'm not looking at resonators and peak locations are incredibly random
+
+                #Targeted LO Sweep
+                print('\n6) Performing targeted LO sweep...')
+                                
+                targeted_lo_1_filename = sweeps.loSweep(
+                        self.udx1,
+                        self.__udp,
+                        self.get_last_flist(),
+                        f_center=freq_center,
+                        freq_step=self.__freqStep,
+                        N_steps=self.__nStep,
+                        file_path=f'{self.__saveData}/tone_initializations/{self.__dataTag}',
+                        file_tag='targeted_1'
+                )
+
+                # plot result
+                print(targeted_lo_1_filename)
+                sweeps.plot_sweep(f"{targeted_lo_1_filename}.npy")
+
+                synth_freq = self.udx1.set_synth_out(freq_center)
+                print("\nFinished sweep. Setting LO back to %.6f MHz\n\n"%synth_freq)
+
+                #Find Freqs.
+                print('\n7) Finding tones frequencies from initial lo sweep...')
+                print(f'Loading: {targeted_lo_1_filename}.npy')
+                freqs, mags = cal.find_minima(f'{targeted_lo_1_filename}.npy', plot=True, figpath=f'{self.__saveData}/tone_initializations/{self.__dataTag}', figname=f'peakfind_{targeted_lo_1_filename.split("/")[-1]}')
+
+                targeted_freq_list_1_filename = f'{self.__saveData}/tone_initializations/{self.__dataTag}/freq_list_{targeted_lo_1_filename.split("/")[-1]}'
+                cal.save_array(freqs, targeted_freq_list_1_filename)
+
+                #Load Targeted Comb
+                print('\n8) Loading targeted comb...')
+                print(f'Loading tones from: {targeted_freq_list_1_filename}.npy')
+
+                farray = cal.load_array(f'{targeted_freq_list_1_filename}.npy')
+
+                print(farray.real)
+
+                lo = float(targeted_freq_list_1_filename.split("_")[-2])*1e6
+                print(lo)
+                #write_fList(self, farray.real - lo, []) #turned off for testing because I'm not looking at resonators and peak locations are incredibly random
+
+                #Targeted LO Sweep
+                print('\n9) Performing targeted LO sweep...')
+                                
+                targeted_lo_2_filename = sweeps.loSweep(
+                        self.udx1,
+                        self.__udp,
+                        self.get_last_flist(),
+                        f_center=freq_center,
+                        freq_step=self.__freqStep,
+                        N_steps=self.__nStep,
+                        file_path=f'{self.__saveData}/tone_initializations/{self.__dataTag}',
+                        file_tag='targeted_2'
+                )
+
+                # plot result
+                print(targeted_lo_2_filename)
+                sweeps.plot_sweep(f"{targeted_lo_2_filename}.npy")
+
+                synth_freq = self.udx1.set_synth_out(freq_center)
+                print("\nFinished sweep. Setting LO back to %.6f MHz\n\n"%synth_freq)                
+                
+                print(f'New tone initialization dir. / timestream datatag: {self.__dataTag}')
+
+
 
 
 
@@ -628,7 +745,7 @@ class kidpy:
                         f = self.get_last_flist()
                         t = time.strftime("%Y%m%d%H%M%S")
                         rfsoc1 = data_handler.RFChannel(
-                            f"{self.__saveData}/time_streams/ts_tone_set_{}_t_{t}.hd5",  #f"./ALICPT_RDF_{t}.hd5"
+                            f"{self.__saveData}/time_streams/ts_tone_set_{self.__dataTag}_t_{t}.hd5",  #f"./ALICPT_RDF_{t}.hd5"
                             "192.168.3.40",
                             self.get_last_flist(),
 		            self.get_last_alist(),
@@ -701,13 +818,14 @@ class kidpy:
                 os.system("clear")
                 print("LO Sweep")
                 
+                """
                 try:
                     sweep_type = int(input('[0] Initial sweep, [1] Targeted sweep: '))
                 except ValueError:
                     print("Error, not a valid Number")
                 except KeyboardInterrupt:
                     return
-                
+                """
                 try:
                     freq_center = float(input('Set frequency center (MHz): '))
                 except ValueError:
@@ -744,12 +862,13 @@ class kidpy:
                             #f_center=default_f_center,
                             freq_step=freq_step,
                             N_steps=nsteps,
-                            sweep_type=sweep_type
+                            file_path=f'{self.__saveData}/lo_sweeps_manual',
+                            file_tag='manual'
                     )
 
                     # plot result
                     print(filename)
-                    sweeps.plot_sweep(f"./{filename}.npy")
+                    sweeps.plot_sweep(f"{filename}.npy")
 
                     synth_freq = self.udx1.set_synth_out(freq_center)
                     print("Finished sweep. Setting LO back to %.6f MHz\n\n"%synth_freq)

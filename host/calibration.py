@@ -4,7 +4,7 @@ from scipy.signal import find_peaks
 import pandas as pd
 import time
 
-def find_minima(sweep_file, peak_prominence = 2, plot=False):
+def find_minima(sweep_file, peak_prominence = 2, plot=False, figpath=None, figname=None):
     
     data = np.load(sweep_file)
 
@@ -22,9 +22,14 @@ def find_minima(sweep_file, peak_prominence = 2, plot=False):
         plt.plot(ftones[troughs], mag[troughs].real,'.')
         plt.xlabel("Frequency (GHz)")
         filename_split = sweep_file.split("_")
+        if figpath != None:
+            if figname == None:
+                plt.savefig(f'{figpath}/peakfind_{time.strftime(("%Y%m%d%H%M%S"))}.png',dpi=150)
+            else:
+                print(f'{figpath}/{figname}')
+                plt.savefig(f'{figpath}/{figname}.png',dpi=150)
         plt.show()
-        plt.savefig(f'./frequency_lists/png/res_loc_fcenter_{filename_split[-2]}_{int(time.time())}.png',dpi=150)
-            
+        
     return(ftones[troughs], mag[troughs].real)
 
 def find_targeted_minima(sweep_file):
