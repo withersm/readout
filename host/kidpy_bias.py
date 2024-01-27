@@ -324,6 +324,17 @@ class kidpy:
             "Return"
         ]
 
+        #setup tagging for data management
+        self.get_data_tag()
+        
+
+    def get_data_tag(self):
+        """
+        grab the name of the most recent tone initialization set for use as a data tag in timestream data
+        """
+        last_tone_directory = max([dir for dir in glob.glob(f'{self.__saveData}/tone_initializations/*', recursive=False) if os.path.isdir(dir)],key=os.path.getmtime)
+        self.__dataTag = last_tone_directory.split('/')[-1]
+    
     def get_tone_list(self):
         lo_freq = valon5009.Synthesizer.get_frequency(self.udx1, valon5009.SYNTH_B)
         tones = lo_freq * 1.0e6 + np.asarray(self.get_last_flist())
@@ -617,7 +628,7 @@ class kidpy:
                         f = self.get_last_flist()
                         t = time.strftime("%Y%m%d%H%M%S")
                         rfsoc1 = data_handler.RFChannel(
-                            f"./ALICPT_RDF_{t}.hd5",
+                            f"{self.__saveData}/time_streams/ts_tone_set_{}_t_{t}.hd5",  #f"./ALICPT_RDF_{t}.hd5"
                             "192.168.3.40",
                             self.get_last_flist(),
 		            self.get_last_alist(),
