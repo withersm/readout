@@ -473,7 +473,14 @@ class kidpy:
                     exit()
             if opt == 999999:
                 pass
-            if opt == 0:  # upload firmware
+            
+            if opt == 0: #set attenuation
+                pass
+
+            if opt == 1: #bias 4K LNA
+                pass
+            
+            if opt == 2:  # upload firmware
                 #os.system("clear")
                 cmd = {"cmd": "ulBitstream", "args": []}
                 cmdstr = json.dumps(cmd)
@@ -483,7 +490,7 @@ class kidpy:
                 if wait_for_free(self.r, 0.75, 25):
                     print("Done")
 
-            if opt == 1:  # Init System & UDP conn.
+            if opt == 3:  # Init System & UDP conn.
                 #os.system("clear")
                 print("Initializing System and UDP Connection")
                 cmd = {"cmd": "initRegs", "args": []}
@@ -492,73 +499,7 @@ class kidpy:
                 if wait_for_free(self.r, 0.5, 5):
                     print("Done")
 
-            if opt == 2:  # Write test comb
-                prompt = input("Full test comb? y/n ")
-                #os.system("clear")
-                if prompt == "y":
-                    print("Waiting for the RFSOC to finish writing the full comb")
-                    write_fList(self, [], [])
-                    print(self.get_last_flist())
-                    #print(self.get_tone_list())
-                else:
-                    print(
-                        "Waiting for the RFSOC to write single {} MHz Tone".format(
-                            float(self.__customSingleTone) / 1e6
-                        )
-                    )
-                    write_fList(self, [float(self.__customSingleTone)], [])
-
-            if opt == 3:  # write stored comb
-                #os.system("clear")
-                print("Waiting for the RFSOC to finish writing the full comb")
-                try:
-                    option = int(input('[0] Use most recent frequency list, [1] Input frequency list filename: '))  
-                except ValueError:
-                    print("Error, not a valid Number")
-                except KeyboardInterrupt:
-                    return
-
-                if option == 0:
-                    list_of_files = glob.glob('./frequency_lists/*.npy')
-                    latest_file = max(list_of_files, key=os.path.getctime)
-                    print(f'Loading: {latest_file}')
-
-
-                    farray = cal.load_array(latest_file)
-
-                    print(farray.real)
-
-                    lo = float(latest_file.split("_")[-2])*1e6
-                    print(lo)
-                    write_fList(self, farray.real - lo, [])
-
-
-                elif option == 1:
-                    filename = input('Filename: ')
-
-                    farray = cal.load_array(f'./frequency_lists/{filename}')
-
-                    print(farray.real)
-
-                    lo = float(filename.split("_")[-2])*1e6
-                    print(lo)
-                    write_fList(self, farray.real - lo, [])
-                
-
-                
-                #cal.load_array()
-                
-                
-                #write_fList(self, [100e6, 150e6, 175e6], [])
-                # not used
-
-            if opt == 4:
-                print("Not Implemented")
-
-            
-            
-            if opt == 5: #tone initalization
-                
+            if opt == 4: # new tone initalization
                 print("Beginning auto calibration procedure.\n")
                 start_time = time.strftime("%Y%m%d%H%M%S")
                 
@@ -692,46 +633,10 @@ class kidpy:
                 
                 print(f'New tone initialization dir. / timestream datatag: {self.__dataTag}')
 
+            if opt == 5: #load tone initalization
+                pass
 
-
-
-
-
-
-            """
-
-            if opt == 5:
-                t = 0
-                try:
-                    t = int(input("How many seconds of data?: "))
-                    print(t)
-                except ValueError:
-                    print("Error, not a valid Number")
-                except KeyboardInterrupt:
-                    return
-
-                if t <= 0:
-                    print("Can't sample 0 seconds")
-                else:
-                    os.system("clear")
-                    print("Binding Socket")
-                    self.__udp.bindSocket()
-                    print("Capturing packets")
-                    fname = (
-                        self.__saveData
-                        + "kidpyCaptureData{0:%Y%m%d%H%M%S}.hd5".format(
-                            datetime.datetime.now()
-                        )
-                    )
-                    print(fname)
-                    if t < 60:
-                        self.__udp.shortDataCapture(fname, 488 * t)
-                    else:
-                        self.__udp.LongDataCapture(fname, 488 * t)
-                    print("Releasing Socket")
-                    self.__udp.release()
-            """
-            if opt == 6: # collect raw data
+            if opt == 6: #take raw data
                 try:
                     data_taking_opt = int(input("Data taking only [0] or load curve [1]?: "))
                     if data_taking_opt == 0:
@@ -826,12 +731,71 @@ class kidpy:
                     print("Error, not a valid Number")
                 except KeyboardInterrupt:
                     return
+                
+            if opt == 7: #demod data (software)
+                pass
 
+            if opt == 8:  # Write test comb
+                prompt = input("Full test comb? y/n ")
+                #os.system("clear")
+                if prompt == "y":
+                    print("Waiting for the RFSOC to finish writing the full comb")
+                    write_fList(self, [], [])
+                    print(self.get_last_flist())
+                    #print(self.get_tone_list())
+                else:
+                    print(
+                        "Waiting for the RFSOC to write single {} MHz Tone".format(
+                            float(self.__customSingleTone) / 1e6
+                        )
+                    )
+                    write_fList(self, [float(self.__customSingleTone)], [])
+
+            if opt == 9:  # write comb from file
+                #os.system("clear")
+                print("Waiting for the RFSOC to finish writing the full comb")
+                try:
+                    option = int(input('[0] Use most recent frequency list, [1] Input frequency list filename: '))  
+                except ValueError:
+                    print("Error, not a valid Number")
+                except KeyboardInterrupt:
+                    return
+
+                if option == 0:
+                    list_of_files = glob.glob('./frequency_lists/*.npy')
+                    latest_file = max(list_of_files, key=os.path.getctime)
+                    print(f'Loading: {latest_file}')
+
+
+                    farray = cal.load_array(latest_file)
+
+                    print(farray.real)
+
+                    lo = float(latest_file.split("_")[-2])*1e6
+                    print(lo)
+                    write_fList(self, farray.real - lo, [])
+
+
+                elif option == 1:
+                    filename = input('Filename: ')
+
+                    farray = cal.load_array(f'./frequency_lists/{filename}')
+
+                    print(farray.real)
+
+                    lo = float(filename.split("_")[-2])*1e6
+                    print(lo)
+                    write_fList(self, farray.real - lo, [])
                 
 
-
-
-            if opt == 7:  # Lo Sweep
+                
+                #cal.load_array()
+                
+                
+                #write_fList(self, [100e6, 150e6, 175e6], [])
+                # not used
+                    
+            if opt == 10: #LO sweep
                 # valon should be connected and differentiated as part of bringing kidpy up.
                 os.system("clear")
                 print("LO Sweep")
@@ -891,10 +855,7 @@ class kidpy:
                     synth_freq = self.udx1.set_synth_out(freq_center)
                     print("Finished sweep. Setting LO back to %.6f MHz\n\n"%synth_freq)
 
-
-
-
-            if opt == 8: #find frequencies
+            if opt == 11: #find frequencies -> need to fix the filepathing
                 try:
                     find_type = int(input('[0] Initial Peak Find, [1] Targeted Peak Find: '))  
                 except ValueError:
@@ -969,68 +930,8 @@ class kidpy:
                 else:
                     print("Not a valid option.")
                     return
-
             
-            if opt == 9: #find and save calibration (η)
-                try:
-                    delta_n = int(input('delta_n = '))  
-                except ValueError:
-                    print("Error, not a valid Number")
-                except KeyboardInterrupt:
-                    return
-                
-                try:
-                    option = int(input('[0] Use most recent frequency list, [1] Input frequency list filename: '))  
-                except ValueError:
-                    print("Error, not a valid Number")
-                except KeyboardInterrupt:
-                    return
-                
-                if option == 0:
-                    list_of_files = glob.glob('./frequency_lists/*.npy')
-                    latest_file = max(list_of_files, key=os.path.getctime)
-                    print(f'Loading: {latest_file}')
-                    
-
-                    f0 = cal.load_array(latest_file)
-
-                    print(f0)                
-
-
-                elif option == 1:
-                    filename = input('File Name: ')
-                    f0 = cal.load_array("./frequency_lists/"+filename)
-                    print(f0)
-
-
-                try:
-                    option = int(input('[0] Use most recent LO sweep, [1] Input LO sweep filename: '))  
-                except ValueError:
-                    print("Error, not a valid Number")
-                except KeyboardInterrupt:
-                    return
-                
-                if option == 0:
-                    list_of_files = glob.glob('./lo_sweeps/*.npy')
-                    latest_file = max(list_of_files, key=os.path.getctime)
-                    print(f'Loading: {latest_file}')
-
-                    latest_file_split = latest_file.split("_")
-                    ctime = latest_file_split[-1].split(".")
-
-                    cal.find_calibration(latest_file, f0.real, delta_n, filename=f'./calibration/eta_fcenter_{latest_file_split[-2]}_{ctime[-2]}.txt')                               
-
-
-                elif option == 1:
-                    filename = input('File Name: ')
-                    filename_split = filename.split("_")
-                    ctime = filename_split[-1].split(".")
-
-                    cal.find_calibration(filename, f0.real, delta_n, filename=f'./calibration/eta_fcenter_{filename_split[-2]}_{ctime[-2]}.txt')
-
-
-
-            if opt == 10: #bias board control
+            if opt == 12: #bias board control
                 #desired options
                 #"Get all I and V Values",
                 #"Get TES Channel I",
@@ -1161,7 +1062,7 @@ class kidpy:
                     elif bias_opt == 8:
                         break
             
-            if opt == 11:# control IF board
+            if opt == 13:# control IF board
                 #"Check connection",
                 #"Get loopback",
                 #"Set loopback",
@@ -1273,7 +1174,7 @@ class kidpy:
                     elif if_opt == 11:
                         break
 
-            if opt == 12:  # get system state
+            if opt == 14:  #exit
                 self.bias.end()
                 exit()
 
@@ -1292,3 +1193,64 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+"""
+
+if opt == 9: #find and save calibration (η)
+                try:
+                    delta_n = int(input('delta_n = '))  
+                except ValueError:
+                    print("Error, not a valid Number")
+                except KeyboardInterrupt:
+                    return
+                
+                try:
+                    option = int(input('[0] Use most recent frequency list, [1] Input frequency list filename: '))  
+                except ValueError:
+                    print("Error, not a valid Number")
+                except KeyboardInterrupt:
+                    return
+                
+                if option == 0:
+                    list_of_files = glob.glob('./frequency_lists/*.npy')
+                    latest_file = max(list_of_files, key=os.path.getctime)
+                    print(f'Loading: {latest_file}')
+                    
+
+                    f0 = cal.load_array(latest_file)
+
+                    print(f0)                
+
+
+                elif option == 1:
+                    filename = input('File Name: ')
+                    f0 = cal.load_array("./frequency_lists/"+filename)
+                    print(f0)
+
+
+                try:
+                    option = int(input('[0] Use most recent LO sweep, [1] Input LO sweep filename: '))  
+                except ValueError:
+                    print("Error, not a valid Number")
+                except KeyboardInterrupt:
+                    return
+                
+                if option == 0:
+                    list_of_files = glob.glob('./lo_sweeps/*.npy')
+                    latest_file = max(list_of_files, key=os.path.getctime)
+                    print(f'Loading: {latest_file}')
+
+                    latest_file_split = latest_file.split("_")
+                    ctime = latest_file_split[-1].split(".")
+
+                    cal.find_calibration(latest_file, f0.real, delta_n, filename=f'./calibration/eta_fcenter_{latest_file_split[-2]}_{ctime[-2]}.txt')                               
+
+
+                elif option == 1:
+                    filename = input('File Name: ')
+                    filename_split = filename.split("_")
+                    ctime = filename_split[-1].split(".")
+
+                    cal.find_calibration(filename, f0.real, delta_n, filename=f'./calibration/eta_fcenter_{filename_split[-2]}_{ctime[-2]}.txt')
+"""
