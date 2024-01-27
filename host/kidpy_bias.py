@@ -213,9 +213,10 @@ def menu(captions, options):
     outputs:
         int opt: Integer corresponding to menu option chosen by user"""
     log = logger.getChild("menu")
-    print("\t" + captions[0] + "\n")
+    print(captions[0] + "\n")
     for i in range(len(options)):
-        print("\t" + "\033[32m" + str(i) + " ..... " "\033[0m" + options[i] + "\n")
+        print("\t" + "\033[32m" + str(i) + " ..... " "\033[0m" + options[i])
+    print('')
     opt = None
     try:
         x = input("Option? ")
@@ -238,27 +239,27 @@ def top_menu(captions, setup_options, ts_data_options, vna_data_options, hardwar
     outputs:
         int opt: Integer corresponding to menu option chosen by user"""
     log = logger.getChild("menu")
-    print("\t" + captions[0] + "\n")
+    print(captions[0] + "\n")
     
     print("\033[0m"+'Setup:')
     for i in range(len(setup_options)):
-        print("\t" + "\033[32m" + str(i) + " ..... " "\033[0m" + setup_options[i] + "\n")
+        print("\t" + "\033[32m" + str(i) + " ..... " "\033[0m" + setup_options[i])
     
     print('Time Series Data:')
     for i in range(len(ts_data_options)):
-        print("\t" + "\033[32m" + str(i+len(setup_options)) + " ..... " "\033[0m" + ts_data_options[i] + "\n")
+        print("\t" + "\033[32m" + str(i+len(setup_options)) + " ..... " "\033[0m" + ts_data_options[i])
 
     print('VNA-like Data:')
     for i in range(len(vna_data_options)):
-        print("\t" + "\033[32m" + str(i+len(setup_options)+len(ts_data_options)) + " ..... " "\033[0m" + vna_data_options[i] + "\n")
+        print("\t" + "\033[32m" + str(i+len(setup_options)+len(ts_data_options)) + " ..... " "\033[0m" + vna_data_options[i])
 
     print('Hardware Control:')
     for i in range(len(hardware_control_options)):
-        print("\t" + "\033[32m" + str(i+len(setup_options)+len(ts_data_options)+len(vna_data_options)) + " ..... " "\033[0m" + hardware_control_options[i] + "\n")
+        print("\t" + "\033[32m" + str(i+len(setup_options)+len(ts_data_options)+len(vna_data_options)) + " ..... " "\033[0m" + hardware_control_options[i])
 
     print('Other:')
     for i in range(len(other_options)):
-        print("\t" + "\033[32m" + str(i+len(setup_options)+len(ts_data_options)+len(vna_data_options)+len(hardware_control_options)) + " ..... " "\033[0m" + other_options[i] + "\n")
+        print("\t" + "\033[32m" + str(i+len(setup_options)+len(ts_data_options)+len(vna_data_options)+len(hardware_control_options)) + " ..... " "\033[0m" + other_options[i]+'\n')
 
 
     opt = None
@@ -322,7 +323,7 @@ class kidpy:
         self.__udp = udpcap.udpcap()
         self.current_waveform = []
         self.current_amplitude = []
-        caption1 = "\n\t\033[95mKID-PY2 RFSoC Readout\033[95m"
+        caption1 = "\n\033[95mAliCPT-1 RFSoC Readout\033[95m"
         self.captions = [caption1]
 
         self.__main_opts = [
@@ -944,6 +945,7 @@ class kidpy:
                 #"Return"
                 
                 while True:                
+                    print('\n')
                     bias_opt = menu(self.bias_caption, self.__bias_opts)
 
                     if bias_opt == 0:                
@@ -1072,6 +1074,7 @@ class kidpy:
                 #"Set LO output frequency",
                 #"Return"
                 while True:
+                    print('\n')
                     if_opt = menu(self.if_caption, self.__if_opts)
                     
                     if if_opt == 0:
