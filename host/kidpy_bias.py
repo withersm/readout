@@ -230,6 +230,51 @@ def menu(captions, options):
         return 999999
     return opt
 
+def top_menu(captions, setup_options, ts_data_options, vna_data_options, hardware_control_options, other_options):
+    """Creates top menu for terminal interface
+    inputs:
+        list captions: List of menu captions
+        list options: List of menu options
+    outputs:
+        int opt: Integer corresponding to menu option chosen by user"""
+    log = logger.getChild("menu")
+    print("\t" + captions[0] + "\n")
+    
+    print("\033[0m"+'Setup:')
+    for i in range(len(setup_options)):
+        print("\t" + "\033[32m" + str(i) + " ..... " "\033[0m" + setup_options[i] + "\n")
+    
+    print('Time Series Data:')
+    for i in range(len(ts_data_options)):
+        print("\t" + "\033[32m" + str(i+len(setup_options)) + " ..... " "\033[0m" + ts_data_options[i] + "\n")
+
+    print('VNA-like Data:')
+    for i in range(len(vna_data_options)):
+        print("\t" + "\033[32m" + str(i+len(setup_options)+len(ts_data_options)) + " ..... " "\033[0m" + vna_data_options[i] + "\n")
+
+    print('Hardware Control:')
+    for i in range(len(hardware_control_options)):
+        print("\t" + "\033[32m" + str(i+len(setup_options)+len(ts_data_options)+len(vna_data_options)) + " ..... " "\033[0m" + hardware_control_options[i] + "\n")
+
+    print('Other:')
+    for i in range(len(other_options)):
+        print("\t" + "\033[32m" + str(i+len(setup_options)+len(ts_data_options)+len(vna_data_options)+len(hardware_control_options)) + " ..... " "\033[0m" + other_options[i] + "\n")
+
+
+    opt = None
+    try:
+        x = input("Option? ")
+        opt = int(x)
+    except KeyboardInterrupt:
+        exit()
+    except ValueError:
+        print("Not a valid option")
+        return 999999
+    except TypeError:
+        print("Not a valid option")
+        return 999999
+    return opt
+
 
 class kidpy:
     def __init__(self):
@@ -296,6 +341,38 @@ class kidpy:
             "Exit",
         ]
 
+        self.__setup_options = [
+            "Set attenuation",
+            "Bias 4K LNA",
+            "Upload firmware",
+            "Initalize system & UDP conn"
+        ]
+        
+        self.__ts_data_options = [
+            "New tone initalization",
+            "Load tone initalization",
+            "Take raw data",
+            "Demod data (software)"
+        ]
+
+        self.__vna_data_options = [
+            "Write test comb (single or multitone)",
+            "Write comb from file",
+            "LO sweep",
+            "Find frequencies"
+        ]
+
+        self.__hardware_control_options = [
+            'Bias board control',
+            'IF slice control'
+        ]
+
+        self.__other_options = [
+            'Exit'
+        ]
+        
+        
+        
         self.bias_caption = ["Bias board control."]
         self.__bias_opts = [
             "Get all I and V Values",
@@ -332,13 +409,7 @@ class kidpy:
         #setup LO sweep parameters for auto tone initialization
         self.__freqStep = float(config['TONEINIT']['freqStep'])
         self.__nStep = int(config['TONEINIT']['nStep'])
-
-        print(self.__freqStep)
-        print(type(self.__freqStep))
-        print(self.__nStep)
-        print(type(self.__nStep))
         
-
     def get_data_tag(self):
         """
         grab the name of the most recent tone initialization set for use as a data tag in timestream data
@@ -372,60 +443,6 @@ class kidpy:
         else:
             log.error("The rfsoc didn't return back our data")
             return None
-
-    """
-    def lo_sweep(self,file_tag=None):
-
-        # valon should be connected and differentiated as part of bringing kidpy up.
-        os.system("clear")
-        print("LO Sweep")
-        
-        try:
-            freq_center = float(input('Set frequency center (MHz): '))
-        except ValueError:
-            print("Error, not a valid Number")
-        except KeyboardInterrupt:
-            return
-        
-        try:        
-            freq_step = float(input('Set frequency step (MHz): '))
-        except ValueError:
-            print("Error, not a valid Number")
-        except KeyboardInterrupt:
-            return
-
-        try:
-            nsteps = int(input('Set number of frequency steps: '))   
-        except ValueError:
-            print("Error, not a valid Number")
-        except KeyboardInterrupt:
-            return 
-        
-        if freq_center < 4000 or freq_center > 8000:
-            print("Center frequency must be between 4000 and 8000 MHz.")
-        #elif freq_step <= 0:
-        #    print("Frequency step must be > 0.")
-        elif nsteps <= 0:
-            print("Number of frequency steps must be > 0.")
-        else:  
-            filename = sweeps.loSweep(
-                    self.udx1,
-                    self.__udp,
-                    self.get_last_flist(),
-                    f_center=freq_center,
-                    #f_center=default_f_center,
-                    freq_step=freq_step,
-                    N_steps=nsteps,
-                    sweep_type=sweep_type
-            )
-
-            # plot result
-            print(filename)
-            sweeps.plot_sweep(f"./{filename}.npy")
-
-            synth_freq = self.udx1.set_synth_out(freq_center)
-            print("Finished sweep. Setting LO back to %.6f MHz\n\n"%synth_freq)
-    """
     
     def main_opt(self):
         log = logger.getChild(__name__)
@@ -446,7 +463,8 @@ class kidpy:
                     + "\r\nCouldn't connect to redis-server double check it's running and the generalConfig is correct"
                     + "\033[0m"
                 )
-            opt = menu(self.captions, self.__main_opts)
+            #opt = menu(self.captions, self.__main_opts)
+            opt = top_menu(self.captions, self.__setup_options, self.__ts_data_options, self.__vna_data_options, self.__hardware_control_options, self.__other_options)
             if conStatus == False:
                 resp = input(
                     "Can't connect to redis server, do you want to continue anyway? [y/n]: "
@@ -745,7 +763,7 @@ class kidpy:
                         f = self.get_last_flist()
                         t = time.strftime("%Y%m%d%H%M%S")
                         rfsoc1 = data_handler.RFChannel(
-                            f"{self.__saveData}/time_streams/ts_tone_set_{self.__dataTag}_t_{t}.hd5",  #f"./ALICPT_RDF_{t}.hd5"
+                            f"{self.__saveData}/time_streams/ts_toneinit_{self.__dataTag}_t_{t}.hd5",  #f"./ALICPT_RDF_{t}.hd5"
                             "192.168.3.40",
                             self.get_last_flist(),
 		            self.get_last_alist(),
