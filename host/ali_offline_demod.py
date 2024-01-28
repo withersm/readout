@@ -215,7 +215,7 @@ def demodulate(t, sig, n_Phi0, f_sawtooth, plot = True, plot_len = None):
         plt.plot(slow_t,slow_TOD,'.')
         plt.xlabel('Time (s)')
         plt.ylabel('Amplitude (arb.)')
-        plt.legend(loc='upper right')
+        #plt.legend(loc='upper right')
         plt.title('Reconstructed Signal')
         plt.show()
         
