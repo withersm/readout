@@ -418,6 +418,9 @@ class kidpy:
         last_tone_directory = max([dir for dir in glob.glob(f'{self.__saveData}/tone_initializations/*', recursive=False) if os.path.isdir(dir)],key=os.path.getmtime)
         self.__dataTag = last_tone_directory.split('/')[-1]
     
+    def change_data_tag(self,path):
+        self.__dataTag = path.split('/')[-1]
+    
     def get_tone_list(self):
         lo_freq = valon5009.Synthesizer.get_frequency(self.udx1, valon5009.SYNTH_B)
         tones = lo_freq * 1.0e6 + np.asarray(self.get_last_flist())
@@ -476,10 +479,47 @@ class kidpy:
                 pass
             
             if opt == 0: #set attenuation
-                pass
+                try:
+                    new_atten_in = input('Set input attenuation (dB): ')
+                except ValueError:
+                    print("Error, not a valid number.")
+                except KeyboardInterrupt:
+                    return
+                atten_in = self.udx1.set_rf_in(new_atten_in)
+                resp = self.udx1.get_rf_in()
+                print(f'Input Attenuation: {resp} dB')
+
+                try:
+                    new_atten_out = input('Set output attenuation (dB): ')
+                except ValueError:
+                    print("Error, not a valid number.")
+                except KeyboardInterrupt:
+                    return
+                atten_in = self.udx1.set_rf_out(new_atten_out)
+                resp = self.udx1.get_rf_out()
+                print(f'Output Attenuation: {resp} dB')                
 
             if opt == 1: #bias 4K LNA
-                pass
+                try:
+                    LNA_channel = int(input('LNA bias channel? (1-2): '))
+                except ValueError:
+                    print("Error, not a valid Number")
+                except KeyboardInterrupt:
+                    return
+                
+                try:        
+                    LNA_Drain_voltage = float(input('LNA Drain voltage in [V]? : '))
+                except ValueError:
+                    print("Error, not a valid Number")
+                except KeyboardInterrupt:
+                    return
+                if LNA_Drain_voltage>4:
+                    print("High voltage warning! A lower value is preferred.")
+                else:
+                    self.bias.vLNA_D(LNA_channel, LNA_Drain_voltage)
+
+                #display bias results
+                self.bias.getAllIV()
             
             if opt == 2:  # upload firmware
                 #os.system("clear")
@@ -635,7 +675,29 @@ class kidpy:
                 print(f'New tone initialization dir. / timestream datatag: {self.__dataTag}')
 
             if opt == 5: #load tone initalization
-                pass
+                try:
+                    init_filepath = input('Enter directory path of initalization: ')
+                except KeyboardInterrupt:
+                    return
+                
+                freq_file = glob.glob(f'{init_filepath}/freq_list_lo_sweep_targeted_1_*')[0]
+
+
+                print(f'Loading tones from: {freq_file}')
+
+
+
+                farray = cal.load_array(f'{freq_file}')
+
+                print(farray.real)
+
+                lo = float(freq_file.split("_")[-2])*1e6
+                print(lo)
+                #write_fList(self, farray.real - lo, []) #turned off for testing because I'm not looking at resonators and peak locations are incredibly random
+
+
+                self.change_data_tag(init_filepath)
+                print(f'Loaded tone initalization dir. / timestream datatag: {self.__dataTag}')
 
             if opt == 6: #take raw data
                 try:
@@ -756,14 +818,14 @@ class kidpy:
                 #os.system("clear")
                 print("Waiting for the RFSOC to finish writing the full comb")
                 try:
-                    option = int(input('[0] Use most recent frequency list, [1] Input frequency list filename: '))  
+                    option = int(input('[0] Use most recent manual frequency list, [1] Input frequency list filename: '))  
                 except ValueError:
                     print("Error, not a valid Number")
                 except KeyboardInterrupt:
                     return
 
                 if option == 0:
-                    list_of_files = glob.glob('./frequency_lists/*.npy')
+                    list_of_files = glob.glob(f'{self.__saveData}/frequency_lists_manual/*.npy')
                     latest_file = max(list_of_files, key=os.path.getctime)
                     print(f'Loading: {latest_file}')
 
@@ -774,19 +836,19 @@ class kidpy:
 
                     lo = float(latest_file.split("_")[-2])*1e6
                     print(lo)
-                    write_fList(self, farray.real - lo, [])
+                    #write_fList(self, farray.real - lo, [])
 
 
                 elif option == 1:
-                    filename = input('Filename: ')
+                    filename = input('Filename (full path): ')
 
-                    farray = cal.load_array(f'./frequency_lists/{filename}')
+                    farray = cal.load_array(filename)
 
                     print(farray.real)
 
                     lo = float(filename.split("_")[-2])*1e6
                     print(lo)
-                    write_fList(self, farray.real - lo, [])
+                    #write_fList(self, farray.real - lo, [])
                 
 
                 
@@ -857,49 +919,55 @@ class kidpy:
                     print("Finished sweep. Setting LO back to %.6f MHz\n\n"%synth_freq)
 
             if opt == 11: #find frequencies -> need to fix the filepathing
+                """
                 try:
                     find_type = int(input('[0] Initial Peak Find, [1] Targeted Peak Find: '))  
                 except ValueError:
                     print("Error, not a valid Number")
                 except KeyboardInterrupt:
                     return
-
+                """
                
                 try:
-                    option = int(input('[0] Use most recent LO sweep, [1] Input LO sweep filename: '))  
+                    option = int(input('[0] Use most recent manual LO sweep, [1] Input LO sweep filename: '))  
                 except ValueError:
                     print("Error, not a valid Number")
                 except KeyboardInterrupt:
                     return
 
-                if find_type == 0:    
-                    if option == 0:
-                        list_of_files = glob.glob('./lo_sweeps/*.npy')
-                        latest_file = max(list_of_files, key=os.path.getctime)
-                        print(f'Loading: {latest_file}')
-                        freqs, mags = cal.find_minima(latest_file, plot=True)
+                #if find_type == 0:    
+                if option == 0:
+                    list_of_files = glob.glob(f'{self.__saveData}/lo_sweeps_manual/*.npy')
+                    latest_file = max(list_of_files, key=os.path.getctime)
+                    print(f'Loading: {latest_file}')
+                    freqs, mags = cal.find_minima(latest_file, plot=True) #not saving plot right now
 
-                        filename_split = latest_file.split("_")
+                    filename_split = latest_file.split("_")
 
-                        cal.save_array(freqs, f'./frequency_lists/freqs_fcenter_{filename_split[-2]}_{filename_split[-1]}')
+                    cal.save_array(freqs, f'{self.__saveData}/frequency_lists_manual/freqs_fcenter_{filename_split[-2]}_{filename_split[-1]}')
+                    
+                    return
+
+
+                elif option == 1:
+                    try:
+                        filename = input('File Name (full path): ')
+                    except KeyboardInterrupt:
                         return
 
+                    freqs, mags = cal.find_minima(filename, plot=True) #not saving plot right now
 
-                    elif option == 1:
-                        filename = input('File Name: ')
+                    filename_split = filename.split("_")
 
-                        freqs, mags = cal.find_minima('./lo_sweeps/'+filename, plot=True)
+                    cal.save_array(freqs, f'{self.__saveData}/frequency_lists_manual/freqs_fcenter_{filename_split[-2]}_{filename_split[-1]}')
 
-                        filename_split = filename.split("_")
+                    return
 
-                        cal.save_array(freqs, f'./frequency_lists/freqs_fcenter_{filename_split[-2]}_{filename_split[-1]}')
-
-                        return
-
-                    else:
-                        print("Not a valid option.")
-                        return
+                else:
+                    print("Not a valid option.")
+                    return
                 
+                """
                 elif find_type == 1:
                     if option == 0:
                         list_of_files = glob.glob('./lo_sweeps/*.npy')
@@ -931,6 +999,7 @@ class kidpy:
                 else:
                     print("Not a valid option.")
                     return
+                """
             
             if opt == 12: #bias board control
                 #desired options
@@ -1172,7 +1241,7 @@ class kidpy:
                             return
                         atten_in = self.udx1.set_rf_out(new_atten_out)
                         resp = self.udx1.get_rf_out()
-                        print(f'Input Attenuation: {resp} dB')
+                        print(f'Output Attenuation: {resp} dB')
 
                     elif if_opt == 11:
                         break
