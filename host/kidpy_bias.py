@@ -608,7 +608,7 @@ class kidpy:
 
                 lo = float(initial_freq_list_filename.split("_")[-2])*1e6
                 print(lo)
-                #write_fList(self, farray.real - lo, []) #turned off for testing because I'm not looking at resonators and peak locations are incredibly random
+                write_fList(self, farray.real - lo, []) #turned off for testing because I'm not looking at resonators and peak locations are incredibly random
 
                 #Targeted LO Sweep
                 print('\n6) Performing targeted LO sweep...')
@@ -649,7 +649,7 @@ class kidpy:
 
                 lo = float(targeted_freq_list_1_filename.split("_")[-2])*1e6
                 print(lo)
-                #write_fList(self, farray.real - lo, []) #turned off for testing because I'm not looking at resonators and peak locations are incredibly random
+                write_fList(self, farray.real - lo, []) #turned off for testing because I'm not looking at resonators and peak locations are incredibly random
 
                 #Targeted LO Sweep
                 print('\n9) Performing targeted LO sweep...')
@@ -693,7 +693,7 @@ class kidpy:
 
                 lo = float(freq_file.split("_")[-2])*1e6
                 print(lo)
-                #write_fList(self, farray.real - lo, []) #turned off for testing because I'm not looking at resonators and peak locations are incredibly random
+                write_fList(self, farray.real - lo, []) #turned off for testing because I'm not looking at resonators and peak locations are incredibly random
 
 
                 self.change_data_tag(init_filepath)
@@ -836,7 +836,7 @@ class kidpy:
 
                     lo = float(latest_file.split("_")[-2])*1e6
                     print(lo)
-                    #write_fList(self, farray.real - lo, [])
+                    write_fList(self, farray.real - lo, [])
 
 
                 elif option == 1:
@@ -848,7 +848,7 @@ class kidpy:
 
                     lo = float(filename.split("_")[-2])*1e6
                     print(lo)
-                    #write_fList(self, farray.real - lo, [])
+                    write_fList(self, farray.real - lo, [])
                 
 
                 
