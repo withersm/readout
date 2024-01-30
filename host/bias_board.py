@@ -5,7 +5,8 @@ import serial.tools.list_ports as stl
 
 
 VTES_TOLERANCE = 0.05
-ITES_TOLERANCE = 0.01
+#ITES_TOLERANCE = 0.01
+ITES_TOLERANCE = 0.04
 VLNA_D_TOLERANCE = 0.01
 VLNA_G_TOLERANCE = 0.01
 ILNA_TOLERANCE = 0.01
@@ -149,7 +150,8 @@ class Bias:
                 break
 
             i_measured = self.get_iTES(ch)
-            diff = abs(i_measured - imA) / imA
+            #diff = abs(i_measured - imA) / imA
+            diff = abs(i_measured - imA)
             print(f"i-measured= {i_measured}; diff= {diff}")
             if diff < ITES_TOLERANCE:
                 break

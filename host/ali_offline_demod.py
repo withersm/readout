@@ -207,7 +207,7 @@ def demodulate(t, sig, n_Phi0, f_sawtooth, plot = True, plot_len = None):
     #slow_t = slow_t[~np.isnan(slow_TOD)]
     #slow_TOD = np.unwrap(slow_TOD[~np.isnan(slow_TOD)])
     slow_TOD /= 2*np.pi # convert to Phi0
-    slow_TOD -= np.average(slow_TOD) # DC subtract
+    #slow_TOD -= np.average(slow_TOD) # DC subtract
     #print(np.isnan(slow_TOD))
     
     

@@ -758,27 +758,40 @@ class kidpy:
                         # load curve measurement
                         bias_channel = list(input("Which channels?[1234]/[1]/[34]: "))
                         print(bias_channel)
-                        bias_start = float(input("Bias starts from positive [V]? (0~+5]: "))
-                        bias_end = float(input("Bias ends at 0 or negative [V]? [0~-5]: "))
-                        bias_step = float(input("Bias step [V]? : "))
+                        print('Note: Ibias start > Ibias end for a standard IV curve.')
+                        bias_start = float(input("Enter Ibias start (mA): "))
+                        bias_end = float(input("Enter Ibias end (mA): "))
+                        bias_step = float(input("Enter Ibias step (mA): "))
                         data_t = float(input("How long data taking at one bias step? [s]: "))
                 
                         def loadcurve_fn(bias_channel, bias_start, bias_end, bias_step, data_t):
                             # two for-loops for mapping channels and bias
                             # bias voltage is output to a txt file
-                            bias_points = np.linspace(bias_start, bias_end, int((bias_start-bias_end)/bias_step)+1, endpoint=True)
+                            if bias_start > bias_end:
+                                #bias_points = np.linspace(bias_end, bias_start,int((bias_start-bias_end)/bias_step)+1, endpoint=True)
+                                bias_points_reversed = np.arange(bias_end, bias_start+bias_step, bias_step)
+                                bias_points = np.flip(bias_points_reversed)
+                            elif bias_start < bias_end:
+                                bias_points = np.arange(bias_start, bias_end+bias_step,bias_step)
+                                #bias_points = np.linspace(bias_start, bias_end, int((bias_start-bias_end)/bias_step)+1, endpoint=True)
                             t = time.strftime("%Y%m%d%H%M%S")
                             #bias_file = open(f"./Bias_data_{t}.txt", 'w')
-                            bias_file = open(f'{directory}/bias_data_{t}.txt')
-                            for bias_v in bias_points:
+                            bias_file = open(f'{directory}/bias_data_{t}.txt','w')
+                            for bias_i in bias_points:
                                 for chan in bias_channel:
-                                    # the [uV] unit is not sure have not verified
-                                    self.bias.vTES(int(chan), bias_v*1e6)
+                                    self.bias.iSHUNT(int(chan), float(bias_i))
+                                    actual_ibias = self.bias.get_iTES(int(chan))
+                                    #print(f'setting bias to {int(bias_i)}')
+                                    
+                                    
+                                    #self.bias.vTES(int(chan), bias_v*1e6)
 
                                 t = time.time()
-                                bias_file.write(f"{t} {bias_v}\n")
+                                print("recording bias")
+                                bias_file.write(f"{t} {actual_ibias}\n")
                                 time.sleep(data_t)
                             bias_file.close()
+                            print('taking ts data')
                             return
 
                         f = self.get_last_flist()
