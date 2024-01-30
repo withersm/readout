@@ -352,7 +352,7 @@ class kidpy:
         self.__ts_data_options = [
             "New tone initalization",
             "Load tone initalization",
-            "Take raw data",
+            "Take raw data (remember to turn on flux ramp first)",
             "Demod data (software)"
         ]
 
@@ -734,7 +734,7 @@ class kidpy:
                             f"{self.__saveData}/time_streams/ts_toneinit_{self.__dataTag}_t_{t}.hd5",  #f"./ALICPT_RDF_{t}.hd5"
                             "192.168.3.40",
                             self.get_last_flist(),
-		            self.get_last_alist(),
+		                    self.get_last_alist(),
                             port=4096,
                             name="rfsoc2",
                             n_tones=len(f),
@@ -747,7 +747,15 @@ class kidpy:
                         
                         udp2.capture([rfsoc1], data_taking_fn, t_length)
                     if data_taking_opt == 1:
-                    # load curve measurement
+                        print("Beginning auto calibration procedure.\n")
+                        start_time = time.strftime("%Y%m%d%H%M%S")
+                        
+                        #Create Directory
+                        directory = f'{self.__saveData}/IV_data/toneinit_{self.__dataTag}_t_{start_time}'
+                        os.mkdir(directory)
+                                       
+                    
+                        # load curve measurement
                         bias_channel = list(input("Which channels?[1234]/[1]/[34]: "))
                         print(bias_channel)
                         bias_start = float(input("Bias starts from positive [V]? (0~+5]: "))
@@ -760,7 +768,8 @@ class kidpy:
                             # bias voltage is output to a txt file
                             bias_points = np.linspace(bias_start, bias_end, int((bias_start-bias_end)/bias_step)+1, endpoint=True)
                             t = time.strftime("%Y%m%d%H%M%S")
-                            bias_file = open(f"./Bias_data_{t}.txt", 'w')
+                            #bias_file = open(f"./Bias_data_{t}.txt", 'w')
+                            bias_file = open(f'{directory}/bias_data_{t}.txt')
                             for bias_v in bias_points:
                                 for chan in bias_channel:
                                     # the [uV] unit is not sure have not verified
@@ -775,7 +784,7 @@ class kidpy:
                         f = self.get_last_flist()
                         t = time.strftime("%Y%m%d%H%M%S")
                         rfsoc1 = data_handler.RFChannel(
-                            f"./ALICPT_RDF_{t}.hd5",
+                            f"{directory}/ts_toneinit_{self.__dataTag}_t_{t}.hd5",
                             "192.168.3.40",
                             self.get_last_flist(),
                             self.get_last_alist(),
