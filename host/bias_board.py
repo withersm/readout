@@ -127,12 +127,24 @@ class Bias:
                 self.si.set_wiper(1, ch - 1, potvalue)
             i += 1
 
+    def set_wiper(self, chan, value):
+        """
+        Adjust the voltage by changing a potentiometer.
+        """
+        self.si.set_wiper(1, chan-1, value)
+
+    def get_wiper(self, chan):
+        self.si.get_wiper(1, chan-1)
+
+
     def iSHUNT(self, ch, imA):
         """Adjusts V(out) for specified TES channel (1-4) until I(out) = current specified by user.
         Range = Depends on total Thévenin resistance of TES bias chain.
         Resistance of cryo wire + TES shunt resistance will limit the maximum current from the bias system.
         Maximum short circuit current of the TES bias system is 25mA. It is assumed that the Thévenin
         resistance of the cryo wire + TES shunts ≈ 200 Ohms which would mean the max current is 12.5 mA.
+
+        Note to folks who use NIST terminology: This is how you set IBias. We should clean up the names.
 
 
         :param ch: TES Bias Channel
