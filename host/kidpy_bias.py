@@ -756,14 +756,70 @@ class kidpy:
                                        
                     
                         # load curve measurement
-                        bias_channel = list(input("Which channels?[1234]/[1]/[34]: "))
+                        #bias_channel = list(input("Which channels?[1234]/[1]/[34]: "))
+                        bias_channel = int(input("Enter channel [1,2,3,4]: "))
+                        if bias_channel != 1 and bias_channel != 2 and bias_channel != 3 and bias_channel != 4:
+                            print('Invalid bias channel.')
+                            return
                         print(bias_channel)
                         print('Note: Ibias start > Ibias end for a standard IV curve.')
+                        normal_bias = float(input("Set an initial high bias to drive the TES normal (mA): "))
+                        normal_t = float(input('Set a time to remain at the high bias (s): '))
                         bias_start = float(input("Enter Ibias start (mA): "))
                         bias_end = float(input("Enter Ibias end (mA): "))
                         bias_step = float(input("Enter Ibias step (mA): "))
                         data_t = float(input("How long data taking at one bias step? [s]: "))
                 
+                        def loadcurve_fn(bias_channel, bias_start, bias_end, bias_step, normal_bias, normal_t, data_t):
+                            
+                            #compute pot step using bias_step
+                            #pot_step = int(number_replace_this * bias_step)
+                            pot_step = int(bias_step)
+
+                            #open datafile
+                            bias_file = open(f'{directory}/bias_data_{t}.txt','w')
+                            
+                            #record start time with no current; wait for 10s to stabilize system
+                            t = time.time()
+                            f"{t} 0\n"                            
+                            time.sleep(10)                            
+                            
+                            #set and record the normal_bias to drive the TES normal
+                            self.bias.iSHUNT(int(bias_channel), float(normal_bias))
+                            normal_bias_actual = self.bias.get_iTES(bias_channel)
+                            t = time.time()
+                            bias_file.write(f"{t} {normal_bias_actual}\n")
+                            time.sleep(normal_t)
+                            
+                            #set and record the start bias
+                            self.bias.iSHUNT(int(bias_channel), float(bias_start))
+                            ibias_actual = self.bias.get_iTES(bias_channel)
+                            t = time.time()
+                            bias_file.write(f"{t} {ibias_actual}\n")
+                            time.sleep(normal_t)
+
+                            #get the pot position
+                            pot_pos = int(self.get_wiper(bias_channel)) #initial pot position
+
+                            #begin decreasing the pot
+                            pot_pos -= pot_step
+                            while ibias_actual >= bias_end:
+                                
+                                self.set_wiper(bias_channel,pot_pos)
+                                ibias_actual = self.bias.get_iTES(int(bias_channel))
+                                t = time.time()
+                                print("recording bias")
+                                bias_file.write(f"{t} {ibias_actual}\n")
+                                time.sleep(data_t)
+
+                                pot_pos -= pot_step
+                            
+                            bias_file.close()
+                            return
+                            
+                        
+                        
+                        """
                         def loadcurve_fn(bias_channel, bias_start, bias_end, bias_step, data_t):
                             # two for-loops for mapping channels and bias
                             # bias voltage is output to a txt file
@@ -793,6 +849,7 @@ class kidpy:
                             bias_file.close()
                             print('taking ts data')
                             return
+                        """
 
                         f = self.get_last_flist()
                         t = time.strftime("%Y%m%d%H%M%S")
@@ -811,7 +868,7 @@ class kidpy:
                             lo_freq=default_f_center
                         )
                                 
-                        udp2.capture([rfsoc1], loadcurve_fn, bias_channel, bias_start, bias_end, bias_step, data_t)
+                        udp2.capture([rfsoc1], loadcurve_fn, bias_channel, bias_start, bias_end, bias_step, normal_bias, normal_t, data_t)
                 except ValueError:
                     print("Error, not a valid Number")
                 except KeyboardInterrupt:
