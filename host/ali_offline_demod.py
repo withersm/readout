@@ -269,7 +269,7 @@ def get_dt(times):
     dt=np.median(np.diff(times))
     return dt
 def mea_nphi0(times,delta_fs_ch,reset_freq,plot=False):
-    peaks_neg,_=find_peaks(0-delta_fs_ch, distance=10)
+    peaks_neg,_=find_peaks(0-delta_fs_ch, distance=10,width=3)
     t_peaks=times[peaks_neg]
     t_peaks.sort()
     peaks_neg.sort()
@@ -300,8 +300,8 @@ def find_n_phi0(time,data_cal,f_sawtooth,plot=True):
     return n_phi0
 
 def mea_reset_t0(times,delta_fs_ch,reset_freq,plot=False):
-    peaks_pos_flag,_=find_peaks(delta_fs_ch, distance=10,height=(np.min(delta_fs_ch)*5/6.,np.max(delta_fs_ch)*5/6.))
-    peaks_neg_flag,_=find_peaks(delta_fs_ch, distance=10,height=(-np.max(delta_fs_ch)*5/6.,np.min(delta_fs_ch)*5/6.))
+    peaks_pos_flag,_=find_peaks(delta_fs_ch, prominence=0.1, distance=10,height=(np.min(delta_fs_ch)*5/6.,np.max(delta_fs_ch)*5/6.))
+    peaks_neg_flag,_=find_peaks(delta_fs_ch, prominence=0.1, distance=10,height=(-np.max(delta_fs_ch)*5/6.,np.min(delta_fs_ch)*5/6.))
     peaks_flag=np.concatenate((peaks_pos_flag,peaks_neg_flag))
     peaks_flag.sort()
     t_flag_raw=times[peaks_flag]
