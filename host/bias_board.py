@@ -134,8 +134,8 @@ class Bias:
         self.si.set_wiper(1, chan-1, value)
 
     def get_wiper(self, chan):
-        self.si.get_wiper(1, chan-1)
-
+        result = self.si.get_wiper(1, chan-1)
+        return result
 
     def iSHUNT(self, ch, imA):
         """Adjusts V(out) for specified TES channel (1-4) until I(out) = current specified by user.

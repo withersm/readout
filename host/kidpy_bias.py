@@ -776,6 +776,7 @@ class kidpy:
                             #pot_step = int(number_replace_this * bias_step)
                             pot_step = int(bias_step)
 
+                            t = time.strftime("%Y%m%d%H%M%S")
                             #open datafile
                             bias_file = open(f'{directory}/bias_data_{t}.txt','w')
                             
@@ -793,19 +794,24 @@ class kidpy:
                             
                             #set and record the start bias
                             self.bias.iSHUNT(int(bias_channel), float(bias_start))
-                            ibias_actual = self.bias.get_iTES(bias_channel)
+                            ibias_actual = float(self.bias.get_iTES(bias_channel))
                             t = time.time()
                             bias_file.write(f"{t} {ibias_actual}\n")
                             time.sleep(normal_t)
 
                             #get the pot position
-                            pot_pos = int(self.get_wiper(bias_channel)) #initial pot position
+                            pot_pos = int(self.bias.get_wiper(bias_channel)) #initial pot position
+                            print(pot_pos)
 
                             #begin decreasing the pot
                             pot_pos -= pot_step
-                            while ibias_actual >= bias_end:
-                                
-                                self.set_wiper(bias_channel,pot_pos)
+                            print('pot_pos: '+str(pot_pos))
+                            print('ibias_actual: '+str(ibias_actual))
+                            print('bias_end: '+str(bias_end))
+                            while (ibias_actual >= bias_end):
+                                print('triggered while loop')
+                                print(f'ibias = {ibias_actual} mA')
+                                self.bias.set_wiper(bias_channel,pot_pos)
                                 ibias_actual = self.bias.get_iTES(int(bias_channel))
                                 t = time.time()
                                 print("recording bias")
@@ -815,6 +821,7 @@ class kidpy:
                                 pot_pos -= pot_step
                             
                             bias_file.close()
+                            self.bias.iSHUNT(bias_channel, 0)
                             return
                             
                         
@@ -869,6 +876,8 @@ class kidpy:
                         )
                                 
                         udp2.capture([rfsoc1], loadcurve_fn, bias_channel, bias_start, bias_end, bias_step, normal_bias, normal_t, data_t)
+                        print('setting bias back to 0')
+                        
                 except ValueError:
                     print("Error, not a valid Number")
                 except KeyboardInterrupt:
