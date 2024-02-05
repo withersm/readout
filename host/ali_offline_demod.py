@@ -275,7 +275,7 @@ def get_dt(times):
     dt=np.median(np.diff(times))
     return dt
 def mea_nphi0(times,delta_fs_ch,reset_freq,plot=False):
-    peaks_neg,_=find_peaks(0-delta_fs_ch, distance=10,width=3)
+    peaks_neg,_=find_peaks(0-delta_fs_ch, distance=10,width=2.5)
     t_peaks=times[peaks_neg]
     t_peaks.sort()
     peaks_neg.sort()
@@ -298,11 +298,14 @@ def find_n_phi0(time,data_cal,f_sawtooth,plot=True):
     """
     n_phi0_array = np.array([])
     for i in range(len(data_cal)):
-        n_phi0 = mea_nphi0(time,data_cal[i,:],f_sawtooth,plot=plot)
-        n_phi0_array = np.append(n_phi0_array, n_phi0)
+        try:
+            n_phi0 = mea_nphi0(time,data_cal[i,:],f_sawtooth,plot=plot)
+            n_phi0_array = np.append(n_phi0_array, n_phi0)
+        except:
+            print ('bad channel', i)
 
     n_phi0 = np.median(n_phi0_array)
-    
+    print (n_phi0)
     return n_phi0
 
 def mea_reset_t0(times,delta_fs_ch,reset_freq,plot=False):
@@ -590,6 +593,28 @@ def full_demod_process(ts_file, f_sawtooth, tone_init_path = '/home/matt/alicpt_
     
     return data_dict
 
+def get_mean_current(bias_info,times,data):
+    """
+    get the mean of Ites for all channels based on bias values and times
+    time is unix time
+    data is the output dm.demodulate, in unit of phi0 numbers
+    """
+    data_bin=np.zeros((data.shape[0],bias_info.shape[0]))
+    print (data_bin.shape)
+    for j in range(data.shape[0]):
+        data_ch=data[j]
+        for i in range(bias_info.shape[0]):
+            bs_time=bias_info[i,0]
+            chunck=data_ch[np.where((times>bs_time+0.4)&(times<bs_time+1.6))]
+            data_bin[j,i]=np.mean(chunck)
+    data_bin=np.apply_along_axis(unwrap_change_current_per_chan, 1, data_bin)       
+    return data_bin    
+
+def unwrap_change_current_per_chan(data_ch):
+    data_ch_unwrap=np.unwrap(data_ch,discont=0.48,period=1)
+    data_ch_uA=data_ch_unwrap*9
+    return data_ch_uA
+
 def IV_analysis_ch_new(bias_currents,resps,Rsh=0.4,plot=None):
     """
     This method completely abandon the part that Ites might vary larger than 0.5 phi0 given the step limit of the Ibias
@@ -634,7 +659,7 @@ def IV_analysis_ch_new(bias_currents,resps,Rsh=0.4,plot=None):
     return Rn_al,Rtes,Vtes,Ites,bps
 
     
-def full_IV_process(iv_file,f_sawtooth,Rsh=0.4,iv_path = '/home/matt/alicpt_data/IV_data', plot=None):
+def full_iv_process(iv_file,f_sawtooth,Rsh=0.4,iv_path = '/home/matt/alicpt_data/IV_data', plot=None):
     """
     wrapper examining all IV curves from a dataset
     """
@@ -666,11 +691,11 @@ def full_IV_process(iv_file,f_sawtooth,Rsh=0.4,iv_path = '/home/matt/alicpt_data
             Rtes_ch = np.ones(len(bias_currents[:,1]))*np.nan
             Vtes_ch = np.ones(len(bias_currents[:,1]))*np.nan
             Ites_ch = np.ones(len(bias_currents[:,1]))*np.nan
-            bps_ch = np.ones(len(bias_currents[:,1]))*np.nan            
-            continue
+            bps_ch = np.ones(len(bias_currents[:,1]))*np.nan 
         
         Rn_al.append(Rn_al_ch)
         Rtes.append(Rtes_ch)
+        #print (Rtes.shape)
         Vtes.append(Vtes_ch)
         Ites.append(Ites_ch)
         bps.append(bps_ch)
