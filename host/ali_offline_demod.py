@@ -3,6 +3,7 @@ import matplotlib as mpl
 mpl.rcParams['axes.formatter.useoffset'] = False
 import matplotlib.pyplot as plt
 import scipy
+
 from scipy.signal import sawtooth, square
 import pandas as pd
 import glob as gl
@@ -615,7 +616,7 @@ def unwrap_change_current_per_chan(data_ch):
     data_ch_uA=data_ch_unwrap*9
     return data_ch_uA
 
-def IV_analysis_ch_new(bias_currents,resps,Rsh=0.4,plot=None):
+def IV_analysis_ch_new(bias_currents,resps,Rsh=0.4,plot='None'):
     """
     This method completely abandon the part that Ites might vary larger than 0.5 phi0 given the step limit of the Ibias
     i.e. it only cares about the Al normal state and part of Al transition state
@@ -624,42 +625,48 @@ def IV_analysis_ch_new(bias_currents,resps,Rsh=0.4,plot=None):
     dataframe containing timestream of Ites,Rtes,Vtes,Rn_almn,Rn_al
     """
     #only getting Al TES normal point
+
     Rn_almn=7.25
-    peaks_nb,_=signal.find_peaks(0-resps,width=20)
+    peaks_nb,_=find_peaks(0-resps,width=20)
     if len(peaks_nb)==0:
-        return
-    peak_nb=peaks_nb[0]
-    resps_nb=resps[2:int(peak_nb-10)]
-    bias_nb=bias_currents[2:peak_nb-10]
-    r_ratio_al,shift = np.polyfit(bias_nb, resps_nb, 1)
-    Rn_al=Rsh/r_ratio_al-Rsh*1e-3-Rn_almn*1e-3  #Ohm
-    #print ('normal resistance for al TES',Rn_al)
-    Ites=resps-shift #uA
-    Ishunt=bias_currents*1e-3-Ites*1e-6 #A
-    Vshunt=Ishunt*Rsh*1e-3 #V
-    Rtes=Vshunt/(Ites*1e-6)-Rn_almn*1e-3 #Ohm
-    bps=Rtes/Rn_al
-    Vtes=Rtes*Ites#uV
-    if Rn_al>0.05 or Rn_al<0.005: return
-    if plot=='IV':
-        plt.gcf().subplots_adjust(bottom=0.2)
-        plt.gcf().subplots_adjust(left=0.2)
-        plt.tick_params(axis='both', which='major', labelsize=16)
-        plt.plot(Vtes,Ites,alpha=0.8)
-        plt.xlabel('$V_{tes}$ (μV)',fontsize=18)
-        plt.ylabel('$I_{tes}$ (μA)',fontsize=18)
-    if plot=='bp':
-        plt.gcf().subplots_adjust(bottom=0.2)
-        plt.gcf().subplots_adjust(left=0.2)
-        plt.tick_params(axis='both', which='major', labelsize=16)
-        plt.plot(bias_currents,bps*100,alpha=0.3)
-        plt.ylim(0,1.2*100)
-        plt.ylabel('$\%R_n$',fontsize=18)
-        plt.xlabel(r'$I_{bias}$',fontsize=18)
+        Rn_al=np.nan
+        Rtes=np.ones(bias_currents.shape[0])*np.nan
+        Vtes=np.ones(bias_currents.shape[0])*np.nan
+        Ites=np.ones(bias_currents.shape[0])*np.nan
+        bps=np.ones(bias_currents.shape[0])*np.nan
+    else:
+        peak_nb=peaks_nb[0]
+        resps_nb=resps[2:int(peak_nb-10)]
+        bias_nb=bias_currents[2:peak_nb-10]
+        r_ratio_al,shift = np.polyfit(bias_nb, resps_nb, 1)
+        Rn_al=Rsh/r_ratio_al-Rsh*1e-3-Rn_almn*1e-3  #Ohm
+        #print ('normal resistance for al TES',Rn_al)
+        Ites=resps-shift #uA
+        Ishunt=bias_currents*1e-3-Ites*1e-6 #A
+        Vshunt=Ishunt*Rsh*1e-3 #V
+        Rtes=Vshunt/(Ites*1e-6)-Rn_almn*1e-3 #Ohm
+        bps=Rtes/Rn_al
+        Vtes=Rtes*Ites#uV
+        if plot=='IV':
+            plt.gcf().subplots_adjust(bottom=0.2)
+            plt.gcf().subplots_adjust(left=0.2)
+            plt.tick_params(axis='both', which='major', labelsize=16)
+            plt.plot(Vtes,Ites,alpha=0.8)
+            plt.xlabel('$V_{tes}$ (μV)',fontsize=18)
+            plt.ylabel('$I_{tes}$ (μA)',fontsize=18)
+        if plot=='bp':
+            plt.gcf().subplots_adjust(bottom=0.2)
+            plt.gcf().subplots_adjust(left=0.2)
+            plt.tick_params(axis='both', which='major', labelsize=16)
+            plt.plot(bias_currents,bps*100,alpha=0.3)
+            plt.ylim(0,1.2*100)
+            plt.ylabel('$\%R_n$',fontsize=18)
+            plt.xlabel(r'$I_{bias}$',fontsize=18)
+    
     return Rn_al,Rtes,Vtes,Ites,bps
 
     
-def full_iv_process(iv_file,f_sawtooth,Rsh=0.4,iv_path = '/home/matt/alicpt_data/IV_data', plot=None):
+def full_iv_process(iv_file,f_sawtooth,Rsh=0.4,iv_path = '/home/matt/alicpt_data/IV_data', plot='None'):
     """
     wrapper examining all IV curves from a dataset
     """
@@ -678,40 +685,34 @@ def full_iv_process(iv_file,f_sawtooth,Rsh=0.4,iv_path = '/home/matt/alicpt_data
     
     data_demods_bin = get_mean_current(bias_currents,demod_data['demod t']+demod_data['fr t'][start_idx],demod_data['demod data'])
     
-    Rn_al = []
-    Rtes = []
-    Vtes = []
-    Ites = []
-    bps = []
+    Rn_al_list = []
+    Rtes_list = []
+    Vtes_list = []
+    Ites_list = []
+    bps_list = []
     for ch in range(data_demods_bin.shape[0]):
-        try:
-            Rn_al_ch,Rtes_ch,Vtes_ch,Ites_ch,bps_ch = IV_analysis_ch_new(bias_currents[:,1],data_demods_bin[ch],plot=None)
-        except:
-            Rn_al_ch = np.nan
-            Rtes_ch = np.ones(len(bias_currents[:,1]))*np.nan
-            Vtes_ch = np.ones(len(bias_currents[:,1]))*np.nan
-            Ites_ch = np.ones(len(bias_currents[:,1]))*np.nan
-            bps_ch = np.ones(len(bias_currents[:,1]))*np.nan 
+        Rn_al_ch,Rtes_ch,Vtes_ch,Ites_ch,bps_ch = IV_analysis_ch_new(bias_currents[:,1],data_demods_bin[ch],Rsh=0.4,plot='None')
         
-        Rn_al.append(Rn_al_ch)
-        Rtes.append(Rtes_ch)
+        
+        Rn_al_list.append(Rn_al_ch)
+        Rtes_list.append(Rtes_ch)
         #print (Rtes.shape)
-        Vtes.append(Vtes_ch)
-        Ites.append(Ites_ch)
-        bps.append(bps_ch)
+        Vtes_list.append(Vtes_ch)
+        Ites_list.append(Ites_ch)
+        bps_list.append(bps_ch)
         
     #Rn_al = np.vstack(Rn_al)
-    Rtes = np.vstack(Rtes)
-    Vtes = np.vstack(Vtes)
-    Ites = np.vstack(Ites)
-    bps = np.vstack(bps)
+    Rtes_list = np.vstack(Rtes_list)
+    Vtes_list = np.vstack(Vtes_list)
+    Ites_list = np.vstack(Ites_list)
+    bps_list = np.vstack(bps_list)
     
     data_dict = {'Ibias': bias_currents[:,1], 
-                 'Rn Al': Rn_al,
-                 'Rtes': Rtes,
-                 'Vtes': Vtes,
-                 'Ites': Ites,
-                 'bps': bps}
+                 'Rn Al': Rn_al_list,
+                 'Rtes': Rtes_list,
+                 'Vtes': Vtes_list,
+                 'Ites': Ites_list,
+                 'bps': bps_list}
        
     return data_dict
 
