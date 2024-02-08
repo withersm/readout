@@ -313,21 +313,16 @@ def mea_reset_t0(times,delta_fs_ch,reset_freq,plot=False):
     d=np.diff(delta_fs_ch)
     dd=np.diff(d)
     ind=np.argmax(dd)+2
-    t_init=times[ind]-times[0]-int((times[ind]-times[0])*fr_freq)/fr_freq
-    ind_init= find_nearest_idx(times,t_init)
+    t_init=times[ind]-times[0]-int((times[ind]-times[0])*reset_freq)/reset_freq
+    ind_init= find_nearest_idx(times-times[0],t_init)
     if plot==True:
-        plt.plot(times-times[0],delta_fs_ch)
+        plt.plot(times-times[0],delta_fs_ch,alpha=0.05)
         plt.scatter(times[ind_init]-times[0],delta_fs_ch[ind_init],color='r')
         plt.xlim(0,1)
         plt.show()
-    return np.median(t_init)
-
-
-d=np.diff(data_cal_ch)
-    dd=np.diff(d)
-    ind=np.argmax(dd)+2
-    t_init=t[ind]-t[0]-int((t[ind]-t[0])*fr_freq)/fr_freq
     return t_init
+
+
 
 def find_nearest(array, value):
     array = np.asarray(array)
