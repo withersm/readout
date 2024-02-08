@@ -498,19 +498,28 @@ def get_phase(timestreams,calibration):
 
 
 #plotting
-def plot_s21(lo_data):
+def plot_s21(lo_data,labels = None):
     plt.figure(figsize=(14,8))
+    count = 0
     for current_data in lo_data:
         ftones = np.concatenate(current_data[0])
         sweep_Z = np.concatenate(current_data[1])
         
         mag = 20* np.log10(np.abs(sweep_Z))
         
-        plt.plot(ftones, mag.real, '-',alpha=1)
+        if labels != None:
+            plt.plot(ftones/1e9, mag.real, '-',label=labels[count], alpha=1)
+        else:
+            plt.plot(ftones/1e9, mag.real, '-', alpha=1)
         
+        count += 1
     plt.grid()
-    plt.xlabel('Frequency (Hz)')
-    plt.ylabel('$|S_{21}|$')
+    plt.xlabel('Frequency (GHz)',fontsize=16)
+    plt.ylabel('$|S_{21}|$',fontsize=16)
+    plt.xticks(fontsize=14)
+    plt.yticks(fontsize=14)
+    if labels != None:
+        plt.legend(fontsize=16)
     plt.show()
             
 def plot_timestream(time, data, start_time = None, end_time = None, channel_nums = [0]):
@@ -519,10 +528,12 @@ def plot_timestream(time, data, start_time = None, end_time = None, channel_nums
     for current_channel in channel_nums:
         plt.plot(time-time[0], data[current_channel], label = current_channel)
     
-    plt.xlabel('Time (s)')
-    plt.ylabel('Phase (rad.)')
+    plt.xlabel('Time (s)',fontsize=16)
+    plt.ylabel('Phase (rad.)',fontsize=16)
+    plt.xticks(fontsize=14)
+    plt.yticks(fontsize=14)
     plt.xlim([start_time,end_time])    
-    plt.legend()
+    plt.legend(fontsize=16)
     plt.show()
     
 def full_demod_process(ts_file, f_sawtooth, tone_init_path = '/home/matt/alicpt_data/tone_initializations', ts_path = '/home/matt/alicpt_data/time_streams'):
@@ -628,7 +639,7 @@ def IV_analysis_ch_new(bias_currents,resps,Rsh=0.4,plot='None'):
 
     Rn_almn=7.25
     peaks_nb,_=find_peaks(0-resps,width=20)
-    if len(peaks_nb)==0:
+    if len(peaks_nb)==0 or peaks_nb[0] < 20:
         Rn_al=np.nan
         Rtes=np.ones(bias_currents.shape[0])*np.nan
         Vtes=np.ones(bias_currents.shape[0])*np.nan
@@ -636,6 +647,7 @@ def IV_analysis_ch_new(bias_currents,resps,Rsh=0.4,plot='None'):
         bps=np.ones(bias_currents.shape[0])*np.nan
     else:
         peak_nb=peaks_nb[0]
+        print(peak_nb)
         resps_nb=resps[2:int(peak_nb-10)]
         bias_nb=bias_currents[2:peak_nb-10]
         r_ratio_al,shift = np.polyfit(bias_nb, resps_nb, 1)
