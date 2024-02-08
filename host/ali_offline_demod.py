@@ -310,19 +310,19 @@ def find_n_phi0(time,data_cal,f_sawtooth,plot=True):
     return n_phi0
 
 def mea_reset_t0(times,delta_fs_ch,reset_freq,plot=False):
-    peaks_pos_flag,_=find_peaks(delta_fs_ch, prominence=0.1, distance=10,height=(np.min(delta_fs_ch)*5/6.,np.max(delta_fs_ch)*5/6.))
-    peaks_neg_flag,_=find_peaks(delta_fs_ch, prominence=0.1, distance=10,height=(-np.max(delta_fs_ch)*5/6.,np.min(delta_fs_ch)*5/6.))
-    peaks_flag=np.concatenate((peaks_pos_flag,peaks_neg_flag))
-    peaks_flag.sort()
-    t_flag_raw=times[peaks_flag]
-    t_flag_raw_reset=(t_flag_raw-times[0])*reset_freq
-    t0s=t_flag_raw-times[0]-t_flag_raw_reset.astype(int)/reset_freq
+    d=np.diff(delta_fs_ch)
+    dd=np.diff(d)
+    ind=np.argmax(dd)+2
+    t_init=times[ind]-times[0]-int((times[ind]-times[0])*reset_freq)/reset_freq
+    ind_init= find_nearest_idx(times-times[0],t_init)
     if plot==True:
-        plt.plot(times-times[0],delta_fs_ch)
-        plt.scatter(times[peaks_flag]-times[0],delta_fs_ch[peaks_flag],color='r')
+        plt.plot(times-times[0],delta_fs_ch,alpha=0.05)
+        plt.scatter(times[ind_init]-times[0],delta_fs_ch[ind_init],color='r')
         plt.xlim(0,1)
         plt.show()
-    return np.median(t0s)
+    return t_init
+
+
 
 def find_nearest(array, value):
     array = np.asarray(array)
