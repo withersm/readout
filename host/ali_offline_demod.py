@@ -627,7 +627,7 @@ def unwrap_change_current_per_chan(data_ch):
     data_ch_uA=data_ch_unwrap*9
     return data_ch_uA
 
-def IV_analysis_ch_new(bias_currents,resps,Rsh=0.4,plot='None'):
+def IV_analysis_ch_new(bias_currents,resps,Rsh=0.4,filter_Rn_Al=False,plot='None'):
     """
     This method completely abandon the part that Ites might vary larger than 0.5 phi0 given the step limit of the Ibias
     i.e. it only cares about the Al normal state and part of Al transition state
@@ -659,6 +659,16 @@ def IV_analysis_ch_new(bias_currents,resps,Rsh=0.4,plot='None'):
         Rtes=Vshunt/(Ites*1e-6)-Rn_almn*1e-3 #Ohm
         bps=Rtes/Rn_al
         Vtes=Rtes*Ites#uV
+        
+        if filter_Rn_Al == True:
+            if Rn_al < 5e-3 or Rn_al > 20e-3:##: #filter out non-responding channels
+                Rn_al=np.nan
+                Rtes=np.ones(bias_currents.shape[0])*np.nan
+                Vtes=np.ones(bias_currents.shape[0])*np.nan
+                Ites=np.ones(bias_currents.shape[0])*np.nan
+                bps=np.ones(bias_currents.shape[0])*np.nan
+        
+        
         if plot=='IV':
             plt.gcf().subplots_adjust(bottom=0.2)
             plt.gcf().subplots_adjust(left=0.2)
@@ -724,9 +734,16 @@ def full_iv_process(iv_file,f_sawtooth,Rsh=0.4,iv_path = '/home/matt/alicpt_data
                  'Rtes': Rtes_list,
                  'Vtes': Vtes_list,
                  'Ites': Ites_list,
-                 'bps': bps_list}
+                 'bps': bps_list,
+                 'demod data': demod_data}
        
     return data_dict
+
+def get_channel_response_summary(IV_analysis_result,filepath=None):
+    active_channel_chart = pd.DataFrame({'Channel Freq (Hz)': IV_analysis_result['demod data']['channel freqs'].real, 'Rn Al (mOhm)': IV_analysis_result['Rn Al']})
+    if filepath != None:
+        active_channel_chart.to_csv(filepath,sep=',')
+    return active_channel_chart
 
 def main():
     t, adc_i, adc_q = read_data('/home/user/Documents/AliCPT/ali_offline_demod/ALICPT_RDF_20231017100614.hd5')
