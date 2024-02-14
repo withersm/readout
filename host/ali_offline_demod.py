@@ -632,10 +632,12 @@ def full_demod_process(ts_file, f_sawtooth, tone_init_path = '/home/matt/alicpt_
     tone_freqs=np.load(tone_freqs_path) #find tone freqs
     ts_fr,Is_fr,Qs_fr=read_data(ts_path)    
     
+    """
+    #depricated code for finding delay region
     #look at initial sweep
     plot_s21([initial_lo_sweep])
     
-    """
+    
     #choose delay region - should automate finding an area without peaks later
     delay_region_start = float(input('Delay Region Start (GHz): '))*1e9
     delay_region_stop = float(input('Delay Region Stop (GHz): '))*1e9
@@ -698,7 +700,7 @@ def get_mean_current(bias_info,times,data):
     data is the output dm.demodulate, in unit of phi0 numbers
     """
     data_bin=np.zeros((data.shape[0],bias_info.shape[0]))
-    print (data_bin.shape)
+    #print (data_bin.shape)
     for j in range(data.shape[0]):
         data_ch=data[j]
         for i in range(bias_info.shape[0]):
@@ -810,6 +812,8 @@ def IV_correction(resps):
         if i>0:
             resps_cor_acc[i]=np.sum(resps_cor[:i+1])
     resps_corr=resps+resps_cor_acc
+    print(resps_corr)
+    print(ind_sc)
     return resps_corr, ind_sc
 
 def IV_analysis_ch_duo(bias_currents,resps,Rsh=0.4,filter_Rn_Al=False,plot='None'):
@@ -837,10 +841,10 @@ def IV_analysis_ch_duo(bias_currents,resps,Rsh=0.4,filter_Rn_Al=False,plot='None
         resps_sc=resps_correct[int(peak_sc+10):-10]
         bias_nb=bias_currents[2:peak_nb-10]
         bias_sc=bias_currents[int(peak_sc+10):-10]
-        print(bias_nb.shape)
-        print(resps_nb.shape)
-        print(bias_sc.shape)
-        print(resps_sc.shape)
+        #print(bias_nb.shape)
+        #print(resps_nb.shape)
+        #print(bias_sc.shape)
+        #print(resps_sc.shape)
         r_ratio_al,shift = np.polyfit(bias_nb, resps_nb, 1)
         if resps_sc.shape[0]>5:
             r_ratio_almn,shift_sc = np.polyfit(bias_sc, resps_sc, 1)
@@ -915,8 +919,8 @@ def IV_analysis_ch_duo(bias_currents,resps,Rsh=0.4,filter_Rn_Al=False,plot='None
             plt.xlim(200,900)
             plt.ylabel(r'$R_{tes}$',fontsize=18)
             plt.xlabel(r'$P_{bias}$',fontsize=18)
-        print (Rn_almn)
-        print (Rn_al)
+        #print (Rn_almn)
+        #print (Rn_al)
     return Rn_almn,Rn_al,Rtes,Vtes,Ites,bps,Pbias,resps_correct    
 
     
