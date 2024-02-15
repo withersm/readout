@@ -228,8 +228,45 @@ def demodulate(t, sig, n_Phi0, f_sawtooth, plot = True, plot_len = None):
 """
 
 def demodulate(t, sig, n_Phi0, n, f_sawtooth, fs=512e6/(2**20)):
+    t = np.arange(sig.shape[0])/fs
+    period=1/f_sawtooth
+    n_chunks=int(t[-1]/period) 
+    chunksize_org=len(sig) / t[len(t)-1] / f_sawtooth
+    chunksize = int(chunksize_org)
+    chunksize_left=chunksize-2*n
+    resets = np.arange(n_chunks)/f_sawtooth
+    #eset_inds=np.array([find_nearest_idx(t,reset) for reset in resets])
+    reset_inds=np.arange(n_chunks)*chunksize_org
+    reset_inds=reset_inds.astype(int)
+    inds_2d=np.mgrid[0:chunksize_left,0:n_chunks][0].T
+    inds_2d=inds_2d.astype(int)
+    inds_2d+=reset_inds.reshape((-1,1))
+    inds_2d+=n
+    t_2d=t[inds_2d]
+    sig_2d=sig[inds_2d]
+    t_resets = resets.reshape((-1,1))*np.ones(shape=t_2d.shape)
+    t_2d = t_2d-t_resets
+    
+    num = np.sum(sig_2d*np.sin(2*np.pi*n_Phi0*f_sawtooth*(t_2d)),axis=1)
+    den = np.sum(sig_2d*np.cos(2*np.pi*n_Phi0*f_sawtooth*(t_2d)),axis=1)
+    
+    slow_TOD = np.arctan2(num, den)
+    slow_t = np.arange(n_chunks)/f_sawtooth+0.5/f_sawtooth
+    slow_TOD /= 2*np.pi
+    return slow_t, slow_TOD
+    
+    
+
+    
+    
+    
+    
+"""
+
+def demodulate(t, sig, n_Phi0, n, f_sawtooth, fs=512e6/(2**20)):
     #chunksize = len(sig) / t[len(t)-1] / f_sawtooth
     #n_chunks = int(len(t)//chunksize)
+    t = np.arange(sig.shape[0])/fs
     period=1/f_sawtooth
     n_chunks=int(t[-1]/period)  
     slow_t = []
@@ -239,19 +276,20 @@ def demodulate(t, sig, n_Phi0, n, f_sawtooth, fs=512e6/(2**20)):
         t_stop = period*(ichunk+1)-n/fs
         sig_chunk=sig[np.where((t>t_start)&(t<t_stop))]
         t_chunk=t[np.where((t>t_start)&(t<t_stop))]
+        t_reset=ichunk/f_sawtooth
         if t_chunk.shape[0]==0:
             continue
         t_diff=np.diff(t_chunk)
         t_diff=np.insert(t_diff, 0, 0)
         #print (t_chunk.shape)
         #print (t_diff.shape)
-        t_chunk_sel=t_chunk[(t_diff >= 1./fs*0.8) & (t_diff <= 1./fs*1.2)]
-        sig_chunk_sel=sig_chunk[(t_diff >= 1./fs*0.8) & (t_diff <=1./fs*1.2)]
-        if t_chunk_sel.shape[0]<10:
+        #t_chunk_sel=t_chunk[(t_diff >= 1./fs*0.8) & (t_diff <= 1./fs*1.2)]
+        #sig_chunk_sel=sig_chunk[(t_diff >= 1./fs*0.8) & (t_diff <=1./fs*1.2)]
+        if t_chunk.shape[0]<10:
             continue
         else:
-            num = np.sum(sig_chunk_sel*np.sin(2*np.pi*n_Phi0*f_sawtooth*(t_chunk_sel-t_chunk_sel[0])))
-            den = np.sum(sig_chunk_sel*np.cos(2*np.pi*n_Phi0*f_sawtooth*(t_chunk_sel-t_chunk_sel[0])))
+            num = np.sum(sig_chunk*np.sin(2*np.pi*n_Phi0*f_sawtooth*(t_chunk-t_reset)))
+            den = np.sum(sig_chunk*np.cos(2*np.pi*n_Phi0*f_sawtooth*(t_chunk-t_reset)))
             slow_TOD.append(np.arctan2(num, den))
             slow_t.append((t_start+t_stop)/2)
     
@@ -264,7 +302,7 @@ def demodulate(t, sig, n_Phi0, n, f_sawtooth, fs=512e6/(2**20)):
     #slow_TOD -= np.average(slow_TOD) # DC subtract
     #print(np.isnan(slow_TOD))
     
-    """
+    """"""
     if plot == True:
         plt.plot(slow_t,slow_TOD,'.')
         plt.vlines(ts_start,0,0.4)
@@ -274,11 +312,11 @@ def demodulate(t, sig, n_Phi0, n, f_sawtooth, fs=512e6/(2**20)):
         #plt.legend(loc='upper right')
         plt.title('Reconstructed Signal')
         plt.show()
-    """
+    """"""
         
     return slow_t, slow_TOD
 
-
+"""
 
 def full_demod_routine():
     pass
@@ -794,9 +832,11 @@ def IV_correction(resps):
     smooth=savgol_filter(resps, resps.shape[0], 10)
     smooth=detect_zero_and_fill(smooth)
     dd=np.diff(np.diff(smooth))
-    ind_sc=np.argmin(dd)+2
+    ind_sc=np.nanargmin(dd)+2
+    """
     if len(peaks_nb)==0 or peaks_nb[0]<30:
         return np.zeros(resps.shape[0])
+    """
     peak_nb=peaks_nb[0]
     #here we know that before peaks_nb[0] and after ind_sc the Ites is monotonic 
     resps_nb=resps[2:int(peak_nb-10)]
@@ -812,8 +852,6 @@ def IV_correction(resps):
         if i>0:
             resps_cor_acc[i]=np.sum(resps_cor[:i+1])
     resps_corr=resps+resps_cor_acc
-    print(resps_corr)
-    print(ind_sc)
     return resps_corr, ind_sc
 
 def IV_analysis_ch_duo(bias_currents,resps,Rsh=0.4,filter_Rn_Al=False,plot='None'):
@@ -825,7 +863,7 @@ def IV_analysis_ch_duo(bias_currents,resps,Rsh=0.4,filter_Rn_Al=False,plot='None
     peaks_nb,_=find_peaks(0-resps,width=20)
     max_ites=np.max(resps)
     min_ites=np.min(resps)
-    if len(peaks_nb)==0 or peaks_nb[0] < 20 or max_ites-min_ites<20:
+    if len(peaks_nb)==0 or peaks_nb[0] < 30 or max_ites-min_ites<20:
         Rn_almn=np.nan
         Rn_al=np.nan
         Rtes=np.ones(bias_currents.shape[0])*np.nan
@@ -981,6 +1019,7 @@ def full_iv_process(iv_file,f_sawtooth,Rsh=0.4,iv_path = '/home/matt/alicpt_data
                  'bps': bps_list,
                  'Pbias': Pbias_list,
                  'resps correct':resps_correct_list,
+                 'binned data':data_demods_bin,
                  'demod data': demod_data}
        
     return data_dict
