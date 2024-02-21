@@ -227,6 +227,7 @@ def demodulate(t, sig, n_Phi0, f_sawtooth, plot = True, plot_len = None):
     return slow_t, slow_TOD
 """
 
+"""
 def demodulate(t, sig, n_Phi0, n, f_sawtooth, fs=512e6/(2**20)):
     t = np.arange(sig.shape[0])/fs
     period=1/f_sawtooth
@@ -237,6 +238,7 @@ def demodulate(t, sig, n_Phi0, n, f_sawtooth, fs=512e6/(2**20)):
     resets = np.arange(n_chunks)/f_sawtooth
     #eset_inds=np.array([find_nearest_idx(t,reset) for reset in resets])
     reset_inds=np.arange(n_chunks)*chunksize_org
+    reset_inds=np.rint(reset_inds)
     reset_inds=reset_inds.astype(int)
     inds_2d=np.mgrid[0:chunksize_left,0:n_chunks][0].T
     inds_2d=inds_2d.astype(int)
@@ -254,18 +256,20 @@ def demodulate(t, sig, n_Phi0, n, f_sawtooth, fs=512e6/(2**20)):
     slow_t = np.arange(n_chunks)/f_sawtooth+0.5/f_sawtooth
     slow_TOD /= 2*np.pi
     return slow_t, slow_TOD
-    
-    
+
+"""   
 
     
     
     
     
-"""
 
-def demodulate(t, sig, n_Phi0, n, f_sawtooth, fs=512e6/(2**20)):
+
+def demodulate(t, sig, n_Phi0, n, f_sawtooth, fs=512e6/(2**20),plot=False):
     #chunksize = len(sig) / t[len(t)-1] / f_sawtooth
     #n_chunks = int(len(t)//chunksize)
+    #fs = 488.28125#1/np.nanmedian(np.diff(t))
+    #fs=1/np.nanmedian(np.diff(t))
     t = np.arange(sig.shape[0])/fs
     period=1/f_sawtooth
     n_chunks=int(t[-1]/period)  
@@ -302,7 +306,7 @@ def demodulate(t, sig, n_Phi0, n, f_sawtooth, fs=512e6/(2**20)):
     #slow_TOD -= np.average(slow_TOD) # DC subtract
     #print(np.isnan(slow_TOD))
     
-    """"""
+    
     if plot == True:
         plt.plot(slow_t,slow_TOD,'.')
         plt.vlines(ts_start,0,0.4)
@@ -312,11 +316,10 @@ def demodulate(t, sig, n_Phi0, n, f_sawtooth, fs=512e6/(2**20)):
         #plt.legend(loc='upper right')
         plt.title('Reconstructed Signal')
         plt.show()
-    """"""
+    
         
     return slow_t, slow_TOD
 
-"""
 
 def full_demod_routine():
     pass
@@ -704,11 +707,14 @@ def full_demod_process(ts_file, f_sawtooth, tone_init_path = '/home/matt/alicpt_
     t_stop=10
 
     n_phi0 = find_n_phi0(ts_fr[488*t_start:488*t_stop],data_cal[:,488*t_start:488*t_stop],f_sawtooth,plot=False)  #discard the first few seconds
+    print(f'n_phi0: {n_phi0}')
     
     #find t0
     t0_array = np.array([])
     for current_channel in range(len(data_cal)):
         t0 = mea_reset_t0(ts_fr[488*t_start:488*t_stop],data_cal[current_channel,488*t_start:488*t_stop],f_sawtooth,plot=False)
+        #ts_freq = 1/np.nanmedian(np.diff(ts_fr))
+        #t0 = mea_reset_t0(ts_fr[ts_freq*t_start:ts_freq*t_stop],data_cal[current_channel,ts_freq*t_start:ts_freq*t_stop],f_sawtooth,plot=False)
         t0_array = np.append(t0_array,t0)
 
     t0_med = np.nanmedian(t0_array)
@@ -719,7 +725,7 @@ def full_demod_process(ts_file, f_sawtooth, tone_init_path = '/home/matt/alicpt_
     data_demods=[]
     start_idx = find_nearest_idx(ts_fr-ts_fr[0], t0_med)
     for chan in tqdm(range(data_cal.shape[0])):#np.arange(225,230,1):#range(data_cal.shape[0]):
-        t_demod, data_demod = demodulate(ts_fr[start_idx:]-ts_fr[start_idx], data_cal[chan, start_idx:], n_phi0, 3,f_sawtooth)
+        t_demod, data_demod = demodulate(ts_fr[start_idx:]-ts_fr[start_idx], data_cal[chan, start_idx:], n_phi0, 5,f_sawtooth)
         t_demods.append(t_demod)
         data_demod_unwrap=np.unwrap(data_demod,period=1)
         data_demods.append(data_demod_unwrap)
@@ -727,7 +733,7 @@ def full_demod_process(ts_file, f_sawtooth, tone_init_path = '/home/matt/alicpt_
     data_demods=np.vstack(data_demods)
     t_demods=np.vstack(t_demods)
     
-    data_dict = {'fr t': ts_fr, 'nphi': n_phi0, 't0': t0_med, 'demod t': t_demods[1], 'demod data': data_demods, 'channel freqs': tone_freqs, 'fsawtooth': f_sawtooth}
+    data_dict = {'fr t': ts_fr, 'fr data': data_cal, 'nphi': n_phi0, 't0': t0_med, 'demod t': t_demods[1], 'demod data': data_demods, 'channel freqs': tone_freqs, 'fsawtooth': f_sawtooth}
     
     return data_dict
 
@@ -818,52 +824,92 @@ def detect_zero_and_fill(array):
     zero_idx = np.where(np.abs(array)<1e-2)
     xold = np.delete(xnew,zero_idx)
     array_sel = np.delete(array, zero_idx)
-    f = interp1d(xold,array_sel)
+    f = interp1d(xold,array_sel,fill_value="extrapolate")
     array_new = f(xnew)
     return array_new
 
+"""
 def IV_correction(resps):
-    """
+    """"""
     This function smooth the IV curve and then find the normal and superconducting point
     it will then try to correct the jump caused by unwrapping large Ites changes with current Ibias resolution
-    """ 
+    """ """
     #only getting Al TES normal point
     peaks_nb,_=find_peaks(0-resps,width=20)
     smooth=savgol_filter(resps, resps.shape[0], 10)
     smooth=detect_zero_and_fill(smooth)
     dd=np.diff(np.diff(smooth))
-    ind_sc=np.nanargmin(dd)+2
-    """
+    """"""
     if len(peaks_nb)==0 or peaks_nb[0]<30:
         return np.zeros(resps.shape[0])
-    """
+    """"""
     peak_nb=peaks_nb[0]
-    #here we know that before peaks_nb[0] and after ind_sc the Ites is monotonic 
+    #here we know that before peaks_nb[0] and after peak_sc the Ites is monotonic 
     resps_nb=resps[2:int(peak_nb-10)]
-    resps_sc=resps[int(ind_sc+10):-10]
+    resps_sc=resps[int(peaks_sc[0]+10):-10]
     resps_cor=np.zeros(resps.shape[0])
     resps_cor_acc=np.zeros(resps.shape[0])
     for i in range(resps.shape[0]):
         if i>=2 and i<peak_nb-10 and resps[i]-resps[i-1]>0.5:
             resps_cor[i]=-9
-        if i>= ind_sc+10 and i<resps.shape[0]-5 and resps[i]-resps[i-1]>0.5:
+        if i>= peak_sc+10 and i<resps.shape[0]-5 and resps[i]-resps[i-1]>0.5:
             resps_cor[i]=-9
     for i in range(resps.shape[0]):
         if i>0:
             resps_cor_acc[i]=np.sum(resps_cor[:i+1])
     resps_corr=resps+resps_cor_acc
-    return resps_corr, ind_sc
+    return resps_corr, peaks_sc[0]
+"""
 
-def IV_analysis_ch_duo(bias_currents,resps,Rsh=0.4,filter_Rn_Al=False,plot='None'):
+    
+def IV_correction_median(resps, peak_nb, peak_sc):
+    """
+    This function smooth the IV curve and then find the normal and superconducting point
+    it will then try to correct the jump caused by unwrapping large Ites changes with current Ibias resolution
+    """ 
+   
+    #here we know that before peaks_nb[0] and after peak_sc the Ites is monotonic 
+    resps_nb=resps[2:int(peak_nb-10)]
+    resps_sc=resps[int(peak_sc+10):-10]
+    resps_cor=np.zeros(resps.shape[0])
+    resps_cor_acc=np.zeros(resps.shape[0])
+    for i in range(resps.shape[0]):
+        if i>=2 and i<peak_nb-10 and resps[i]-resps[i-1]>0.5:
+            resps_cor[i]=-9
+        if i>= peak_sc+10 and i<resps.shape[0]-5 and resps[i]-resps[i-1]>0.5:
+            resps_cor[i]=-9
+    for i in range(resps.shape[0]):
+        if i>0:
+            resps_cor_acc[i]=np.sum(resps_cor[:i+1])
+    resps_corr=resps+resps_cor_acc
+    return resps_corr
+
+def find_transition_points(resps):
+    peaks_nb,_=find_peaks(0-resps,width=20)
+    max_ites=np.max(resps)
+    min_ites=np.min(resps)
+    smooth=savgol_filter(resps, resps.shape[0], 10)
+    smooth=detect_zero_and_fill(smooth)
+    peaks_sc,_=find_peaks(smooth,width=20,prominence=20)
+    if len(peaks_nb)==0 or peaks_nb[0] < 30 or max_ites-min_ites<20 or len(peaks_sc)==0:
+        return np.nan, np.nan
+    else:      
+        peak_nb=peaks_nb[0]
+        peak_sc=peaks_sc[0]
+        return peak_nb, peak_sc
+
+
+def IV_analysis_ch_duo(bias_currents,resps,peak_nb,peak_sc,Rsh=0.4,filter_Rn_Al=False,plot='None'):
     """
     This method correct the SC and normal region for jump phi0 issue, and then fit for TES parameters
     Outputs:
     dataframe containing timestream of Ites,Rtes,Vtes,Rn_almn,Rn_al
     """ 
-    peaks_nb,_=find_peaks(0-resps,width=20)
+    #peaks_nb,_=find_peaks(0-resps,width=20)
     max_ites=np.max(resps)
     min_ites=np.min(resps)
-    if len(peaks_nb)==0 or peaks_nb[0] < 30 or max_ites-min_ites<20:
+    #if len(peaks_nb)==0 or peaks_nb[0] < 30 or max_ites-min_ites<20:
+    if max_ites-min_ites<20:
         Rn_almn=np.nan
         Rn_al=np.nan
         Rtes=np.ones(bias_currents.shape[0])*np.nan
@@ -873,12 +919,13 @@ def IV_analysis_ch_duo(bias_currents,resps,Rsh=0.4,filter_Rn_Al=False,plot='None
         Pbias=np.ones(bias_currents.shape[0])*np.nan
         resps_correct=np.ones(bias_currents.shape[0])*np.nan
     else:   
-        peak_nb=peaks_nb[0]
-        resps_correct,peak_sc=IV_correction(resps)
+        #peak_nb=peaks_nb[0]
+        #resps_correct,peak_sc=IV_correction(resps)
+        resps_correct=IV_correction_median(resps,peak_nb,peak_sc)
         resps_nb=resps_correct[2:int(peak_nb-10)]
-        resps_sc=resps_correct[int(peak_sc+10):-10]
-        bias_nb=bias_currents[2:peak_nb-10]
-        bias_sc=bias_currents[int(peak_sc+10):-10]
+        resps_sc=resps_correct[int(peak_sc+20):-10]
+        bias_nb=bias_currents[2:int(peak_nb-10)]
+        bias_sc=bias_currents[int(peak_sc+20):-10]
         #print(bias_nb.shape)
         #print(resps_nb.shape)
         #print(bias_sc.shape)
@@ -989,8 +1036,25 @@ def full_iv_process(iv_file,f_sawtooth,Rsh=0.4,iv_path = '/home/matt/alicpt_data
     bps_list = []
     Pbias_list = []
     resps_correct_list = []
+    
+    peak_nb_array = np.array([])
+    peak_sc_array = np.array([])
     for ch in tqdm(range(data_demods_bin.shape[0])):
-        Rn_almn_ch,Rn_al_ch,Rtes_ch,Vtes_ch,Ites_ch,bps_ch,Pbias_ch,resps_correct_ch = IV_analysis_ch_duo(bias_currents[:,1],data_demods_bin[ch],Rsh=0.4,filter_Rn_Al=filter_Rn_Al, plot=plot)
+        peak_nb, peak_sc = find_transition_points(data_demods_bin[ch])
+        peak_nb_array = np.append(peak_nb_array, peak_nb)
+        peak_sc_array = np.append(peak_sc_array, peak_sc)
+    
+    peak_nb_median = np.nanmedian(peak_nb_array)
+    peak_sc_median = np.nanmedian(peak_sc_array)
+    
+    for ch in tqdm(range(data_demods_bin.shape[0])):
+        Rn_almn_ch,Rn_al_ch,Rtes_ch,Vtes_ch,Ites_ch,bps_ch,Pbias_ch,resps_correct_ch = IV_analysis_ch_duo(bias_currents[:,1],
+                                                                                                          data_demods_bin[ch], 
+                                                                                                          peak_nb=peak_nb_median,
+                                                                                                          peak_sc=peak_sc_median,
+                                                                                                          Rsh=0.4,
+                                                                                                          filter_Rn_Al=filter_Rn_Al, 
+                                                                                                          plot=plot)
         
         Rn_almn_list.append(Rn_almn_ch)
         Rn_al_list.append(Rn_al_ch)
@@ -1018,9 +1082,9 @@ def full_iv_process(iv_file,f_sawtooth,Rsh=0.4,iv_path = '/home/matt/alicpt_data
                  'Ites': Ites_list,
                  'bps': bps_list,
                  'Pbias': Pbias_list,
-                 'resps correct':resps_correct_list,
-                 'binned data':data_demods_bin,
-                 'demod data': demod_data}
+                 'resps correct': resps_correct_list,
+                 'binned data': data_demods_bin,
+                 'time series data': demod_data}
        
     return data_dict
 
@@ -1029,6 +1093,27 @@ def get_channel_response_summary(IV_analysis_result,filepath=None):
     if filepath != None:
         active_channel_chart.to_csv(filepath,sep=',')
     return active_channel_chart
+
+def get_pbias(iv_data, bp_percent, split_pt=0,plot = False):
+    
+    bias_array = np.array([])
+    for ch in range(len(iv_data['Vtes'])):
+        if np.isnan(iv_data['bps'][ch]).all():
+            bias_array = np.append(bias_array,np.nan)
+            continue
+        else:
+            split_pt=int(len(iv_data['bps'][ch])/1.5)
+            bp_index = find_nearest_idx(iv_data['bps'][ch][:split_pt]*100, 50)       
+            bias_pt = iv_data['Pbias'][ch][bp_index]
+            #print(bias_pt)
+            bias_array = np.append(bias_array,bias_pt)
+
+            if plot == True:
+                plt.plot(data_i['Ibias'],data_i['bps'][ch]*100)
+                plt.plot(data_i['Ibias'][Psat_index],data_i['bps'][ch][Psat_index]*100,'*')
+                plt.vlines(data_i['Ibias'][Psat_index],0,100)
+    
+    return bias_array
 
 def main():
     t, adc_i, adc_q = read_data('/home/user/Documents/AliCPT/ali_offline_demod/ALICPT_RDF_20231017100614.hd5')
