@@ -35,6 +35,7 @@ import matplotlib.pyplot as plt
 import transceiver
 import bias_board
 import calibration as cal
+import serial
 
 # from datetime import date
 # from datetime import datetime
@@ -203,6 +204,43 @@ def write_fList(self, fList, ampList):
         log.info("Wrote waveform.")
     else:
         log.error("FAILED TO WRITE WAVEFORM")
+
+def connect_beam_mapper(direc="/dev/ttyUSB0"):
+    x = os.path.exists(direc)	
+
+    if x:
+        ser = serial.Serial(
+                port=direc,
+                baudrate=9600,
+                parity=serial.PARITY_NONE,
+                stopbits=serial.STOPBITS_ONE,
+                bytesize=serial.EIGHTBITS
+        )
+    else:
+        print("Serial port could not be found.")
+
+    return ser
+
+def isfloat(N): # allows string -> float conversion for input parameters
+		try:
+			float(N)
+			return True
+		except ValueError:
+			print('error thrown')
+			return False
+
+def convert_units(N, unit, rev = False): # convert inches, mm --> steps
+    N = float(N)
+    if unit == "in":
+        if rev:
+            return round(N * 0.25 / 1000) # steps --> in
+        return round(N / 0.25 * 1000) # in --> steps
+    elif unit == "mm":
+        if rev:
+            return round(N * 6.35 / 1000) # steps --> mm
+        return round(N / 6.35 * 1000) # mm --> steps
+    else:
+        return int(N) # int since steps must be whole numbers
 
 
 def menu(captions, options):
@@ -701,7 +739,7 @@ class kidpy:
 
             if opt == 6: #take raw data
                 try:
-                    data_taking_opt = int(input("Data taking only [0] or load curve [1]?: "))
+                    data_taking_opt = int(input("Data taking only [0], load curve [1], or beam map [2]?: "))
                     if data_taking_opt == 0:
                     # data taking without changing bias
                         t_length = 0
@@ -747,7 +785,7 @@ class kidpy:
                         
                         udp2.capture([rfsoc1], data_taking_fn, t_length)
                     if data_taking_opt == 1:
-                        print("Beginning auto calibration procedure.\n")
+                        #print("Beginning auto calibration procedure.\n")
                         start_time = time.strftime("%Y%m%d%H%M%S")
                         
                         #Create Directory
@@ -823,8 +861,9 @@ class kidpy:
                             bias_file.close()
                             self.bias.iSHUNT(bias_channel, 0)
                             return
-                            
                         
+                        
+                            
                         
                         """
                         def loadcurve_fn(bias_channel, bias_start, bias_end, bias_step, data_t):
@@ -876,6 +915,104 @@ class kidpy:
                         )
                                 
                         udp2.capture([rfsoc1], loadcurve_fn, bias_channel, bias_start, bias_end, bias_step, normal_bias, normal_t, data_t)
+                        print('setting bias back to 0')
+
+                    if data_taking_opt == 2:
+                        
+                        start_time = time.strftime("%Y%m%d%H%M%S")
+                        
+                        #Create Directory
+                        directory = f'{self.__saveData}/beam_map_data/toneinit_{self.__dataTag}_t_{start_time}'
+                        os.mkdir(directory)
+
+                        ser = connect_beam_mapper()
+
+                        try:
+                            x_min = int(input("x_min: "))
+                            y_min = int(input("y_min: "))
+                            x_max = int(input("x_max: "))
+                            y_max = int(input("y_max: "))
+                            delta_x = int(input("delta_x: "))
+                            delta_y = int(input("delta_y: "))
+                            delta_t = int(input("delta_t: "))
+                            
+                        except ValueError:
+                            print("Error, not a valid Number")
+                        except KeyboardInterrupt:
+                            return
+                        
+                        def raster(ser, x_min, y_min, x_max, y_max, delta_x, delta_y, delta_t):
+                            # Initialize current position
+                            current_x, current_y = x_min, y_min
+
+                            # Open log file
+                            with open(f'{directory}/beam_map_data_{t}.txt', 'a+') as logfile:
+                                logfile.write(f"start, end, x, y\n")
+                            # Iterate over y range
+                                for y in range(y_min, y_max + delta_y, delta_y):
+                                    # Determine x range: forward if y is even step away from y_min, reverse if odd
+                                    if (y - y_min) // delta_y % 2 == 0:
+                                        x_range = range(x_min, x_max + delta_x, delta_x)
+                                    else:
+                                        x_range = range(x_max, x_min - delta_x, -delta_x)
+
+                            
+                                
+                                    for x in x_range:
+                                        
+                                        # Move to the next position (convert steps back to mm for position function)
+                                        local_command = 'C '
+                                        if isfloat(x):
+                                            pos1_conv = convert_units(float(x), "mm")
+                                            local_command += "IA1M" + str(pos1_conv) + ","
+                                        if isfloat(x):
+                                            pos2_conv = convert_units(float(y), "mm")
+                                            local_command += "IA2M" + str(pos2_conv) + ","
+                                        local_command += "R"
+                                        local_command = local_command.encode("utf-8")
+
+                                            # Log movement start time
+                                        start_time = time.time()
+
+                                        ser.write(local_command)
+
+                                        while True: # read timestamp and position into log file while motor is moving
+                                            ser.write(b'V')
+                                            time.sleep(0.05)
+                                            status = ""
+                                            while ser.inWaiting() > 0:
+                                                status = ser.read(ser.inWaiting()).decode("utf-8").strip()
+                                            if status == "^" or status == "R":
+                                                break
+
+                                        # Log movement end time
+                                        end_time = time.time()
+
+                                        # Wait for delta_t seconds at the new position
+                                        time.sleep(delta_t)
+                                        
+                                        # Log the movement
+                                        logfile.write(f"{start_time}, {end_time}, {x}, {y}\n")
+                                        logfile.flush()
+
+                        f = self.get_last_flist()
+                        t = time.strftime("%Y%m%d%H%M%S")
+                        rfsoc1 = data_handler.RFChannel(
+                            f"{directory}/ts_toneinit_{self.__dataTag}_t_{t}.hd5",
+                            "192.168.3.40",
+                            self.get_last_flist(),
+                            self.get_last_alist(),
+                            port=4096,
+                            name="rfsoc2",
+                            n_tones=len(f),
+                            attenuator_settings=np.array([20.0, 10.0]),
+                            tile_number=2,
+                            rfsoc_number=2,
+                            lo_sweep_filename="",
+                            lo_freq=default_f_center
+                        )
+                                
+                        udp2.capture([rfsoc1], raster, ser, x_min, y_min, x_max, y_max, delta_x, delta_y, delta_t)
                         print('setting bias back to 0')
                         
                 except ValueError:
