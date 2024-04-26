@@ -8,3 +8,4 @@ kidpylib.loga
 onr/
 *.log
 host/params
+-checkpoint.ipynb
