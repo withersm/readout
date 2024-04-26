@@ -275,7 +275,7 @@ def demodulate(t, sig, n_Phi0, n, f_sawtooth, fs=512e6/(2**20)):
     slow_TOD = np.arctan2(num, den)
     slow_t = np.arange(n_chunks)/f_sawtooth+0.5/f_sawtooth
     slow_TOD /= 2*np.pi
-    return slow_t, slow_TOD
+    return slow_t, slow_TOD, reset_inds
 
    
 
@@ -709,11 +709,16 @@ def full_demod_process(ts_file, f_sawtooth, n=0, channels='all',start_channel=0,
     initial_lo_sweep=np.load(initial_lo_sweep_path) #find initial lo sweep file
     targeted_lo_sweep=np.load(targeted_lo_sweep_path) #find targeted sweep file
     tone_freqs=np.load(tone_freqs_path) #find tone freqs
-    print(tone_freqs)
+    #print(tone_freqs)
     if channels == 'some':
         tone_freqs = tone_freqs[start_channel + 23:stop_channel + 23 + 1]
         print(tone_freqs)
     ts_fr,Is_fr,Qs_fr=read_data(ts_path,channels=channels,start_channel=start_channel,stop_channel=stop_channel)    #note to self: limit tone_freqs to actively called channels; need to figure out channel numbering first
+    
+    #testing fixing the time breaks before the demod -- probably don't want to keep this but we'll see
+    fs=512e6/(2**20)    
+    ts_fr = np.arange(Is_fr.shape[1])/fs
+    
     
     print(f'num of channels: {len(Is_fr)}')
     print(f'num of tones: {len(tone_freqs)}')
@@ -778,8 +783,9 @@ def full_demod_process(ts_file, f_sawtooth, n=0, channels='all',start_channel=0,
     t_demods=[]
     data_demods=[]
     start_idx = find_nearest_idx(ts_fr-ts_fr[0], t0_med)
+    print(f'start index: {start_idx}')
     for chan in tqdm(range(data_cal.shape[0])):#np.arange(225,230,1):#range(data_cal.shape[0]):
-        t_demod, data_demod = demodulate(ts_fr[start_idx:]-ts_fr[start_idx], data_cal[chan, start_idx:], n_phi0, n,f_sawtooth)
+        t_demod, data_demod,reset_indices = demodulate(ts_fr[start_idx:]-ts_fr[start_idx], data_cal[chan, start_idx:], n_phi0, n,f_sawtooth)
         t_demods.append(t_demod)
         data_demod_unwrap=np.unwrap(data_demod,period=1)
         data_demods.append(data_demod_unwrap)
@@ -790,11 +796,13 @@ def full_demod_process(ts_file, f_sawtooth, n=0, channels='all',start_channel=0,
     data_dict = {'fr t': ts_fr, 
                  'fr data': data_cal, 
                  'nphi': n_phi0, 
-                 't0': t0_med, 
+                 't0': t0_med,
+                 'start index': start_idx,
                  'demod t': t_demods[1], 
                  'demod data': data_demods, 
                  'channel freqs': tone_freqs, 
-                 'fsawtooth': f_sawtooth}
+                 'fsawtooth': f_sawtooth,
+                 'reset indices': reset_indices}
     
     return data_dict
 

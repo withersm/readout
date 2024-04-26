@@ -175,63 +175,59 @@ class beam_mapper:
 	def go_home(self): # sends both motors to the origin
 		self.command += "IA1M0, IA2M0, "
 
-	def raster(self, x_min, y_min, x_max, y_max, delta_x, delta_y, delta_t, log_file_path = 'logfile.txt'):
+	def raster(ser, x_min, y_min, x_max, y_max, delta_x, delta_y, delta_t):
+                            # Initialize current position
+                            current_x, current_y = x_min, y_min
 
+                            # Open log file
+                            with open(f'{directory}/beam_map_data_{t}.txt', 'a+') as logfile:
+                                logfile.write(f"start, end, x, y\n")
+                            # Iterate over y range
+                                for y in range(y_min, y_max + delta_y, delta_y):
+                                    # Determine x range: forward if y is even step away from y_min, reverse if odd
+                                    if (y - y_min) // delta_y % 2 == 0:
+                                        x_range = range(x_min, x_max + delta_x, delta_x)
+                                    else:
+                                        x_range = range(x_max, x_min - delta_x, -delta_x)
 
-	    # Initialize current position
-	    current_x, current_y = x_min, y_min
+                            
+                                
+                                    for x in x_range:
+                                        
+                                        # Move to the next position (convert steps back to mm for position function)
+                                        local_command = 'C '
+                                        if isfloat(x):
+                                            pos1_conv = convert_units(float(x), "mm")
+                                            local_command += "IA1M" + str(pos1_conv) + ","
+                                        if isfloat(x):
+                                            pos2_conv = convert_units(float(y), "mm")
+                                            local_command += "IA2M" + str(pos2_conv) + ","
+                                        local_command += "R"
+                                        local_command = local_command.encode("utf-8")
 
-	    # Open log file
-		with open(log_file_path, 'a+') as logfile:
-		# Iterate over y range
-			for y in range(y_min, y_max + delta_y, delta_y):
-				# Determine x range: forward if y is even step away from y_min, reverse if odd
-				if (y - y_min) // delta_y % 2 == 0:
-					x_range = range(x_min, x_max + delta_x, delta_x)
-				else:
-					x_range = range(x_max, x_min - delta_x, -delta_x)
+                                            # Log movement start time
+                                        start_time = time.time()
 
-		
-		    
-		    for x in x_range:
-		        
-				# Move to the next position (convert steps back to mm for position function)
-				print(x)
-				print(y)
-				local_command = 'C '
-				if self.isfloat(x):
-					pos1_conv = self.convert_units(float(x), "mm")
-					local_command += "IA1M" + str(pos1_conv) + ","
-				if self.isfloat(x):
-					pos2_conv = self.convert_units(float(y), "mm")
-					local_command += "IA2M" + str(pos2_conv) + ","
-				local_command += "R"
-				local_command = local_command.encode("utf-8")
+                                        ser.write(local_command)
 
-					# Log movement start time
-				start_time = time.time()
+                                        while True: # read timestamp and position into log file while motor is moving
+                                            ser.write(b'V')
+                                            time.sleep(0.05)
+                                            status = ""
+                                            while ser.inWaiting() > 0:
+                                                status = ser.read(ser.inWaiting()).decode("utf-8").strip()
+                                            if status == "^" or status == "R":
+                                                break
 
-				self.ser.write(local_command)
+                                        # Log movement end time
+                                        end_time = time.time()
 
-				while True: # read timestamp and position into log file while motor is moving
-					self.ser.write(b'V')
-					time.sleep(0.05)
-					status = ""
-					while self.ser.inWaiting() > 0:
-						status = self.ser.read(self.ser.inWaiting()).decode("utf-8").strip()
-					if status == "^" or status == "R":
-						break
-
-		        # Log movement end time
-		        end_time = time.time()
-
-		        # Wait for delta_t seconds at the new position
-		        time.sleep(delta_t)
-		        
-		        print("OK")
-		        # Log the movement
-		        logfile.write(f"Start: {start_time}, End: {end_time}, X: {x}, Y: {y}\n")
-		        logfile.flush()
+                                        # Wait for delta_t seconds at the new position
+                                        time.sleep(delta_t)
+                                        
+                                        # Log the movement
+                                        logfile.write(f"{start_time}, {end_time}, {x}, {y}\n")
+                                        logfile.flush()
     
 	# allows users to input their program of choice.
 	# 07-12-2022 "raster", which implements continuous_step()
