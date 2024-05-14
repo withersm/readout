@@ -241,7 +241,7 @@ def capture(channels: list, fn=None, *args, **kwargs):
     pool.close()
     log.info("Waiting on capture to complete")
     if not fn is None:
-        try:
+        try: 
             fn(*args, **kwargs)
         except KeyboardInterrupt:
             pool.terminate()

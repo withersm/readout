@@ -1,10 +1,31 @@
+"""
+History:
+
+20240501 - MS and MOW: updated the find_minima routine to take into account measured peak prominence
+
+"""
+
 import matplotlib.pyplot as plt
 import numpy as np
-from scipy.signal import find_peaks
+from scipy.signal import find_peaks, peak_prominences
 import pandas as pd
 import time
 
-def find_minima(sweep_file, peak_prominence = 2, plot=False, figpath=None, figname=None):
+
+def find_prominences(sweep_file, peak_idxs):
+    data = np.load(sweep_file)
+
+    ftones = np.concatenate(data[0])
+    sweep_Z = np.concatenate(data[1])
+
+    mag = 20* np.log10(np.abs(sweep_Z))
+    
+    prominences = peak_prominences(-mag, peak_idxs)[0]
+    
+    return prominences
+    
+
+def find_minima(sweep_file, peak_prominence = 2, plot=False, figpath=None, figname=None): #old peak prominence setting was 2
     
     data = np.load(sweep_file)
 

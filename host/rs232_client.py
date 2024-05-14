@@ -62,7 +62,7 @@ class beam_mapper:
 				   bytesize=serial.EIGHTBITS
 			)
 		else:
-		print("Serial port could not be found.")
+			print("Serial port could not be found.")
 
 
 	def isfloat(N): # allows string -> float conversion for input parameters
