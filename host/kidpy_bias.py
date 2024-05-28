@@ -44,6 +44,9 @@ import glob
 import logging
 from time import sleep
 
+#offline demod (temporary)
+import ali_offline_demod as dm
+
 ### Logging ###
 # Configures the logger such that it prints to a screen and file including the format
 __LOGFMT = "%(asctime)s|%(levelname)s|%(filename)s|%(lineno)d|%(funcName)s|%(message)s"
@@ -1140,7 +1143,103 @@ class kidpy:
                     return
                 
             if opt == 8: #demod data (software)
-                pass
+                try:
+                    file_opt = int(input('[0] Demod most recent time stream; [1] Demod user selected time stream '))
+                    demod_opt = int(input('[0] Simple demod (removes flux ramp) [1] Chop demod (removes flux ramp and optical chop) ')                            )
+                except ValueError:
+                    print("Error, not a valid Number")
+                except KeyboardInterrupt:
+                    return
+                
+                if file_opt == 0: #most recent file
+                    list_of_files = glob.glob(f'{self.__saveData}/time_streams/*.hd5') # * means all if need specific format then *.csv
+                    
+                    file = max(list_of_files, key=os.path.getctime)
+                    print(f'Demoding {file}...')
+
+                    tone_init_path = f'{self.__saveData}/tone_initializations'
+                    ts_path = f'{self.__saveData}/time_streams'
+                    filename = file.split('.')[-1]
+
+     
+
+
+
+                
+                elif file_opt == 1:
+                    print(f'Working directory: {self.__saveData}/time_streams')
+                    try:
+                        directory_opt = int(input('[0] Enter a file in this directory; [1] Enter a file in any directory (full path required )'))
+                    except ValueError:
+                        print("Error, not a valid Number")
+                    except KeyboardInterrupt:
+                        return
+                    
+                    if directory_opt == 0:
+                        print('Available files: ')
+                        list_of_files = glob.glob(f'{self.__saveData}/time_streams/*.hd5')
+
+
+
+                        pretty_list = np.reshape(list_of_files, (len(list_of_files),1))
+
+                        print(pretty_list)
+
+                    elif directory_opt ==1:
+                        pass
+
+                    try:
+                        file = input('File name (include full path): ')
+                    except KeyboardInterrupt:
+                        return
+                    
+                    split = file.split('/')
+                    
+                    tone_init_path = f'/{split[1]}/{split[2]}/{split[3]}/tone_initializations'
+
+                    ts_path = f'/{split[1]}/{split[2]}/{split[3]}/time_streams'
+
+                    filename = split[-1]
+
+                    print(f'tone_init_path: {tone_init_path}')
+                    print(f'ts_path: {ts_path}')
+                    print(f'file name: {filename}')
+
+
+
+                if demod_opt == 0:    
+                    processed = dm.full_demod_process(filename, 
+                                                    f_sawtooth=15, 
+                                                    method='fft', 
+                                                    n=0, 
+                                                    channels='all',
+                                                    start_channel=0,
+                                                    stop_channel=1000,
+                                                    tone_init_path = tone_init_path, 
+                                                    ts_path = ts_path,
+                                                    display_mode='terminal') 
+                    
+
+
+                elif demod_opt == 1:
+                    print('Not implemented yet.')
+                  
+                """
+                fig_fr, ax_fr = plt.subplots(1)
+                ax_fr.plot(processed['fr t'], processed['fr data'])
+                ax_fr.show()
+                """
+
+                fig_demod, ax_demod = plt.subplots(1)
+                channel_count = 0
+                for ch in range(len(processed['demod data'])):
+                    ax_demod.plot(processed['demod t'],processed['demod data'][ch]-np.average(processed['demod data'][ch])+0.1*channel_count,'-')
+                    ax_demod.set_xlabel('$t$ (s)')
+                    ax_demod.set_ylabel('Phase ($n_{\\Phi_0})$')
+                    ax_demod.set_title(file)
+                    fig_demod.show()
+                    channel_count += 1
+
 
             if opt == 9:  # Write test comb
                 prompt = input("Full test comb? y/n ")
