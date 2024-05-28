@@ -294,7 +294,7 @@ def top_menu(captions, setup_options, ts_data_options, vna_data_options, hardwar
     print('Hardware Control:')
     for i in range(len(hardware_control_options)):
         print("\t" + "\033[32m" + str(i+len(setup_options)+len(ts_data_options)+len(vna_data_options)) + " ..... " "\033[0m" + hardware_control_options[i])
-
+    
     print('Other:')
     for i in range(len(other_options)):
         print("\t" + "\033[32m" + str(i+len(setup_options)+len(ts_data_options)+len(vna_data_options)+len(hardware_control_options)) + " ..... " "\033[0m" + other_options[i]+'\n')
@@ -327,6 +327,8 @@ class kidpy:
         self.__ValonPorts = config["VALON"]["valonSerialPorts"].split(",")
         self.__valon_RF1_SYS2 = config["VALON"]["rfsoc1System2"]
         self.__valon_RF1_SYS1 = config["VALON"]["rfsoc1System1"]
+        self.__decimation_factor = 2**19 #don't leave this hardcoded; move to config
+        self.__fr_V_scaling_factor = 5.69#(3.76+3.84) / 2 #V; don't leave this hardcoded; move to config
 
         # setup redis
         self.r = redis.Redis(self.__redis_host)
@@ -377,14 +379,16 @@ class kidpy:
             "Compute Calibration (η)",           
             "Bias Board Control",
             "IF Slice Control",
+            "Initialize PMOD registers",
             "Exit",
         ]
 
         self.__setup_options = [
             "Set attenuation",
-            "Bias 4K LNA",
+            "Bias 4K LNA(s)",
             "Upload firmware",
-            "Initalize system & UDP conn"
+            "Initalize system & UDP conn",
+            "Preset Flux Ramp"
         ]
         
         self.__ts_data_options = [
@@ -403,7 +407,8 @@ class kidpy:
 
         self.__hardware_control_options = [
             'Bias board control',
-            'IF slice control'
+            'IF slice control',
+            'Flux ramp control'
         ]
 
         self.__other_options = [
@@ -438,6 +443,15 @@ class kidpy:
             "Set Input Attenuation",
             "Get Output Attenuation",
             "Set Output Attenuation",
+            "Return"
+        ]
+
+        self.fr_caption = ["Flux ramp board control."]
+        self.__fr_opts = [
+            "Get Flux Ramp Settings",
+            "Basic Configuration (clk divisor and n packets)",
+            "Advanced Configuration (voltage target and frequency target)",
+            "Flux Ramp Off",
             "Return"
         ]
 
@@ -485,6 +499,98 @@ class kidpy:
         else:
             log.error("The rfsoc didn't return back our data")
             return None
+        
+    def configure_pmod(self, clock_divisor, n_packets):
+   
+        #os.system("clear")
+        print("Setting pmod registers.")
+        cmd = {"cmd": "set_pmod", "args": [clock_divisor,n_packets]}
+        cmdstr = json.dumps(cmd)
+        self.r.publish("picard", cmdstr)
+        success, _ = wait_for_reply(self.p, "set_pmod", max_timeout=2)
+
+    def read_pmod(self):
+        log = logger.getChild("kidpy.read_pmod")
+        cmd = json.dumps({"cmd": "read_pmod", "args": []})
+        self.r.publish("picard", cmd)
+        status, data = wait_for_reply(self.p, "read_pmod", 3)
+        if status:
+            clk_divisor = int(data[0])
+            n_packets = int(data[1])
+            return clk_divisor, n_packets
+        else:
+            log.error("The rfsoc didn't return back our data.")
+            return None
+   
+    def set_flux_ramp_advanced(self):
+        print('Setting flux ramp.')
+
+        try:
+            target_V = float(input('Set ramp voltage (V): '))
+        except ValueError:
+            print("Error, not a valid number.")
+        except KeyboardInterrupt:
+            return
+        
+        try:
+            target_f = float(input('Set ramp frequency (Hz): '))
+        except ValueError:
+            print("Error, not a valid number.")
+        except KeyboardInterrupt:
+            return
+        
+        #compute n packets
+        n_packets = int(256e6 / (self.__decimation_factor * target_f))
+        closest_available_freq = self.estimate_flux_ramp_freq(n_packets)
+        print(f'Closest available frequency: {closest_available_freq} Hz')
+        print(f'n packets: {n_packets}')
+           
+        n_bits_for_target_V = (2**12 / self.__fr_V_scaling_factor) * target_V
+        f_clk = n_bits_for_target_V * closest_available_freq
+        clock_divisor = int(125e6 / f_clk)
+        closest_available_V = self.estimate_flux_ramp_V(clock_divisor, closest_available_freq)
+        print(f'Closest available V: {closest_available_V} V')
+        print(f'Clock divisor: {clock_divisor}')
+        
+        self.configure_pmod(clock_divisor, n_packets)
+
+    def set_flux_ramp_basic(self):
+
+        try:
+            clock_divisor = float(input('Set clock divisor: '))
+        except ValueError:
+            print("Error, not a valid number.")
+        except KeyboardInterrupt:
+            return
+        
+        try:
+            n_packets = float(input('Set number of packets: '))
+        except ValueError:
+            print("Error, not a valid number.")
+        except KeyboardInterrupt:
+            return
+
+        self.configure_pmod(clock_divisor, n_packets)
+
+    def estimate_flux_ramp_freq(self, n_packets):
+        freq_estimated = 256e6 / (n_packets * self.__decimation_factor)
+
+        return freq_estimated
+    
+    def estimate_flux_ramp_V(self, clk_divisor, freq_estimated = None):
+        """
+        Note that this is only as good as the value set in self.__fr_V_scaling_factor
+        """
+
+        f_clk_estimated = 125e6 / clk_divisor
+        if freq_estimated != None:
+            n_bits_estimated = f_clk_estimated / freq_estimated
+        else: #if reset signal is off, max voltage is output at 2**12 bits
+            n_bits_estimated = 2**12
+        V_estimated = n_bits_estimated * (self.__fr_V_scaling_factor / 2**12)
+
+        return V_estimated
+   
     
     def main_opt(self):
         log = logger.getChild(__name__)
@@ -502,7 +608,7 @@ class kidpy:
             else:
                 print(
                     "\033[0;31m"
-                    + "\r\nCouldn't connect to redis-server double check it's running and the generalConfig is correct"
+                    + "\r\nCouldn't connect to redis-server double check its running and the generalConfig is correct"
                     + "\033[0m"
                 )
             #opt = menu(self.captions, self.__main_opts)
@@ -537,7 +643,7 @@ class kidpy:
                 resp = self.udx1.get_rf_out()
                 print(f'Output Attenuation: {resp} dB')                
 
-            if opt == 1: #bias 4K LNA
+            if opt == 1: #bias 4K LNA(s)
                 try:
                     LNA_channel = int(input('LNA bias channel? (1-2): '))
                 except ValueError:
@@ -546,15 +652,15 @@ class kidpy:
                     return
                 
                 try:        
-                    LNA_Drain_voltage = float(input('LNA Drain voltage in [V]? : '))
+                    LNA_Drain_current = float(input('LNA Drain current in [mA]? : '))
                 except ValueError:
                     print("Error, not a valid Number")
                 except KeyboardInterrupt:
                     return
-                if LNA_Drain_voltage>4:
-                    print("High voltage warning! A lower value is preferred.")
+                if LNA_Drain_current>50:
+                    print("High current warning! A lower value is preferred.")
                 else:
-                    self.bias.vLNA_D(LNA_channel, LNA_Drain_voltage)
+                    self.bias.iLNA_D(LNA_channel, LNA_Drain_current)
 
                 #display bias results
                 self.bias.getAllIV()
@@ -565,7 +671,7 @@ class kidpy:
                 cmdstr = json.dumps(cmd)
                 self.r.publish("picard", cmdstr)
                 self.r.set("status", "busy")
-                print("Waiting for the RFSOC to upload it's bitstream...")
+                print("Waiting for the RFSOC to upload its bitstream...")
                 if wait_for_free(self.r, 0.75, 25):
                     print("Done")
 
@@ -578,7 +684,20 @@ class kidpy:
                 if wait_for_free(self.r, 0.5, 5):
                     print("Done")
 
-            if opt == 4: # new tone initalization
+            if opt == 4:  # Set pmod
+                self.set_flux_ramp_advanced()
+                
+                """
+                os.system("clear")
+                print("Setting pmod registers.")
+                a = input("clock div?")
+                b = input("n packets")  
+                cmd = {"cmd": "set_pmod", "args": [a,b]}
+                cmdstr = json.dumps(cmd)
+                self.r.publish("picard", cmdstr)
+                success, _ = wait_for_reply(self.p, "set_pmod", max_timeout=2)
+                """
+            if opt == 5: # new tone initalization
                 print("Beginning auto calibration procedure.\n")
                 start_time = time.strftime("%Y%m%d%H%M%S")
                 
@@ -712,7 +831,7 @@ class kidpy:
                 
                 print(f'New tone initialization dir. / timestream datatag: {self.__dataTag}')
 
-            if opt == 5: #load tone initalization
+            if opt == 6: #load tone initalization
                 try:
                     init_filepath = input('Enter directory path of initalization: ')
                 except KeyboardInterrupt:
@@ -737,7 +856,7 @@ class kidpy:
                 self.change_data_tag(init_filepath)
                 print(f'Loaded tone initalization dir. / timestream datatag: {self.__dataTag}')
 
-            if opt == 6: #take raw data
+            if opt == 7: #take raw data
                 try:
                     data_taking_opt = int(input("Data taking only [0], load curve [1], or beam map [2]?: "))
                     if data_taking_opt == 0:
@@ -1020,10 +1139,10 @@ class kidpy:
                 except KeyboardInterrupt:
                     return
                 
-            if opt == 7: #demod data (software)
+            if opt == 8: #demod data (software)
                 pass
 
-            if opt == 8:  # Write test comb
+            if opt == 9:  # Write test comb
                 prompt = input("Full test comb? y/n ")
                 #os.system("clear")
                 if prompt == "y":
@@ -1039,7 +1158,7 @@ class kidpy:
                     )
                     write_fList(self, [float(self.__customSingleTone)], [])
 
-            if opt == 9:  # write comb from file
+            if opt == 10:  # write comb from file
                 #os.system("clear")
                 print("Waiting for the RFSOC to finish writing the full comb")
                 try:
@@ -1083,7 +1202,7 @@ class kidpy:
                 #write_fList(self, [100e6, 150e6, 175e6], [])
                 # not used
                     
-            if opt == 10: #LO sweep
+            if opt == 11: #LO sweep
                 # valon should be connected and differentiated as part of bringing kidpy up.
                 os.system("clear")
                 print("LO Sweep")
@@ -1143,7 +1262,7 @@ class kidpy:
                     synth_freq = self.udx1.set_synth_out(freq_center)
                     print("Finished sweep. Setting LO back to %.6f MHz\n\n"%synth_freq)
 
-            if opt == 11: #find frequencies -> need to fix the filepathing
+            if opt == 12: #find frequencies -> need to fix the filepathing
                 """
                 try:
                     find_type = int(input('[0] Initial Peak Find, [1] Targeted Peak Find: '))  
@@ -1226,7 +1345,7 @@ class kidpy:
                     return
                 """
             
-            if opt == 12: #bias board control
+            if opt == 13: #bias board control
                 #desired options
                 #"Get all I and V Values",
                 #"Get TES Channel I",
@@ -1275,7 +1394,7 @@ class kidpy:
                             return
                         
                         try:        
-                            TES_current = float(input('TES current in [mA]? (0-12.5): '))
+                            TES_current = float(input('TES current in [mA]? (0-15): '))
                         except ValueError:
                             print("Error, not a valid Number")
                         except KeyboardInterrupt:
@@ -1358,7 +1477,7 @@ class kidpy:
                     elif bias_opt == 8:
                         break
             
-            if opt == 13:# control IF board
+            if opt == 14:# control IF board
                 #"Check connection",
                 #"Get loopback",
                 #"Set loopback",
@@ -1470,8 +1589,65 @@ class kidpy:
 
                     elif if_opt == 11:
                         break
+                        
+            if opt == 15:
+                print('Flux Ramp Control')
+                while True:
+                    print('\n')
+                    fr_opt = menu(self.fr_caption, self.__fr_opts)
+                    if fr_opt == 0:
+                        clk_divisor, n_packets = self.read_pmod()
 
-            if opt == 14:  #exit
+                        print(f'Current PMOD settings:\nclock divisor: {clk_divisor}\nn packets: {n_packets}')
+
+                        if clk_divisor != 0 and n_packets != 0:
+                            
+                            freq_estimated = self.estimate_flux_ramp_freq(n_packets)
+                            V_estimated = self.estimate_flux_ramp_V(clk_divisor, freq_estimated)
+
+                            print('Flux Ramp on Using Reset Signal')
+                            print(f'Estimated V: {V_estimated} V\nEstimated freq: {freq_estimated} Hz')
+
+                        elif clk_divisor == 0 and n_packets != 0:
+                            
+                            print('clock divider set to 0; flux ramp off')
+                            """
+                            freq_estimated = self.estimate_flux_ramp_freq(n_packets)
+                            print(f'Flux ramp off; reset signal pulsing at {freq_estimated} Hz')
+                            """
+                            
+                        elif clk_divisor != 0 and n_packets == 0:
+                            
+                            print('n packets set to 0; flux ramp off')
+                            """
+                            V_estimated = self.estimate_flux_ramp_V(clk_divisor, None) #will return the calibrated maximum voltate
+                            freq_estimated = 256e6 / clk_divisor #ramp frequency set by the clock only (no reset)
+
+                            print('Flux Ramp on without Reset Signal')
+                            print(f'Estimated V: {V_estimated} V (max output)\nEstimated freq: {freq_estimated} Hz (set by clk)')
+                            """
+
+                        elif clk_divisor == 0 and n_packets == 0:
+                            print('clock divider and n packets set to 0; flux ramp off')                         
+                        
+                        
+                    elif fr_opt == 1:
+                        self.set_flux_ramp_basic()
+                    elif fr_opt == 2:
+                        self.set_flux_ramp_advanced()
+                    elif fr_opt == 3:
+                        print('Turning flux ramp off.')
+
+                        self.configure_pmod(1000000000,1)
+                        clk_divisor, n_packets = self.read_pmod()
+
+                        print(f'Clock divisor: {clk_divisor}\nN packets: {n_packets}')
+
+                    elif fr_opt == 4:
+                        break
+                    
+	    
+            if opt == 16:  #exit
                 self.bias.end()
                 exit()
 
