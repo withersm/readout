@@ -11,7 +11,7 @@ import time
 logger = logging.getLogger(__name__)
 
 
-def sweep(loSource: transceiver.Transceiver, udp, f_center, freqs, N_steps=500, freq_step=0.0):
+def sweep(loSource: transceiver.Transceiver, udp, f_center, freqs, data_rate = (2**19 - 1), N_steps=500, freq_step=0.0):
     """
     Actually perform an LO Sweep using valon 5009's and save the data
 
@@ -55,9 +55,12 @@ def sweep(loSource: transceiver.Transceiver, udp, f_center, freqs, N_steps=500, 
         print(lofreq)
         # actual_los.append(loSource.get_frequency(valon5009.SYNTH_B))
         # Read values and trash initial read, suspecting linear delay is cause..
-        Naccums = 50
+        if data_rate == (2**16 - 1):
+            Naccums = 500 #50
+        elif data_rate == (2**19 - 1):
+            Naccums = 50
         I, Q = [], []
-        for i in range(10):  # toss 10 packets in the garbage
+        for i in range(int(Naccums/5)):#range(10):  # toss 10 packets in the garbage
             udp.parse_packet()
 
         for i in range(Naccums):
@@ -69,8 +72,12 @@ def sweep(loSource: transceiver.Transceiver, udp, f_center, freqs, N_steps=500, 
             Q.append(Qt)
         I = np.array(I)
         Q = np.array(Q)
-        Imed = np.median(I, axis=0)
-        Qmed = np.median(Q, axis=0)
+        if data_rate == (2**16 - 1):
+            Imed = np.mean(I, axis=0)
+            Qmed = np.mean(Q, axis=0)
+        elif data_rate == (2**19 - 1):
+            Imed = np.median(I, axis=0)
+            Qmed = np.median(Q, axis=0)
 
         Z = Imed + 1j * Qmed
         start_ind = np.min(np.argwhere(Imed != 0.0))

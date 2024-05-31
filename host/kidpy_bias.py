@@ -331,7 +331,7 @@ class kidpy:
         self.__valon_RF1_SYS2 = config["VALON"]["rfsoc1System2"]
         self.__valon_RF1_SYS1 = config["VALON"]["rfsoc1System1"]
         self.__decimation_factor = 2**19 #don't leave this hardcoded; move to config
-        self.__fr_V_scaling_factor = 5.69#(3.76+3.84) / 2 #V; don't leave this hardcoded; move to config
+        self.__fr_V_scaling_factor = 4.6#5.69#(3.76+3.84) / 2 #V; don't leave this hardcoded; move to config
 
         # setup redis
         self.r = redis.Redis(self.__redis_host)
@@ -430,6 +430,7 @@ class kidpy:
             "Set LNA Channel Vd",
             "Set LNA Channel Vg",
             "Set LNA Channel Id",
+            "Bias Triangle Wave",
             "Return"
         ]
 
@@ -1159,7 +1160,7 @@ class kidpy:
 
                     tone_init_path = f'{self.__saveData}/tone_initializations'
                     ts_path = f'{self.__saveData}/time_streams'
-                    filename = file.split('.')[-1]
+                    filename = file.split('/')[-1]
 
      
 
@@ -1207,7 +1208,7 @@ class kidpy:
 
 
 
-                if demod_opt == 0:    
+                if demod_opt == 0 or demod_opt == 1:    
                     processed = dm.full_demod_process(filename, 
                                                     f_sawtooth=15, 
                                                     method='fft', 
@@ -1221,8 +1222,7 @@ class kidpy:
                     
 
 
-                elif demod_opt == 1:
-                    print('Not implemented yet.')
+                
                   
                 """
                 fig_fr, ax_fr = plt.subplots(1)
@@ -1239,6 +1239,41 @@ class kidpy:
                     ax_demod.set_title(file)
                     fig_demod.show()
                     channel_count += 1
+
+                if demod_opt == 1:
+                    channel_count = 0
+                    for ch in range(len(processed['demod data'])):
+                        chop_removed_t, chop_removed_data = dm.remove_chop(t = processed['demod t'],
+                                                                        sig = processed['demod data'][1],
+                                                                        demod_period = 5,
+                                                                        time_method='original',
+                                                                        phase_units='rad',
+                                                                        correct_phase_jumps=False,
+                                                                        phase_jump_threshold=0,
+                                                                        plot_demod = False,
+                                                                        plot_demod_title=None,
+                                                                        intermediate_plotting_limits=[None,None],
+                                                                        plot_chunking_process = True,
+                                                                        plot_fft = False,
+                                                                        plot_fft_no_dc = False,
+                                                                        plot_limited_fft = False,
+                                                                        plot_fit = True,
+                                                                        plot_vectors = False,
+                                                                        display_mode = 'terminal')
+                        if channel_count == 0:
+                            chop_removed_data_array = chop_removed_data
+                        else:
+                            chop_removed_data_array = np.vstack([chop_removed_data_array, chop_removed_data])
+
+                    fig_chop, ax_chop = plt.subplots(1)
+                    channel_count = 0
+                    for ch in range(len(processed['demod data'])):
+                        ax_chop.plot(chop_removed_t,chop_removed_data_array[ch]-np.average(chop_removed_data_array[ch])+0.1*channel_count,'-')
+                        ax_chop.set_xlabel('$t$ (s)')
+                        ax_chop.set_ylabel('Phase ($n_{\\Phi_0})$')
+                        ax_chop.set_title(file)
+                        fig_demod.show()
+                        channel_count += 1
 
 
             if opt == 9:  # Write test comb
@@ -1499,6 +1534,8 @@ class kidpy:
                         except KeyboardInterrupt:
                             return
                         self.bias.iSHUNT(TES_channel, TES_current)
+                        pot_pos = int(self.bias.get_wiper(TES_channel))
+                        print(f'Pot position: {pot_pos}')
 
                     elif bias_opt == 4:
                         try:
@@ -1574,7 +1611,130 @@ class kidpy:
                             self.bias.iLNA_D(LNA_channel, LNA_Drain_current)
 
                     elif bias_opt == 8:
+                        print(f"TES bias triangle wave.")
+
+                        try:
+                            bias_channel = int(input('TES bias channel? (1-2): '))
+                        except ValueError:
+                            print("Error, not a valid Number")
+                        except KeyboardInterrupt:
+                            return
+                        
+                        try:
+                            max_pot_position = int(input('Max pot position: '))
+                        except ValueError:
+                            print("Error, not a valid Number")
+                        except KeyboardInterrupt:
+                            return
+                        
+                        try:
+                            min_pot_position = int(input('Min pot position: '))
+                        except ValueError:
+                            print("Error, not a valid Number")
+                        except KeyboardInterrupt:
+                            return
+                        
+                        if max_pot_position <= min_pot_position:
+                            print('Max pot position cannot be <= min pot position.')
+                            return
+                        
+                        try:
+                            period = float(input('Period: '))
+                        except ValueError:
+                            print("Error, not a valid Number")
+                        except KeyboardInterrupt:
+                            return
+
+                        try:
+                            cycles = int(input('Number of cycles: '))
+                        except ValueError:
+                            print("Error, not a valid Number")
+                        except KeyboardInterrupt:
+                            return
+                        
+                        try:
+                            wait_time = float(input('Wait time: '))
+                        except ValueError:
+                            print("Error, not a valid Number")
+                        except KeyboardInterrupt:
+                            return
+                        
+                        slope = int((max_pot_position - min_pot_position) / (period/2))
+                        step = slope / int((max_pot_position - min_pot_position))
+                        wait = input(slope)
+
+
+                        self.bias.set_wiper(bias_channel,min_pot_position)
+                        pot_pos = self.bias.get_wiper(bias_channel)
+                        time.sleep(wait_time)
+
+                        current_position = min_pot_position
+
+                        if cycles != 0:
+
+                            for i in range(cycles):
+                                
+                                #ramp up
+                                
+                                while current_position <= max_pot_position:
+                                    current_position = current_position + step
+                                    self.bias.set_wiper(bias_channel,current_position)
+                                    time.sleep(wait_time)
+                                    
+                                #ramp down
+                                    
+                                current_position = self.bias.get_wiper(bias_channel)
+
+                                while current_position >= min_pot_position:
+                                    current_position = current_position - step
+                                    self.bias.set_wiper(bias_channel,current_position)
+                                    time.sleep(wait_time) 
+
+                        elif cycles == 0:
+
+                                try:
+                                   while True:
+                                
+                                        #ramp up
+                                        
+                                        while current_position <= max_pot_position:
+                                            current_position = current_position + slope
+                                            self.bias.set_wiper(bias_channel,current_position)
+                                            pot_pos = self.bias.get_wiper(bias_channel)
+                                            print(pot_pos)
+                                            time.sleep(wait_time)
+                                            
+                                        #ramp down
+                                            
+                                        current_position = self.bias.get_wiper(bias_channel)
+
+                                        while current_position >= min_pot_position:
+                                            current_position = current_position - slope
+                                            self.bias.set_wiper(bias_channel,current_position)
+                                            pot_pos = self.bias.get_wiper(bias_channel)
+                                            print(pot_pos)
+                                            time.sleep(wait_time) 
+
+                                        current_position = self.bias.get_wiper(bias_channel)
+
+                                except KeyboardInterrupt:
+                                   print('Setting to 0 and finishing...')
+                                   self.bias.set_wiper(bias_channel,0)
+                                   return
+
+
+
+                    
+                    elif bias_opt == 9:
                         break
+
+                    elif bias_opt == 100:
+                        wiper = int(input('wiper: '))
+                        self.bias.set_wiper(1,wiper)
+                        value = self.bias.get_wiper(1)
+                        print(value)
+                        
+
             
             if opt == 14:# control IF board
                 #"Check connection",
