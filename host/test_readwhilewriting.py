@@ -7,7 +7,7 @@ import h5py
 import glob
 import os
 
-list_of_files = glob.glob('/home/matt/readout/host/*.hd5') # * means all if need specific format then *.csv
+list_of_files = glob.glob('/home/matt/ali_drive_mnt/time_streams/*.hd5') # * means all if need specific format then *.csv
 latest_file = max(list_of_files, key=os.path.getctime)
 
 #fname = 'ALICPT_RDF_20231103180251.hd5'
@@ -25,7 +25,7 @@ def animate(i):
 
     
     ax1.clear()
-    ax1.plot(tset, dset[30])
+    ax1.plot(dset[30,:])
 
 ani = animation.FuncAnimation(fig, animate, interval=1000)
 plt.show()

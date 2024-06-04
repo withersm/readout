@@ -164,7 +164,7 @@ def checkBlastCli(r, p):
         count = count + 1
 
 
-def write_fList(self, fList, ampList):
+def write_fList(self, fList, ampList, accum_length = 2**19 - 1):
     """
     Function for writing tones to the rfsoc. Accepts both numpy arrays and lists.
     :param fList: List of desired tones
@@ -187,15 +187,15 @@ def write_fList(self, fList, ampList):
     # Format Command based on provided parameters
     cmd = {}
     if len(f) == 0:
-        cmd = {"cmd": "ulWaveform", "args": []}
+        cmd = {"cmd": "ulWaveform", "args": [accum_length]}
     elif len(f) > 0 and len(a) == 0:
         a = np.ones_like(f).tolist()
-        cmd = {"cmd": "ulWaveform", "args": [f, a]}
+        cmd = {"cmd": "ulWaveform", "args": [f, a, accum_length]}
     elif len(f) > 0 and len(a) > 0:
         assert len(a) == len(
             f
         ), "Frequency list and Amplitude list must be the same dimmension"
-        cmd = {"cmd": "ulWaveform", "args": [f, a]}
+        cmd = {"cmd": "ulWaveform", "args": [f, a, accum_length]}
     else:
         log.error("Weird edge case, something went very wrong.....")
         return
@@ -330,9 +330,9 @@ class kidpy:
         self.__ValonPorts = config["VALON"]["valonSerialPorts"].split(",")
         self.__valon_RF1_SYS2 = config["VALON"]["rfsoc1System2"]
         self.__valon_RF1_SYS1 = config["VALON"]["rfsoc1System1"]
-        self.__decimation_factor = 2**19 #don't leave this hardcoded; move to config
+        self.__accum_length = 2**19 - 1#int(config["DATARATE"]["accum_length"])
         self.__fr_V_scaling_factor = 4.6#5.69#(3.76+3.84) / 2 #V; don't leave this hardcoded; move to config
-
+        #self.__dataRate = config["DATARATE"]["dataRate"]
         # setup redis
         self.r = redis.Redis(self.__redis_host)
         self.p = self.r.pubsub()
@@ -391,6 +391,7 @@ class kidpy:
             "Bias 4K LNA(s)",
             "Upload firmware",
             "Initalize system & UDP conn",
+            "Set data rate",
             "Preset Flux Ramp"
         ]
         
@@ -544,7 +545,7 @@ class kidpy:
             return
         
         #compute n packets
-        n_packets = int(256e6 / (self.__decimation_factor * target_f))
+        n_packets = int(256e6 / ((self.__accum_length+1) * target_f))
         closest_available_freq = self.estimate_flux_ramp_freq(n_packets)
         print(f'Closest available frequency: {closest_available_freq} Hz')
         print(f'n packets: {n_packets}')
@@ -577,7 +578,7 @@ class kidpy:
         self.configure_pmod(clock_divisor, n_packets)
 
     def estimate_flux_ramp_freq(self, n_packets):
-        freq_estimated = 256e6 / (n_packets * self.__decimation_factor)
+        freq_estimated = 256e6 / (n_packets * self.__accum_length)
 
         return freq_estimated
     
@@ -594,6 +595,44 @@ class kidpy:
         V_estimated = n_bits_estimated * (self.__fr_V_scaling_factor / 2**12)
 
         return V_estimated
+    
+    def change_data_rate(self):
+        if self.__accum_length == (2**16 - 1):
+            print('Current data rate: 3.90624 kHz')
+        elif self.__accum_length == (2**19 - 1):
+            print('Current data rate: 488.28 Hz')
+        else:
+            print('Current data rate not set to a viable option. Do no use system.')
+        
+        try:
+            new_data_rate = int(input('New Data Rate [0] 488.28 Hz [1] 3.90624 kHz: '))
+        except ValueError:
+            print("Error, not a valid number.")
+        except KeyboardInterrupt:
+            return
+        
+        if new_data_rate == 0:
+            self.__accum_length = (2**19) - 1
+        elif new_data_rate == 1:
+            self.__accum_length = (2**16) - 1
+        else:
+            print('Not a valid option.')
+
+        if self.__accum_length == (2**16 - 1):
+            print('New data rate: 3.90624 kHz')
+        elif self.__accum_length == (2**19 - 1):
+            print('New data rate: 488.28 Hz')
+        else:
+            print('New data rate not set to a viable option. Do no use system.')
+
+        self.configure_pmod(1000000000,1)
+        
+        print('Note: To take effect, tones need to be reset. FR has been disabled for safety since it depends on the new data rate. Please restart it if needed.')
+
+        return
+
+        
+
    
     
     def main_opt(self):
@@ -688,7 +727,10 @@ class kidpy:
                 if wait_for_free(self.r, 0.5, 5):
                     print("Done")
 
-            if opt == 4:  # Set pmod
+            if opt == 4: #set / change the data rate
+                self.change_data_rate()
+
+            if opt == 5:  # Set pmod
                 self.set_flux_ramp_advanced()
                 
                 """
@@ -701,7 +743,7 @@ class kidpy:
                 self.r.publish("picard", cmdstr)
                 success, _ = wait_for_reply(self.p, "set_pmod", max_timeout=2)
                 """
-            if opt == 5: # new tone initalization
+            if opt == 6: # new tone initalization
                 print("Beginning auto calibration procedure.\n")
                 start_time = time.strftime("%Y%m%d%H%M%S")
                 
@@ -726,7 +768,7 @@ class kidpy:
                 print('\n2) Loading test comb...')
                 
                 print("Waiting for the RFSOC to finish writing the full comb")
-                write_fList(self, [], [])
+                write_fList(self, [], [], accum_length=self.__accum_length)
                 print(self.get_last_flist())
 
                 #Initial LO Sweep
@@ -736,6 +778,7 @@ class kidpy:
                         self.udx1,
                         self.__udp,
                         self.get_last_flist(),
+                        accum_length=self.__accum_length,
                         f_center=freq_center,
                         freq_step=self.__freqStep,
                         N_steps=self.__nStep,
@@ -769,7 +812,7 @@ class kidpy:
 
                 lo = float(initial_freq_list_filename.split("_")[-2])*1e6
                 print(lo)
-                write_fList(self, farray.real - lo, []) #turned off for testing because I'm not looking at resonators and peak locations are incredibly random
+                write_fList(self, farray.real - lo, [], accum_length=self.__accum_length) #turned off for testing because I'm not looking at resonators and peak locations are incredibly random
 
                 #Targeted LO Sweep
                 print('\n6) Performing targeted LO sweep...')
@@ -778,6 +821,7 @@ class kidpy:
                         self.udx1,
                         self.__udp,
                         self.get_last_flist(),
+                        accum_length=self.__accum_length,
                         f_center=freq_center,
                         freq_step=self.__freqStep,
                         N_steps=self.__nStep,
@@ -810,7 +854,7 @@ class kidpy:
 
                 lo = float(targeted_freq_list_1_filename.split("_")[-2])*1e6
                 print(lo)
-                write_fList(self, farray.real - lo, []) #turned off for testing because I'm not looking at resonators and peak locations are incredibly random
+                write_fList(self, farray.real - lo, [], accum_length=self.__accum_length) #turned off for testing because I'm not looking at resonators and peak locations are incredibly random
 
                 #Targeted LO Sweep
                 print('\n9) Performing targeted LO sweep...')
@@ -819,6 +863,7 @@ class kidpy:
                         self.udx1,
                         self.__udp,
                         self.get_last_flist(),
+                        accum_length=self.__accum_length,
                         f_center=freq_center,
                         freq_step=self.__freqStep,
                         N_steps=self.__nStep,
@@ -835,7 +880,7 @@ class kidpy:
                 
                 print(f'New tone initialization dir. / timestream datatag: {self.__dataTag}')
 
-            if opt == 6: #load tone initalization
+            if opt == 7: #load tone initalization
                 try:
                     init_filepath = input('Enter directory path of initalization: ')
                 except KeyboardInterrupt:
@@ -854,13 +899,13 @@ class kidpy:
 
                 lo = float(freq_file.split("_")[-2])*1e6
                 print(lo)
-                write_fList(self, farray.real - lo, []) #turned off for testing because I'm not looking at resonators and peak locations are incredibly random
+                write_fList(self, farray.real - lo, [], accum_length=self.__accum_length) #turned off for testing because I'm not looking at resonators and peak locations are incredibly random
 
 
                 self.change_data_tag(init_filepath)
                 print(f'Loaded tone initalization dir. / timestream datatag: {self.__dataTag}')
 
-            if opt == 7: #take raw data
+            if opt == 8: #take raw data
                 try:
                     data_taking_opt = int(input("Data taking only [0], load curve [1], or beam map [2]?: "))
                     if data_taking_opt == 0:
@@ -1143,7 +1188,7 @@ class kidpy:
                 except KeyboardInterrupt:
                     return
                 
-            if opt == 8: #demod data (software)
+            if opt == 9: #demod data (software)
                 try:
                     file_opt = int(input('[0] Demod most recent time stream; [1] Demod user selected time stream '))
                     demod_opt = int(input('[0] Simple demod (removes flux ramp) [1] Chop demod (removes flux ramp and optical chop) ')                            )
@@ -1276,12 +1321,12 @@ class kidpy:
                         channel_count += 1
 
 
-            if opt == 9:  # Write test comb
+            if opt == 10:  # Write test comb
                 prompt = input("Full test comb? y/n ")
                 #os.system("clear")
                 if prompt == "y":
                     print("Waiting for the RFSOC to finish writing the full comb")
-                    write_fList(self, [], [])
+                    write_fList(self, [], [], accum_length=self.__accum_length)
                     print(self.get_last_flist())
                     #print(self.get_tone_list())
                 else:
@@ -1290,9 +1335,9 @@ class kidpy:
                             float(self.__customSingleTone) / 1e6
                         )
                     )
-                    write_fList(self, [float(self.__customSingleTone)], [])
+                    write_fList(self, [float(self.__customSingleTone)], [], accum_length=self.__accum_length)
 
-            if opt == 10:  # write comb from file
+            if opt == 11:  # write comb from file
                 #os.system("clear")
                 print("Waiting for the RFSOC to finish writing the full comb")
                 try:
@@ -1314,7 +1359,7 @@ class kidpy:
 
                     lo = float(latest_file.split("_")[-2])*1e6
                     print(lo)
-                    write_fList(self, farray.real - lo, [])
+                    write_fList(self, farray.real - lo, [], accum_length=self.__accum_length)
 
 
                 elif option == 1:
@@ -1326,17 +1371,17 @@ class kidpy:
 
                     lo = float(filename.split("_")[-2])*1e6
                     print(lo)
-                    write_fList(self, farray.real - lo, [])
+                    write_fList(self, farray.real - lo, [], accum_length=self.__accum_length)
                 
 
                 
                 #cal.load_array()
                 
                 
-                #write_fList(self, [100e6, 150e6, 175e6], [])
+                #write_fList(self, [100e6, 150e6, 175e6], [], accum_length=self.__accum_length)
                 # not used
                     
-            if opt == 11: #LO sweep
+            if opt == 12: #LO sweep
                 # valon should be connected and differentiated as part of bringing kidpy up.
                 os.system("clear")
                 print("LO Sweep")
@@ -1382,6 +1427,7 @@ class kidpy:
                             self.__udp,
                             self.get_last_flist(),
                             f_center=freq_center,
+                            accum_length=self.__accum_length,
                             #f_center=default_f_center,
                             freq_step=freq_step,
                             N_steps=nsteps,
@@ -1396,7 +1442,7 @@ class kidpy:
                     synth_freq = self.udx1.set_synth_out(freq_center)
                     print("Finished sweep. Setting LO back to %.6f MHz\n\n"%synth_freq)
 
-            if opt == 12: #find frequencies -> need to fix the filepathing
+            if opt == 13: #find frequencies -> need to fix the filepathing
                 """
                 try:
                     find_type = int(input('[0] Initial Peak Find, [1] Targeted Peak Find: '))  
@@ -1479,7 +1525,7 @@ class kidpy:
                     return
                 """
             
-            if opt == 13: #bias board control
+            if opt == 14: #bias board control
                 #desired options
                 #"Get all I and V Values",
                 #"Get TES Channel I",
@@ -1659,8 +1705,10 @@ class kidpy:
                         except KeyboardInterrupt:
                             return
                         
-                        slope = int((max_pot_position - min_pot_position) / (period/2))
-                        step = slope / int((max_pot_position - min_pot_position))
+
+
+                        #slope = int((max_pot_position - min_pot_position) / (period/2))
+                        #step = slope / int((max_pot_position - min_pot_position))
                         wait = input(slope)
 
 
@@ -1730,13 +1778,10 @@ class kidpy:
 
                     elif bias_opt == 100:
                         wiper = int(input('wiper: '))
-                        self.bias.set_wiper(1,wiper)
-                        value = self.bias.get_wiper(1)
-                        print(value)
                         
 
             
-            if opt == 14:# control IF board
+            if opt == 15:# control IF board
                 #"Check connection",
                 #"Get loopback",
                 #"Set loopback",
@@ -1849,7 +1894,7 @@ class kidpy:
                     elif if_opt == 11:
                         break
                         
-            if opt == 15:
+            if opt == 16:
                 print('Flux Ramp Control')
                 while True:
                     print('\n')
@@ -1906,7 +1951,7 @@ class kidpy:
                         break
                     
 	    
-            if opt == 16:  #exit
+            if opt == 17:  #exit
                 self.bias.end()
                 exit()
 

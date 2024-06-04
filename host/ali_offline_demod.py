@@ -170,6 +170,18 @@ def read_data(filename,channels='all',start_channel=0,stop_channel=1000):
     
     return t, adc_i, adc_q
 
+def read_data_live(filename,channels):
+    channels += 22 #elimiate the first 23 empty channels in hdf5
+    print(channels)
+    file = h5py.File(filename, 'r', libver='latest', swmr=True)
+    adc_i = np.array([file['time_ordered_data']['adc_i'][channel,:] for channel in channels])
+    #adc_i = np.array(file['time_ordered_data']['adc_i'][channels]) 
+    adc_q = np.array([file['time_ordered_data']['adc_q'][channel,:] for channel in channels])
+    #adc_q = np.array(file['time_ordered_data']['adc_q'][channels]) 
+    t = np.array(file['time_ordered_data']['timestamp'])  
+
+    return t, adc_i, adc_q
+
 def read_eta(eta_file):
     data = pd.read_csv(eta_file,sep=',')
     freq = data['f0'].to_numpy(float)
@@ -807,6 +819,17 @@ def remove_delay(target_sweeps,delay,channels='all',start_channel=0,stop_channel
             
     return target_sweeps_rm
 
+def remove_delay_live(target_sweeps,delay,channels=[0]):
+    target_sweeps_rm=target_sweeps.copy()
+
+    for i in channels:
+        target_sweep=target_sweeps[:,i,:]
+        freqs=target_sweep[0,:]
+        delay_fac=np.exp(1j*delay*2*np.pi*freqs)
+        target_sweeps_rm[1,i,:]=target_sweeps[1,i,:]*delay_fac
+            
+    return target_sweeps_rm
+
 def remove_delay_timestream(stream,f0s,delay):
     stream_rm=np.zeros((f0s.shape[0],stream.shape[1]),dtype = 'complex_')
     for i in range(f0s.shape[0]):
@@ -880,8 +903,30 @@ def measure_circle_allch(target_sweeps,f0s,channels='all',start_channel=0,stop_c
         cals.append(cal)
             
     cals=np.vstack(cals)
+
+    print(f'shape_cals: {cals.shape}')
     return cals  
 
+
+def measure_circle_live(target_sweeps,f0s,channels=[0]):
+    #loop_count = 0
+    cals=[]
+    
+    for i in channels:
+        sweep=target_sweeps[:,i,:]
+        cal=measure_circle(sweep,f0s[i])
+        cals.append(cal)
+            
+    cals=np.vstack(cals)
+        
+        #if loop_count == 0:
+        #    cals = cal
+        #else:
+        #    cals = np.append(cals, cal)
+        #loop_count += 1
+    
+    cals=np.vstack(cals)
+    return cals
 
 def get_phase(timestreams,calibration):
     """ Finds the resonator circle's center
@@ -997,7 +1042,7 @@ def full_demod_process(ts_file, f_sawtooth, method='fft', n=0, channels='all',st
     ts_fr,Is_fr,Qs_fr=read_data(ts_path,channels=channels,start_channel=start_channel,stop_channel=stop_channel)    #note to self: limit tone_freqs to actively called channels; need to figure out channel numbering first
     
     #testing fixing the time breaks before the demod -- probably don't want to keep this but we'll see
-    fs=512e6/(2**20)    
+    fs=512e6/(2**19-1)    #this line is incredibly important; need to make sure we match the data rate at all times; add an if statement for faster data rate data
     ts_fr = np.arange(Is_fr.shape[1])/fs
     
     
@@ -1023,6 +1068,8 @@ def full_demod_process(ts_file, f_sawtooth, method='fft', n=0, channels='all',st
     #measure cable delay
     delays = measure_delay_test_given_freq(initial_lo_sweep,delay_region_start,delay_region_stop,plot=False)
     
+    print(f'delay: {np.median(delays)}')
+
     #remove cable delay
     targeted_lo_sweep_rm=remove_delay(targeted_lo_sweep,
                                       np.median(delays),
@@ -1039,8 +1086,13 @@ def full_demod_process(ts_file, f_sawtooth, method='fft', n=0, channels='all',st
                                      start_channel=start_channel,
                                      stop_channel=stop_channel) #finds circle center and initial phase for every channel
     
+    print(calibration[0])
     #calibrate time stream
     data_cal=get_phase(IQ_stream_rm,calibration)
+
+    #fig_testing, ax_testing = plt.subplots(1)
+    #for i in [1]:
+    #    ax_testing.plot(data_cal[i])
     
     #find nphi_0
     t_start=0
@@ -1171,7 +1223,9 @@ def full_demod_process(ts_file, f_sawtooth, method='fft', n=0, channels='all',st
                     'demod data': data_demods, 
                     'channel freqs': tone_freqs, 
                     'fsawtooth': f_sawtooth,
-                    'reset indices': reset_indices}
+                    'reset indices': reset_indices,
+                    'raw i':Is_fr,
+                    'raw q':Qs_fr}
 
     return data_dict
 
@@ -1769,6 +1823,132 @@ def remove_chop(t,sig,demod_period,time_method='original',phase_units='rad',corr
     
     
     return demod_t, demod_data
+
+def read_channel_file(channel_file):
+    channel_standard = pd.read_csv(channel_file,sep=',')
+    channel_nums = channel_standard['Channel Number'].to_numpy(int)
+    channel_freqs = channel_standard['Frequency'].to_numpy(float)
+    bias_lines = channel_standard['Bias Line'].to_numpy(int)
+    optically_active = channel_standard['Optically Active'].to_numpy(int)
+    selected_channels = channel_standard['Selected'].to_numpy(int)
+    
+    return channel_standard, channel_nums, channel_freqs, bias_lines, optically_active, selected_channels
+
+def channel_setup(init_directory, channel_standard_file):
+        
+    initial_lo_sweep_path = find_file(init_directory, 'lo_sweep_initial')
+    targeted_lo_sweep_path = find_file(init_directory, 'lo_sweep_targeted_2')
+    tone_freqs_path = find_file(init_directory, 'freq_list_lo_sweep_targeted_1')
+    
+    channel_standard, channel_nums, channel_freqs, bias_lines, optically_active, selected_channels = read_channel_file(channel_standard_file)
+    
+    #standard channels to use
+    active_channels = np.argwhere(selected_channels == 1)
+    use_standard_channels = np.reshape(active_channels,(1,active_channels.shape[0]))[0]    
+    
+    #loading up tone init
+    initial_lo_sweep=np.load(initial_lo_sweep_path) #find initial lo sweep file
+    targeted_lo_sweep=np.load(targeted_lo_sweep_path) #find targeted sweep file
+    tone_freqs=np.load(tone_freqs_path) #find tone freqs
+    
+    #converting standard channels to tone init channels
+    match = match_freqs(tone_freqs,channel_freqs[use_standard_channels],dist=1e5)
+    #print(match)
+    use_current_init_channels = np.array([item[0] for item in match])
+    use_current_init_channels = use_current_init_channels[0:int(len(use_current_init_channels)/2)]
+    #print(use_current_init_channels)
+    
+    
+    #frequencies of channels    
+    current_freqs = channel_freqs[use_current_init_channels]
+    
+    #compute delay region
+    print('looking for delay region')
+    delay_region_start, delay_region_stop = find_freqs_cable_delay_subtraction(initial_lo_sweep,0.98,10000)
+    print(f'start = {delay_region_start}')
+    print(f'stop = {delay_region_stop}')
+    
+    #measure cable delay
+    delays = measure_delay_test_given_freq(initial_lo_sweep,delay_region_start,delay_region_stop,plot=False)
+    
+    
+    
+    #remove cable delay
+    targeted_lo_sweep_rm=remove_delay_live(targeted_lo_sweep,
+                                           np.median(delays),
+                                           channels=use_current_init_channels)
+    
+    #measure circle parameters
+    calibration=measure_circle_live(targeted_lo_sweep_rm,
+                                    tone_freqs,
+                                    channels=use_current_init_channels) #finds circle center and initial phase for every channel
+    
+    
+    
+    return np.median(delays), calibration, use_current_init_channels, current_freqs
+
+def demod_routine_live(ts_file, channels, channel_freqs, delay, calibration, cadence = 3, f_sawtooth= 15, data_rate = 2**19):
+    
+    ts_fr,Is_fr,Qs_fr=read_data_live(ts_file,
+                                     channels=channels)
+        
+    fs=512e6/data_rate  
+    
+    truncate = int(cadence * fs)
+    ts_fr = np.arange(Is_fr.shape[1])/fs
+    
+    stop_idx = np.min([len(ts_fr), len(Is_fr), len(Qs_fr)])
+    
+
+    ts_fr = ts_fr[-truncate:stop_idx]
+    Is_fr = Is_fr[-truncate:stop_idx]
+    Qs_fr = Qs_fr[-truncate:stop_idx]   
+    
+    IQ_stream_rm=remove_delay_timestream(Is_fr+1j*Qs_fr,channel_freqs,delay)
+    
+    data_cal=get_phase(IQ_stream_rm,calibration)   
+        
+    t_start=0
+    t_stop=10
+        
+    t0 = np.array([mea_reset_t0(ts_fr[int(fs)*t_start:int(fs)*t_stop],
+                                data_cal[current_channel,int(fs)*t_start:int(fs)*t_stop],
+                                f_sawtooth,plot=False)
+                   for current_channel in range(len(data_cal))])
+
+    t0_med = np.nanmedian(t0)
+    
+    start_idx = find_nearest_idx(ts_fr-ts_fr[0], t0_med)
+    
+    channel_count = 0
+    for chan in range(data_cal.shape[0]):
+    
+        t_demod, data_demod, reset_indices = demodulate_with_fft(t=ts_fr,
+                                                                 sig=data_cal[chan],
+                                                                 start_index=start_idx,                                                                      
+                                                                 f_fr=f_sawtooth,
+                                                                 phase_units='nPhi0',
+                                                                 correct_phase_jumps=False,
+                                                                 phase_jump_threshold=0,
+                                                                 plot_demod = False,
+                                                                 plot_demod_title=None,
+                                                                 intermediate_plotting_limits=[None,None],
+                                                                 plot_chunking_process = False,
+                                                                 plot_fft = False,
+                                                                 plot_fft_no_dc = False,
+                                                                 plot_limited_fft = False,
+                                                                 plot_fit = False,
+                                                                 plot_vectors = False)
+        
+        if ch_count == 0:
+            data_demods = data_demod
+        else:
+            data_demods = np.vstack([data_demods, np.array(data_demod)])
+        t_demods = t_demod
+        ch_count += 1
+        
+    return t_demod, data_demod
+    
 
 def main():
     t, adc_i, adc_q = read_data('/home/user/Documents/AliCPT/ali_offline_demod/ALICPT_RDF_20231017100614.hd5')
