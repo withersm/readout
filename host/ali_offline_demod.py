@@ -400,7 +400,8 @@ def demodulate(t, sig, n_Phi0, f_sawtooth, plot = True, plot_len = None):
         
     return slow_t, slow_TOD
 """        
-
+def linear_model(x,m,b):
+    return m*x+b
 
 def demodulate_with_fft(t,sig,start_index,f_fr,phase_units='rad',correct_phase_jumps=False,phase_jump_threshold=0,plot_demod = False,plot_demod_title=None,intermediate_plotting_limits=[None,None],plot_chunking_process = False,plot_fft = False,plot_fft_no_dc = False,plot_limited_fft = False,plot_fit = False,plot_vectors = False):
     
@@ -417,6 +418,9 @@ def demodulate_with_fft(t,sig,start_index,f_fr,phase_units='rad',correct_phase_j
         #establish array for storing phase
         phase_array = np.array([])
         
+
+    
+    
     if plot_chunking_process == True:
         #print(sig[ch])
         fig1, ax1 = plt.subplots(1)
@@ -424,11 +428,17 @@ def demodulate_with_fft(t,sig,start_index,f_fr,phase_units='rad',correct_phase_j
         ax1.set_xlabel('$t$ (s)')
         ax1.set_ylabel('Resonator Position (arb.)')
         #ax1.set_title(f'Ch. {ch}')
-            
+        fig1.show()
+
     #begin at start of first fr
     t_fr_start = t[start_index:]
     t_fr_start = t_fr_start - t_fr_start[0]
     sig_fr_start = sig[start_index:]
+
+    #fig_test, ax_test = plt.subplots(1)
+    #ax_test.plot(t,sig)
+    #ax_test.plot(t[start_index],sig[start_index],'*')
+
         
     if plot_chunking_process == True:
         ax1.plot(t_fr_start,sig_fr_start,'.-')
@@ -666,6 +676,22 @@ def demodulate_with_fft(t,sig,start_index,f_fr,phase_units='rad',correct_phase_j
     #else:
     #    demod_data = np.vstack([demod_data, np.array(interpolated_phase)])
             
+      
+                
+    def linear_model(x,m,b):
+        return m*x+b                    
+   
+  
+        
+
+    linear_fit = curve_fit(linear_model, demod_t, interpolated_phase, check_finite=False)
+
+    fitted_line = linear_model(demod_t,linear_fit[0][0],linear_fit[0][1])
+
+    phase_remove_accumulation = interpolated_phase - fitted_line
+    
+    
+    
     if plot_demod == True:
         ax_demod.plot(demod_t, interpolated_phase-np.average(interpolated_phase)+0.1*chunk_count,'-')
         ax_demod.set_ylabel(axis_label)
@@ -673,7 +699,305 @@ def demodulate_with_fft(t,sig,start_index,f_fr,phase_units='rad',correct_phase_j
         
     #chunk_count += 1
     
-    return demod_t, interpolated_phase, reset_indices#demod_data
+    return demod_t, phase_remove_accumulation, reset_indices#demod_data
+
+def find_start_idx_internal_fr(t, sig, n_packets):
+
+    fig1, ax1 = plt.subplots(1)
+    ax1.plot(t, sig,'.-')
+    
+    
+    data = sig #fix this later; made it easier to copy paste working code
+    n_packets = int(n_packets)
+
+    derivative = np.diff(data)
+    ax1.plot(t[:-1],derivative)
+    dd = np.diff(derivative)
+    ddd = np.diff(dd)
+    reset = np.argmax(dd[0:n_packets-1])
+    ax1.plot(t[:-2],dd)
+    #ax1.plot(t[:-3],ddd)
+
+    #ax1.plot(t[reset],sig[reset],'*')
+    #d=np.diff(data)
+    #dd=np.diff(d)
+    #reset=np.argmax(dd)#+2
+
+    peaks = find_peaks(derivative[0:n_packets+int(n_packets/2)],height=0)[0]
+
+    peak_widths = [np.abs(t[peak_i-1] - t[peak_i+1]) for peak_i in peaks]
+
+    try:
+        narrowest_peak = np.argmin(peak_widths)
+
+        #reset_new = np.argwhere(t == t[peaks[narrowest_peak]])
+        reset_new = np.argmax(dd[0:int(n_packets + n_packets / 2)])
+
+
+        #print(peaks)
+        #peaks_d = np.diff(peaks[0])
+        
+        #reset_new = np.argmin(peaks_d)
+        #ax1.plot(t[peaks[0]],dd[peaks[0]],'o')
+        ax1.plot(t[peaks], derivative[peaks],'o')
+        ax1.plot(t[reset_new],sig[reset_new],'*')
+
+        return reset_new
+
+    except:
+        return np.nan
+
+
+def demodulate_with_fft_internal_fr(t, sig, n_packets, correct_phase_jumps = False, phase_jump_threshold=0.4):#, start_idx):
+
+
+    #start by chunking blindly
+    end_idx_blind = int(len(sig)/32) * 32
+    
+
+    t_blind_chunk = np.reshape(t[:end_idx_blind],(int(len(t)/32),32))
+    data_blind_chunk = np.reshape(sig[:end_idx_blind],(int(len(sig)/32),32))
+
+    fig, ax = plt.subplots(1)
+    for i in range(len(t_blind_chunk)):
+        ax.plot(t_blind_chunk[i], data_blind_chunk[i])
+
+    data_blind_avg = np.average(data_blind_chunk,axis=0)
+
+
+    fig_a, ax_a = plt.subplots(1)
+    ax.plot(t_blind_chunk[0],data_blind_avg)
+
+
+    
+    
+    
+    
+    fig1, ax1 = plt.subplots(1)
+    ax1.plot(t, sig,'.-')
+    
+    
+    data = sig #fix this later; made it easier to copy paste working code
+    n_packets = int(n_packets)
+
+    derivative = np.diff(data)
+    ax1.plot(t[:-1],derivative)
+    dd = np.diff(derivative)
+    ddd = np.diff(dd)
+    reset = np.argmax(dd[0:n_packets-1])
+    ax1.plot(t[:-2],dd)
+    #ax1.plot(t[:-3],ddd)
+
+    ax1.plot(t[reset],sig[reset],'*')
+    #d=np.diff(data)
+    #dd=np.diff(d)
+    #reset=np.argmax(dd)#+2
+
+    peaks = find_peaks(derivative[0:n_packets-1],height=0.5)[0]
+
+    peak_widths = [np.abs(t[peak_i-1] - t[peak_i+1]) for peak_i in peaks]
+
+    narrowest_peak = np.argmin(peak_widths)
+
+    reset_new = np.argwhere(t == t[peaks[narrowest_peak]])
+
+
+    #print(peaks)
+    #peaks_d = np.diff(peaks[0])
+    
+    #reset_new = np.argmin(peaks_d)
+    #ax1.plot(t[peaks[0]],dd[peaks[0]],'o')
+    ax1.plot(t[reset_new],sig[reset_new],'*')
+
+    #data_drop = data[reset+1:]
+    data_drop = data[reset:]
+    #data_drop = data[start_idx:]
+    end = int(len(data_drop)/n_packets)*n_packets
+    #input(f'end: {end}')
+    data_drop = data_drop[:end]
+
+    #input(f'data drop: {len(data_drop)}')
+
+
+    t_drop = t[reset:]
+    t_drop = t_drop[:end]
+
+    ax1.plot(t_drop,data_drop,'--')
+
+    #input(f't drop: {len(t_drop)}')
+
+    data_matrix = np.reshape(data_drop, (int(len(data_drop)/32),32))
+
+    data_matrix = np.array([row - np.average(row) for row in data_matrix])
+    
+    t_chunked = np.reshape(t_drop,(int(len(t_drop)/32), 32))
+
+    #input(t_chunked)
+
+    #fig_chunked, ax_chunked = plt.subplots(1)
+    #for i in range(len(data_matrix)):
+    #    ax_chunked.plot(t_chunked[i],np.array(range(len(data_matrix[0,:])))+i*len(data_matrix[0,:]),data_matrix[i,:])
+        
+    zeros_to_append = np.zeros_like(data_matrix)
+
+    data_matrix_zero_pad = np.hstack([data_matrix,zeros_to_append])
+
+    t_increase = (t_chunked[0,-1] + np.median(np.diff(t_chunked[0])))
+    t_new = t_chunked + t_increase
+               
+    t_zero_padded = np.hstack((t_chunked, t_new))  
+
+
+    sig_fft = fft(data_matrix_zero_pad)   
+    freq_fft = fftfreq(len(t_zero_padded[0]),np.median(np.diff(t_zero_padded[0])))
+
+    sig_fft_no_dc = deepcopy(sig_fft)
+    sig_fft_no_dc[:,0] = 0
+
+    sig_fft_reduced = deepcopy(sig_fft_no_dc)
+        
+    primary_bins = [np.argpartition(np.abs(row), -4)[-4:] for row in sig_fft_reduced] #identify the four greatest bins (two on each side of the fft)
+    primary_bins = [np.sort(row) for row in primary_bins]
+    mask = np.zeros_like(sig_fft_reduced)
+    [np.put(mask[row],primary_bins[row],1) for row in range(len(mask))]
+        
+                       
+    sig_fft_reduced = sig_fft_reduced * mask
+
+    R1 = [np.real(sig_fft_reduced[row][primary_bins[row][0]]) if primary_bins[row][0] >= primary_bins[row][1] else np.real(sig_fft_reduced[row][primary_bins[row][1]]) for row in range(len(sig_fft_reduced))]
+    R2 = [np.real(sig_fft_reduced[row][primary_bins[row][1]]) if primary_bins[row][0] >= primary_bins[row][1] else np.real(sig_fft_reduced[row][primary_bins[row][0]]) for row in range(len(sig_fft_reduced))]
+
+    I1 = [np.imag(sig_fft_reduced[row][primary_bins[row][0]]) if primary_bins[row][0] >= primary_bins[row][1] else np.imag(sig_fft_reduced[row][primary_bins[row][1]]) for row in range(len(sig_fft_reduced))]
+    I2 = [np.imag(sig_fft_reduced[row][primary_bins[row][1]]) if primary_bins[row][0] >= primary_bins[row][1] else np.imag(sig_fft_reduced[row][primary_bins[row][0]]) for row in range(len(sig_fft_reduced))]
+        
+    #for i in range(len(R1)):
+    #    fig_test, ax_test = plt.subplots(1)
+    #    ax_test.plot(data_matrix_zero_pad[i],'.-')
+    #    ax_test.plot(ifft(sig_fft_reduced[i]),'-')    
+                
+        
+    #note change here from unvectorized code: sets ange1 to 0 if Re=0 and Im=0
+    angle1 = [np.angle(R1[row]+1j*I1[row]) if I1[row] > 0 else 2*np.pi + np.angle(R1[row]+1j*I1[row]) if I1[row] < 0 else 0 if I1[row] == 0 and R1[row] > 0 else np.pi if I1[row] == 0 and R1[row] < 0 else 0 for row in range(len(R1))]
+    
+    #note change here from unvectorized code: sets angle2 to 0 if Re=0 and Im=0
+    angle2 = [np.angle(R2[row]+1j*I2[row]) if I2[row] > 0 else 2*np.pi + np.angle(R2[row]+1j*I2[row]) if I2[row] < 0 else 0 if I2[row] == 0 and R2[row] > 0 else np.pi if I2[row] == 0 and R2[row] < 0 else 0 for row in range(len(R2))]
+        
+    interpolated_phase = [np.arctan2((I1[row]-R2[row]),(R1[row]+I2[row])) if R2[row] > 0 and I2[row] > 0 and I1[row] < 0 else np.arctan2((I1[row]+R2[row]),(R1[row]-I2[row])) if angle1[row] > angle2[row] else np.arctan2((I1[row]-R2[row]),(R1[row]+I2[row])) if angle2[row] > angle1[row] else np.arctan2((I1[row]+I2[row]),(R1[row]+R2[row])) for row in range(len(angle1))]
+    interpolated_phase = np.unwrap(interpolated_phase)
+
+    demod_t = np.array([np.median(row) for row in t_chunked])
+
+    if correct_phase_jumps == True:
+        phase_array_diff = np.diff(interpolated_phase)
+        discontinuity_index = np.argwhere(phase_array_diff > phase_jump_threshold)
+        discontinuity_index = discontinuity_index.reshape(1,len(discontinuity_index))[0]
+               
+        def linear_model(x,m,b):
+            return m*x+b
+            
+        if len(discontinuity_index) != 0:
+                
+                           
+            phase_split = np.split(interpolated_phase, discontinuity_index+1)
+            t_split = np.split(demod_t, discontinuity_index+1)
+
+                
+            phase_split_corrected = np.array([])
+            t_split_corrected = np.array([])
+            for i in range(len(phase_split)):
+                    
+                if len(phase_split[i]) >= 4:
+                        
+
+                    t_drop_final = t_split[i]
+                        
+                    phase_drop_final = phase_split[i]        
+                    
+                        
+
+                    linear_fit = curve_fit(linear_model, t_drop_final, phase_drop_final, check_finite=False)
+
+                    fitted_line = linear_model(t_drop_final,linear_fit[0][0],linear_fit[0][1])
+
+                    phase_remove_accumulation = phase_drop_final - fitted_line
+                        
+                else:
+                    t_drop_final = t_split[i]
+                    phase_drop_final = phase_split[i]
+                    phase_remove_accumulation = phase_split[i]
+                        
+                phase_split_corrected = np.append(phase_split_corrected, phase_remove_accumulation)
+                t_split_corrected = np.append(t_split_corrected, t_drop_final)
+                    
+            demod_t = t_split_corrected
+            interpolated_phase = phase_split_corrected
+      
+    return demod_t, interpolated_phase#, reset_indices
+
+
+def demodulate_with_template(t, sig, n_packets, correct_phase_jumps = False, phase_jump_threshold=0.4):#, start_idx):
+
+    data = sig #fix this later; made it easier to copy paste working code
+    n_packets = int(n_packets)
+
+    derivative = np.diff(data)
+    dd = np.diff(derivative)
+    reset = np.argmax(derivative[0:n_packets-1])
+
+    #d=np.diff(data)
+    #dd=np.diff(d)
+    #reset=np.argmax(dd)#+2
+
+    #data_drop = data[reset+1:]
+    data_drop = data[reset:]
+    #data_drop = data[start_idx:]
+    end = int(len(data_drop)/n_packets)*n_packets
+    #input(f'end: {end}')
+    data_drop = data_drop[:end]
+
+    #input(f'data drop: {len(data_drop)}')
+
+
+    t_drop = t[reset:]
+    t_drop = t_drop[:end]
+
+    #input(f't drop: {len(t_drop)}')
+
+    data_matrix = np.reshape(data_drop, (int(len(data_drop)/32),32))
+
+    data_matrix = np.array([row - np.average(row) for row in data_matrix])
+    
+    t_chunked = np.reshape(t_drop,(int(len(t_drop)/32), 32))
+    
+    
+    subtract = np.array([data_matrix[i,:] - data_matrix[i-1,:] for i in np.arange(1,len(data_matrix),1)])
+
+    #print(subtract)
+
+    derivative_matrix = np.diff(data_matrix)
+
+    #print(subtract.shape)
+    #print(derivative_matrix.shape)
+
+    phi_matrix_naive = subtract[:,1:] / derivative_matrix[:-1,:]
+
+    #phi_naive = np.array([np.average(row) for row in phi_matrix_naive])
+
+
+    phi_matrix_weighted = subtract[:,1:] * derivative_matrix[:-1,:]
+
+    phi_weighted = np.array([np.average(row) for row in phi_matrix_weighted])
+
+    phi_weighted_average = np.average(phi_weighted)
+    phi_weighted_std = np.std(phi_weighted)
+
+    phi_masked = np.array([entry if entry >= phi_weighted_average-3*phi_weighted_std and entry <= phi_weighted_average+3*phi_weighted_std else np.nan for entry in phi_weighted])
+
+
+    demod_t = np.array([np.median(row) for row in t_chunked])
+
+    return demod_t, phi_masked
+
 
 
 def get_max_len_ind(ll):
@@ -724,6 +1048,8 @@ def mea_reset_t0(times,delta_fs_ch,reset_freq,plot=False):
     d=np.diff(delta_fs_ch)
     dd=np.diff(d)
     ind=np.argmax(dd)+2
+    #print(f'index: {ind}')
+    #print(f'len times: {len(times)}')
     t_init=times[ind]-times[0]-int((times[ind]-times[0])*reset_freq)/reset_freq
     ind_init= find_nearest_idx(times-times[0],t_init)
     if plot==True:
@@ -833,7 +1159,10 @@ def remove_delay_live(target_sweeps,delay,channels=[0]):
 def remove_delay_timestream(stream,f0s,delay):
     stream_rm=np.zeros((f0s.shape[0],stream.shape[1]),dtype = 'complex_')
     for i in range(f0s.shape[0]):
+        print(delay)
+        print(f0s)
         delay_fac=np.exp(1j*2*np.pi*f0s[i]*delay)
+        print(delay_fac)
         stream_rm[i,:]=stream[i]*delay_fac
     return stream_rm
 
@@ -1013,12 +1342,25 @@ def find_freqs_cable_delay_subtraction(initial_lo_sweep,target,n_freq):
     # frequency range for cable delay
     f_start=xfinite[idgt[0]]
     f_end=xfinite[idgt[0]+n_freq]
+
+
+    fig_test, ax_test = plt.subplots(1)
+    ax_test.plot(xfinite,yfinite)
+    ax_test.plot(x[idgt[0]:idgt[0]+n_freq], y[idgt[0]:idgt[0]+n_freq])
    
     return f_start, f_end
 
-def full_demod_process(ts_file, f_sawtooth, method='fft', n=0, channels='all',start_channel=0,stop_channel=1000,tone_init_path = '/home/matt/alicpt_data/tone_initializations', ts_path = '/home/matt/alicpt_data/time_streams', display_mode = 'terminal'):
+
+
+
+
+
+
+def full_demod_process(ts_file, f_sawtooth, method = 'fft', correct_phase_jumps = False, phase_jump_threshold = 0.4, n=0, channels='all',start_channel=0,stop_channel=1000,tone_init_path = '/home/matt/alicpt_data/tone_initializations', ts_path = '/home/matt/alicpt_data/time_streams', display_mode = 'terminal'):
     #n is number of points blanked before and after fr reset; only used when method='simple'
     #unpack data -> eventually change so that you give the ts data path and the function finds the associated tone initialization files
+
+    print('using full_demod_process')
 
     init_freq = ts_file.split('_')[3]
     print(init_freq)
@@ -1042,7 +1384,8 @@ def full_demod_process(ts_file, f_sawtooth, method='fft', n=0, channels='all',st
     ts_fr,Is_fr,Qs_fr=read_data(ts_path,channels=channels,start_channel=start_channel,stop_channel=stop_channel)    #note to self: limit tone_freqs to actively called channels; need to figure out channel numbering first
     
     #testing fixing the time breaks before the demod -- probably don't want to keep this but we'll see
-    fs=512e6/(2**19-1)    #this line is incredibly important; need to make sure we match the data rate at all times; add an if statement for faster data rate data
+    fs=512e6/(2**20)    #this line is incredibly important; need to make sure we match the data rate at all times; add an if statement for faster data rate data
+    #fs=256e6/(2**19)
     ts_fr = np.arange(Is_fr.shape[1])/fs
     
     
@@ -1139,8 +1482,8 @@ def full_demod_process(ts_file, f_sawtooth, method='fft', n=0, channels='all',st
                                                                         start_index=start_idx,                                                                      
                                                                         f_fr=f_sawtooth,
                                                                         phase_units='nPhi0',
-                                                                        correct_phase_jumps=False,
-                                                                        phase_jump_threshold=0,
+                                                                        correct_phase_jumps=correct_phase_jumps,
+                                                                        phase_jump_threshold=phase_jump_threshold,
                                                                         plot_demod = False,
                                                                         plot_demod_title=None,
                                                                         intermediate_plotting_limits=[None,None],
@@ -1361,8 +1704,8 @@ def IV_correction_median(resps, peak_nb, peak_sc):
     """ 
    
     #here we know that before peaks_nb[0] and after peak_sc the Ites is monotonic 
-    resps_nb=resps[2:int(peak_nb-10)]
-    resps_sc=resps[int(peak_sc+10):-10]
+    #resps_nb=resps[2:int(peak_nb-10)]
+    #resps_sc=resps[int(peak_sc+10):-10]
     resps_cor=np.zeros(resps.shape[0])
     resps_cor_acc=np.zeros(resps.shape[0])
     for i in range(resps.shape[0]):
@@ -1382,6 +1725,9 @@ def find_transition_points(resps):
     min_ites=np.min(resps)
     smooth=savgol_filter(resps, resps.shape[0], 10)
     smooth=detect_zero_and_fill(smooth)
+    print(f'peaks_nb: {peaks_nb}')
+    print(f'max - min: {max_ites-min_ites}')
+    print(f'peaks_sc: {peaks_sc}')
     peaks_sc,_=find_peaks(smooth,width=20,prominence=20)
     if len(peaks_nb)==0 or peaks_nb[0] < 30 or max_ites-min_ites<20 or len(peaks_sc)==0:
         return np.nan, np.nan
@@ -1501,7 +1847,7 @@ def IV_analysis_ch_duo(bias_currents,resps,peak_nb,peak_sc,Rsh=0.4,filter_Rn_Al=
     return Rn_almn,Rn_al,Rtes,Vtes,Ites,bps,Pbias,resps_correct    
 
     
-def full_iv_process(iv_file,f_sawtooth,Rsh=0.4,iv_path = '/home/matt/alicpt_data/IV_data', filter_Rn_Al=False, plot='None'):
+def full_iv_process(iv_file,f_sawtooth,demod_method='simple',Rsh=0.4,iv_path = '/home/matt/alicpt_data/IV_data', filter_Rn_Al=False, plot='None'):
     """
     wrapper examining all IV curves from a dataset
     """
@@ -1514,11 +1860,19 @@ def full_iv_process(iv_file,f_sawtooth,Rsh=0.4,iv_path = '/home/matt/alicpt_data
     ts_directory = ts_path.split('/')[-2]
     ts_filename = ts_path.split('/')[-1]
 
-    print(ts_directory)
-    print(ts_filename)
+    print(f'iv_path: {iv_path}')
+    print(f'ts_directory: {ts_directory}')
     
+    print(f'tone init path: {iv_path.split("/")[-2]}/tone_initializations')
+
+    iv_path_split = iv_path.split('/')
     
-    demod_data = full_demod_process(ts_filename, f_sawtooth, ts_path = f'/home/matt/ali_drive_mnt/IV_data/{ts_directory}', tone_init_path = f'/home/matt/ali_drive_mnt/tone_initializations')
+    demod_data = full_demod_process(ts_filename,
+                                    f_sawtooth,
+                                    method=demod_method,
+                                    n=5,
+                                    ts_path = f'{iv_path}/{iv_file}',
+                                    tone_init_path = f'/{iv_path_split[1]}/{iv_path_split[2]}/{iv_path_split[3]}/tone_initializations')
     start_idx = find_nearest_idx(demod_data['fr t']-demod_data['fr t'][0], demod_data['t0'])
     
     data_demods_bin = get_mean_current(bias_currents,demod_data['demod t']+demod_data['fr t'][start_idx],demod_data['demod data'])
@@ -1534,14 +1888,17 @@ def full_iv_process(iv_file,f_sawtooth,Rsh=0.4,iv_path = '/home/matt/alicpt_data
     
     peak_nb_array = np.array([])
     peak_sc_array = np.array([])
-    for ch in tqdm(range(data_demods_bin.shape[0])):
+    for ch in tqdm_notebook(range(data_demods_bin.shape[0])):
         peak_nb, peak_sc = find_transition_points(data_demods_bin[ch])
         peak_nb_array = np.append(peak_nb_array, peak_nb)
         peak_sc_array = np.append(peak_sc_array, peak_sc)
     
+    print(f'peak_nb_array: {peak_nb_array}')
     peak_nb_median = np.nanmedian(peak_nb_array)
+    print(f'peak_nb_median: {peak_nb_median}')
     peak_sc_median = np.nanmedian(peak_sc_array)
-    
+    print(f'peak_sc_median: {peak_sc_median}')
+
     for ch in tqdm_notebook(range(data_demods_bin.shape[0])):
         Rn_almn_ch,Rn_al_ch,Rtes_ch,Vtes_ch,Ites_ch,bps_ch,Pbias_ch,resps_correct_ch = IV_analysis_ch_duo(bias_currents[:,1],
                                                                                                           data_demods_bin[ch], 
@@ -1834,6 +2191,62 @@ def read_channel_file(channel_file):
     
     return channel_standard, channel_nums, channel_freqs, bias_lines, optically_active, selected_channels
 
+
+def channel_setup_all(init_directory, channel_standard_file):
+
+    initial_lo_sweep_path = find_file(init_directory, 'lo_sweep_initial')
+    targeted_lo_sweep_path = find_file(init_directory, 'lo_sweep_targeted_2')
+    tone_freqs_path = find_file(init_directory, 'freq_list_lo_sweep_targeted_1')
+    
+    channel_standard, channel_nums, channel_freqs, bias_lines, optically_active, selected_channels = read_channel_file(channel_standard_file)
+    
+    #standard channels to use
+    active_channels = np.argwhere(selected_channels == 1)
+    print(active_channels)
+    use_standard_channels = np.reshape(active_channels,(1,active_channels.shape[0]))[0]  
+    
+    #loading up tone init
+    initial_lo_sweep=np.load(initial_lo_sweep_path) #find initial lo sweep file
+    targeted_lo_sweep=np.load(targeted_lo_sweep_path) #find targeted sweep file
+    tone_freqs=np.load(tone_freqs_path) #find tone freqs
+
+    
+
+    match = match_freqs(tone_freqs,channel_freqs[use_standard_channels],dist=1e5)
+    use_current_init_channels = np.array([item[0] for item in match])
+    use_current_init_channels = use_current_init_channels[0:int(len(use_current_init_channels)/2)]    
+    
+    #frequencies of channels    
+    current_freqs = channel_freqs[use_current_init_channels]
+
+
+    delay_region_start, delay_region_stop = find_freqs_cable_delay_subtraction(initial_lo_sweep,0.98,10000)
+    print(f'start = {delay_region_start}')
+    print(f'stop = {delay_region_stop}')
+    
+    #measure cable delay
+    delays = measure_delay_test_given_freq(initial_lo_sweep,delay_region_start,delay_region_stop,plot=False)
+    
+    
+    
+    #remove cable delay
+    targeted_lo_sweep_rm=remove_delay_live(targeted_lo_sweep,
+                                           np.median(delays),
+                                           channels=range(len(tone_freqs)))
+    
+    #measure circle parameters
+    calibration=measure_circle_live(targeted_lo_sweep_rm,
+                                    tone_freqs,
+                                    channels=range(len(tone_freqs))) #finds circle center and initial phase for every channel
+    
+    
+    print(f'tone freqs: {tone_freqs}')
+
+    return np.median(delays), calibration, tone_freqs, match, use_current_init_channels, current_freqs
+
+
+
+
 def channel_setup(init_directory, channel_standard_file):
         
     initial_lo_sweep_path = find_file(init_directory, 'lo_sweep_initial')
@@ -1844,6 +2257,7 @@ def channel_setup(init_directory, channel_standard_file):
     
     #standard channels to use
     active_channels = np.argwhere(selected_channels == 1)
+    print(active_channels)
     use_standard_channels = np.reshape(active_channels,(1,active_channels.shape[0]))[0]    
     
     #loading up tone init
@@ -1853,9 +2267,10 @@ def channel_setup(init_directory, channel_standard_file):
     
     #converting standard channels to tone init channels
     match = match_freqs(tone_freqs,channel_freqs[use_standard_channels],dist=1e5)
-    #print(match)
+    print(match)
     use_current_init_channels = np.array([item[0] for item in match])
     use_current_init_channels = use_current_init_channels[0:int(len(use_current_init_channels)/2)]
+    print(use_current_init_channels)
     #print(use_current_init_channels)
     
     
@@ -1887,29 +2302,42 @@ def channel_setup(init_directory, channel_standard_file):
     
     return np.median(delays), calibration, use_current_init_channels, current_freqs
 
-def demod_routine_live(ts_file, channels, channel_freqs, delay, calibration, cadence = 3, f_sawtooth= 15, data_rate = 2**19):
-    
-    ts_fr,Is_fr,Qs_fr=read_data_live(ts_file,
-                                     channels=channels)
-        
-    fs=512e6/data_rate  
-    
-    truncate = int(cadence * fs)
-    ts_fr = np.arange(Is_fr.shape[1])/fs
-    
-    stop_idx = np.min([len(ts_fr), len(Is_fr), len(Qs_fr)])
-    
 
-    ts_fr = ts_fr[-truncate:stop_idx]
-    Is_fr = Is_fr[-truncate:stop_idx]
-    Qs_fr = Qs_fr[-truncate:stop_idx]   
+def demod_routine_live_stats_on_all(ts_file, channels, all_channel_freqs, delay, calibration, cadence = 3, f_sawtooth= 15, data_rate = 2**19, correct_phase_jumps = False, threshold = 0.3):
+
+    print(f'all chan freqs: {all_channel_freqs}')
     
-    IQ_stream_rm=remove_delay_timestream(Is_fr+1j*Qs_fr,channel_freqs,delay)
+    fs=512e6/data_rate      
+    truncate = int(cadence * fs)
+
+
+    f = h5py.File(ts_file, "r", libver='latest', swmr=True)    
     
-    data_cal=get_phase(IQ_stream_rm,calibration)   
-        
+    ts_fr = np.asarray(f['/time_ordered_data/timestamp'][-truncate:])
+    Is_fr = f['/time_ordered_data/adc_i'][:,-truncate:]
+    Qs_fr = f['/time_ordered_data/adc_q'][:,-truncate:]
+
+    ts_len = len(ts_fr)
+    Is_len = Is_fr.shape[1]
+    Qs_len = Qs_fr.shape[1]
+
+    mlen = int(min([ts_len, Is_len, Qs_len]))
+
+    ts_trunc = deepcopy(ts_fr[:mlen])
+    Is_trunc = deepcopy(Is_fr[:][:mlen])
+    Qs_trunc = deepcopy(Qs_fr[:][:mlen])
+
+    print(len(Is_trunc))
+
+    IQ_stream_rm=remove_delay_timestream(Is_trunc+1j*Qs_trunc,np.array(all_channel_freqs),delay)
+
+    print(f'len IQ_stream_rm: {len(IQ_stream_rm)}')
+    print(f'len calbiration: {len(calibration)}')
+
+    data_cal=get_phase(IQ_stream_rm,calibration)
+
     t_start=0
-    t_stop=10
+    t_stop= int(cadence/2)*2
         
     t0 = np.array([mea_reset_t0(ts_fr[int(fs)*t_start:int(fs)*t_stop],
                                 data_cal[current_channel,int(fs)*t_start:int(fs)*t_stop],
@@ -1919,17 +2347,24 @@ def demod_routine_live(ts_file, channels, channel_freqs, delay, calibration, cad
     t0_med = np.nanmedian(t0)
     
     start_idx = find_nearest_idx(ts_fr-ts_fr[0], t0_med)
-    
-    channel_count = 0
-    for chan in range(data_cal.shape[0]):
-    
+
+    ch_count = 0
+    data_demods = np.array([])
+    #now loop over just the channels we want to view
+    for chan in channels:
+
+        
+
+        print(f'shape t plug: {ts_fr.shape}')
+        print(f'shape data plug: {data_cal.shape}')
+
         t_demod, data_demod, reset_indices = demodulate_with_fft(t=ts_fr,
                                                                  sig=data_cal[chan],
                                                                  start_index=start_idx,                                                                      
                                                                  f_fr=f_sawtooth,
                                                                  phase_units='nPhi0',
-                                                                 correct_phase_jumps=False,
-                                                                 phase_jump_threshold=0,
+                                                                 correct_phase_jumps=correct_phase_jumps,
+                                                                 phase_jump_threshold=threshold,
                                                                  plot_demod = False,
                                                                  plot_demod_title=None,
                                                                  intermediate_plotting_limits=[None,None],
@@ -1940,14 +2375,159 @@ def demod_routine_live(ts_file, channels, channel_freqs, delay, calibration, cad
                                                                  plot_fit = False,
                                                                  plot_vectors = False)
         
+        
+        print(f'len data_demod: {len(data_demod)}')
+        print(f'shape data_demods: {data_demods.shape}')
+        
         if ch_count == 0:
-            data_demods = data_demod
+            data_demods = data_demod        
         else:
             data_demods = np.vstack([data_demods, np.array(data_demod)])
+        
         t_demods = t_demod
         ch_count += 1
+
+        print(f'data demods in loop: {data_demods}')
         
-    return t_demod, data_demod
+    return t_demods, data_demods
+
+
+
+
+def demod_routine_live(ts_file, channels, channel_freqs, delay, calibration, cadence = 3, f_sawtooth= 15, data_rate = 2**19, correct_phase_jumps = False, threshold = 0.3):
+    
+    #ts_fr,Is_fr,Qs_fr=read_data_live(ts_file,
+    #                                 channels=channels)
+    fs=512e6/data_rate      
+    truncate = int(cadence * fs)
+
+
+    f = h5py.File(ts_file, "r", libver='latest', swmr=True)    
+    
+    
+    ts_fr = np.asarray(f['/time_ordered_data/timestamp'][-truncate:])
+    Is_fr = f['/time_ordered_data/adc_i'][:,-truncate:]
+    Qs_fr = f['/time_ordered_data/adc_q'][:,-truncate:]
+    
+    #Is_fr = Is_fr_all[channels,:]
+    #Qs_fr = Qs_fr_all[channels,:]
+    
+    #Is_fr = f['/time_ordered_data/adc_i'][channels,-truncate:]
+    #Qs_fr = f['/time_ordered_data/adc_q'][channels,-truncate:]
+
+    
+
+    ts_len = len(ts_fr)
+    Is_len = Is_fr.shape[1]
+    Qs_len = Qs_fr.shape[1]
+
+    print(f'ts len orig: {ts_fr.shape}')
+    print(f'Is len orig: {Is_fr.shape}')
+    print(f'Qs len orig: {Qs_fr.shape}')
+
+    mlen = int(min([ts_len, Is_len, Qs_len]))
+    print(f'mlen: {mlen}')
+
+    #mlen = min(map(len, [ts_fr, Is_fr[0][:], Qs_fr[0][:]]))
+    print(mlen)
+
+    ts_trunc = deepcopy(ts_fr[:mlen])
+    Is_trunc = deepcopy(Is_fr[:][:mlen])
+    Qs_trunc = deepcopy(Qs_fr[:][:mlen])
+
+    print(f't shape: {ts_trunc.shape}')
+    print(f'I shape: {Is_trunc.shape}')
+    print(f'Q shape: {Qs_trunc.shape}')
+
+   
+    #fs=512e6/data_rate  
+    
+    #truncate = int(cadence * fs)
+    #ts_fr = np.arange(Is_fr.shape[1])/fs
+    
+    #stop_idx = np.min([len(ts_fr), Is_fr.shape[1], Qs_fr.shape[1]])
+    #input(f'{len(ts_fr)}, {len(Is_fr)}, {len(Qs_fr)}')
+
+    #ts_fr = ts_fr[-truncate:stop_idx]
+    #input(ts_fr)
+
+    #Is_fr = Is_fr[:][-truncate:stop_idx]
+    #input(Is_fr)
+
+    #Qs_fr = Qs_fr[:][-truncate:stop_idx]   
+    #input(Qs_fr)
+
+    IQ_stream_rm=remove_delay_timestream(Is_trunc+1j*Qs_trunc,channel_freqs,delay)
+
+    print(f'IQ stream rm: {IQ_stream_rm.shape}')
+    
+    data_cal=get_phase(IQ_stream_rm,calibration) 
+
+    print(f'data cal: {data_cal.shape}')  
+        
+    t_start=0
+    t_stop= int(cadence/2)*2
+        
+    t0 = np.array([mea_reset_t0(ts_fr[int(fs)*t_start:int(fs)*t_stop],
+                                data_cal[current_channel,int(fs)*t_start:int(fs)*t_stop],
+                                f_sawtooth,plot=False)
+                   for current_channel in range(len(data_cal))])
+
+    t0_med = np.nanmedian(t0)
+    
+    start_idx = find_nearest_idx(ts_fr-ts_fr[0], t0_med)
+    
+    ch_count = 0
+    data_demods = np.array([])
+    #for chan in range(data_cal.shape[0]):
+    for chan in channels:
+
+        #print(f'len t to demod: {len(ts_fr)}')
+        #print(f'len data to demod: {len(data_cal[chan])}')
+
+        print(f'shape t plug: {ts_fr.shape}')
+        print(f'shape data plug: {data_cal.shape}')
+
+        #t_demod, data_demod = demodulate_with_template(t=ts_fr, sig = data_cal[chan], n_packets = 32, correct_phase_jumps = True, phase_jump_threshold=0.4)
+        #t_demod, data_demod = demodulate_with_fft_internal_fr(t=ts_fr, sig = data_cal[chan], n_packets = 32, correct_phase_jumps = True, phase_jump_threshold=0.4)#,start_idx=start_idx)
+        t_demod, data_demod, reset_indices = demodulate_with_fft(t=ts_fr,
+                                                                 sig=data_cal[chan],
+                                                                 start_index=start_idx,                                                                      
+                                                                 f_fr=f_sawtooth,
+                                                                 phase_units='nPhi0',
+                                                                 correct_phase_jumps=correct_phase_jumps,
+                                                                 phase_jump_threshold=threshold,
+                                                                 plot_demod = False,
+                                                                 plot_demod_title=None,
+                                                                 intermediate_plotting_limits=[None,None],
+                                                                 plot_chunking_process = False,
+                                                                 plot_fft = False,
+                                                                 plot_fft_no_dc = False,
+                                                                 plot_limited_fft = False,
+                                                                 plot_fit = False,
+                                                                 plot_vectors = False)
+        
+        
+        print(f'len data_demod: {len(data_demod)}')
+        print(f'shape data_demods: {data_demods.shape}')
+
+
+
+
+        #data_demod = data_demod[:150]
+        #t_demod = t_demod[:150]
+        
+        if ch_count == 0:
+            data_demods = data_demod        
+        else:
+            data_demods = np.vstack([data_demods, np.array(data_demod)])
+        
+        t_demods = t_demod
+        ch_count += 1
+
+        print(f'data demods in loop: {data_demods}')
+        
+    return t_demods, data_demods
     
 
 def main():
@@ -1972,3 +2552,30 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+
+"""
+        elif ch_count == 1:
+            len_data_demod = len(data_demod)
+            if len_data_demod > len(data_demods):
+                print('triggered 1')
+                data_demod = data_demod[:len(data_demods)]
+            elif len_data_demod < len(data_demods):
+                diff = np.abs(len_data_demod - len(data_demods))
+                nan_append = np.empty((1,diff))
+                nan_append[:] = 0
+                data_demod = np.append([data_demod,nan_append])
+            data_demods = np.vstack([data_demods, np.array(data_demod)])
+        else:
+            len_data_demod = len(data_demod)
+            if len_data_demod > data_demods.shape[1]:
+                print('triggered 2')
+                data_demod = data_demod[:data_demods.shape[1]]
+            elif len_data_demod < data_demods.shape[1]:
+                diff = np.abs(len_data_demod = data_demods.shape[1])
+                nan_append = np.empty((1,diff))
+                nan_append[:] = 0
+                data_demod = np.append([data_demod, nan_append])
+            data_demods = np.vstack([data_demods, np.array(data_demod)])
+        """
