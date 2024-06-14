@@ -399,12 +399,69 @@ def demodulate(t, sig, n_Phi0, f_sawtooth, plot = True, plot_len = None):
         plt.show()
         
     return slow_t, slow_TOD
-"""        
+"""   
+
+
+def demodulate_for_iv(t, sig, n_Phi0, n, f_sawtooth, fs=512e6/(2**20)):
+    #chunksize = len(sig) / t[len(t)-1] / f_sawtooth
+    #n_chunks = int(len(t)//chunksize)
+    period=1/f_sawtooth
+    n_chunks=int(t[-1]/period)  
+    slow_t = []
+    slow_TOD = []
+    for ichunk in range(n_chunks):
+        t_start =period*ichunk+n/fs
+        t_stop = period*(ichunk+1)-n/fs
+        sig_chunk=sig[np.where((t>t_start)&(t<t_stop))]
+        t_chunk=t[np.where((t>t_start)&(t<t_stop))]
+        if t_chunk.shape[0]==0:
+            continue
+        t_diff=np.diff(t_chunk)
+        t_diff=np.insert(t_diff, 0, 0)
+        #print (t_chunk.shape)
+        #print (t_diff.shape)
+        t_chunk_sel=t_chunk[(t_diff >= 1./fs*0.8) & (t_diff <= 1./fs*1.2)]
+        sig_chunk_sel=sig_chunk[(t_diff >= 1./fs*0.8) & (t_diff <=1./fs*1.2)]
+        if t_chunk_sel.shape[0]<10:
+            continue
+        else:
+            num = np.sum(sig_chunk_sel*np.sin(2*np.pi*n_Phi0*f_sawtooth*(t_chunk_sel-t_chunk_sel[0])))
+            den = np.sum(sig_chunk_sel*np.cos(2*np.pi*n_Phi0*f_sawtooth*(t_chunk_sel-t_chunk_sel[0])))
+            slow_TOD.append(np.arctan2(num, den))
+            slow_t.append((t_start+t_stop)/2)
+    
+    
+    #slow_t = slow_t[~np.isnan(slow_TOD)]
+    #slow_TOD = np.unwrap(slow_TOD[~np.isnan(slow_TOD)])
+    slow_t=np.array(slow_t)
+    slow_TOD=np.array(slow_TOD)
+    slow_TOD /= 2*np.pi # convert to Phi0
+    #slow_TOD -= np.average(slow_TOD) # DC subtract
+    #print(np.isnan(slow_TOD))
+    
+    """
+    if plot == True:
+        plt.plot(slow_t,slow_TOD,'.')
+        plt.vlines(ts_start,0,0.4)
+        print (range(ichunk))
+        plt.xlabel('Time (s)')
+        plt.ylabel('Amplitude (arb.)')
+        #plt.legend(loc='upper right')
+        plt.title('Reconstructed Signal')
+        plt.show()
+    """
+        
+    return slow_t, slow_TOD
+
+
+
 def linear_model(x,m,b):
     return m*x+b
 
 def demodulate_with_fft(t,sig,start_index,f_fr,phase_units='rad',correct_phase_jumps=False,phase_jump_threshold=0,plot_demod = False,plot_demod_title=None,intermediate_plotting_limits=[None,None],plot_chunking_process = False,plot_fft = False,plot_fft_no_dc = False,plot_limited_fft = False,plot_fit = False,plot_vectors = False):
-    
+    print(f'shape sig: {sig.shape}')
+    print(f'len t: {len(t)}')
+
     if intermediate_plotting_limits[0] == None:
         intermediate_plotting_limits[0] = t[0]
     if intermediate_plotting_limits[1] == None:
@@ -447,6 +504,8 @@ def demodulate_with_fft(t,sig,start_index,f_fr,phase_units='rad',correct_phase_j
         #ax1.set_title(f'Ch. {ch}')
 
     #interpolate the data
+    print(f'len t_fr_start: {len(t_fr_start)}')
+    print(f'len sig_fr_start: {len(sig_fr_start)}')
     interpolation = interp1d(t_fr_start, sig_fr_start,fill_value='extrapolate')
 
         
@@ -1159,10 +1218,10 @@ def remove_delay_live(target_sweeps,delay,channels=[0]):
 def remove_delay_timestream(stream,f0s,delay):
     stream_rm=np.zeros((f0s.shape[0],stream.shape[1]),dtype = 'complex_')
     for i in range(f0s.shape[0]):
-        print(delay)
-        print(f0s)
+        #print(delay)
+        #print(f0s)
         delay_fac=np.exp(1j*2*np.pi*f0s[i]*delay)
-        print(delay_fac)
+        #print(delay_fac)
         stream_rm[i,:]=stream[i]*delay_fac
     return stream_rm
 
@@ -1344,14 +1403,106 @@ def find_freqs_cable_delay_subtraction(initial_lo_sweep,target,n_freq):
     f_end=xfinite[idgt[0]+n_freq]
 
 
-    fig_test, ax_test = plt.subplots(1)
-    ax_test.plot(xfinite,yfinite)
-    ax_test.plot(x[idgt[0]:idgt[0]+n_freq], y[idgt[0]:idgt[0]+n_freq])
+    #fig_test, ax_test = plt.subplots(1)
+    #ax_test.plot(xfinite,yfinite)
+    #ax_test.plot(x[idgt[0]:idgt[0]+n_freq], y[idgt[0]:idgt[0]+n_freq])
    
     return f_start, f_end
 
 
+def full_demod_process_live(ts_fr, Is_fr, Qs_fr, fs, f_sawtooth, use_channels, length, correct_phase_jumps, phase_jump_threshold, delays, calibration, tone_freqs, start_time):
 
+    #read last 10s of data
+    #truncate = int(length * fs)
+
+    
+
+    print(f'ts_fr[0]: {ts_fr[0]}')
+
+
+    ts_len = len(ts_fr)
+    Is_len = Is_fr.shape[1]
+    Qs_len = Qs_fr.shape[1]
+
+    print(f'len ts: {ts_len}')
+    #print(f'len Is_fr: {Is_len}')
+    #print(f'len Qs_fr: {Qs_len}')
+
+    #Make all arrays the same length
+    mlen = int(min([ts_len, Is_len, Qs_len]))
+
+    #print(f'mlen: {mlen}')
+
+    ts_trunc = ts_fr[:mlen]
+    Is_trunc = Is_fr[:][:mlen]
+    Qs_trunc = Qs_fr[:][:mlen]
+
+    #print(f'len(ts_trunc): {len(ts_trunc)}')
+    #print(f'len(Is_trunc): {Is_trunc.shape[1]}')
+
+    #fix ts
+    #ts_trunc = np.array([time + ts_trunc[0] - start_time for time in np.arange(Is_trunc.shape[1])/fs])
+    ts_trunc = np.arange(Is_trunc.shape[1])/fs
+
+    #print(f'len ts_trunc after fix: {len(ts_trunc)}')
+
+    #remove cable delay
+    IQ_stream_rm=remove_delay_timestream(Is_trunc+1j*Qs_trunc,tone_freqs,np.median(delays))
+    #print(f'shape IQ_stream_rm: {IQ_stream_rm.shape}')
+
+    #apply calibration
+    data_cal=get_phase(IQ_stream_rm,calibration)
+    #print(f'shape data_cal: {data_cal.shape}')
+
+
+    #find t0 for all channels
+    t0_array = np.array([])
+    t_start = 0
+    t_stop = length
+    for current_channel in range(len(data_cal)):
+        t0 = mea_reset_t0(ts_trunc[488*t_start:488*t_stop],data_cal[current_channel,488*t_start:488*t_stop],f_sawtooth,plot=False)
+        #ts_freq = 1/np.nanmedian(np.diff(ts_fr))
+        #t0 = mea_reset_t0(ts_fr[ts_freq*t_start:ts_freq*t_stop],data_cal[current_channel,ts_freq*t_start:ts_freq*t_stop],f_sawtooth,plot=False)
+        t0_array = np.append(t0_array,t0)
+
+    t0_med = np.nanmedian(t0_array)
+    start_idx = find_nearest_idx(ts_trunc-ts_trunc[0], t0_med)
+    #print(f'start_idx: {start_idx}')
+
+    #demodulate requested channels
+    counter = 0
+    #print(f'use_channels: {use_channels}')
+    for channel in use_channels:
+        print(f'channel: {channel}')
+        t_demod, data_demod, reset_indices = demodulate_with_fft(t=ts_trunc,
+                                                                sig=data_cal[channel],
+                                                                start_index=start_idx,                                                                      
+                                                                f_fr=f_sawtooth,
+                                                                phase_units='nPhi0',
+                                                                correct_phase_jumps=correct_phase_jumps,
+                                                                phase_jump_threshold=phase_jump_threshold,
+                                                                plot_demod = False,
+                                                                plot_demod_title=None,
+                                                                intermediate_plotting_limits=[None,None],
+                                                                plot_chunking_process = False,
+                                                                plot_fft = False,
+                                                                plot_fft_no_dc = False,
+                                                                plot_limited_fft = False,
+                                                                plot_fit = False,
+                                                                plot_vectors = False)
+        if counter == 0:
+            data_demod_stacked = data_demod
+        else:
+            data_demod_stacked = np.vstack([data_demod_stacked, data_demod])
+    
+        counter += 1
+
+
+    #return demoded data
+    #print(f'len t_demod: {len(t_demod)}')
+    #print(f'shape data_demod_stacked: {data_demod_stacked.shape}')
+
+    return t_demod, data_demod_stacked
 
 
 
@@ -1456,7 +1607,7 @@ def full_demod_process(ts_file, f_sawtooth, method = 'fft', correct_phase_jumps 
     
     #demod
     
-    if method == 'simple':
+    if method == 'simple' or method =='iv':
         t_demods=[]
         data_demods=[]
     elif method == 'fft':
@@ -1467,6 +1618,12 @@ def full_demod_process(ts_file, f_sawtooth, method = 'fft', correct_phase_jumps 
     print(f'start index: {start_idx}')
     if display_mode == 'notebook':
         for chan in tqdm_notebook(range(data_cal.shape[0])):#np.arange(225,230,1):#range(data_cal.shape[0]):
+            if method == 'iv':
+                t_demod, data_demod = demodulate_for_iv(ts_fr[start_idx:]-ts_fr[start_idx], data_cal[chan, start_idx:], n_phi0, 3,f_sawtooth)
+            
+                t_demods.append(t_demod)
+                data_demod_unwrap=np.unwrap(data_demod,period=1)
+                data_demods.append(data_demod_unwrap)
             if method == 'simple':
                 t_demod, data_demod, reset_indices = demodulate(ts_fr[start_idx:]-ts_fr[start_idx],
                                                                 data_cal[chan, start_idx:],
@@ -1663,38 +1820,39 @@ def detect_zero_and_fill(array):
     array_new = f(xnew)
     return array_new
 
-"""
+
 def IV_correction(resps):
-    """"""
+    """
     This function smooth the IV curve and then find the normal and superconducting point
     it will then try to correct the jump caused by unwrapping large Ites changes with current Ibias resolution
-    """ """
+    """
     #only getting Al TES normal point
     peaks_nb,_=find_peaks(0-resps,width=20)
     smooth=savgol_filter(resps, resps.shape[0], 10)
     smooth=detect_zero_and_fill(smooth)
     dd=np.diff(np.diff(smooth))
-    """"""
+    ind_sc=np.argmin(dd)+2
+    """
     if len(peaks_nb)==0 or peaks_nb[0]<30:
         return np.zeros(resps.shape[0])
-    """"""
+    """
     peak_nb=peaks_nb[0]
     #here we know that before peaks_nb[0] and after peak_sc the Ites is monotonic 
     resps_nb=resps[2:int(peak_nb-10)]
-    resps_sc=resps[int(peaks_sc[0]+10):-10]
+    resps_sc=resps[int(ind_sc[0]+10):-10]
     resps_cor=np.zeros(resps.shape[0])
     resps_cor_acc=np.zeros(resps.shape[0])
     for i in range(resps.shape[0]):
         if i>=2 and i<peak_nb-10 and resps[i]-resps[i-1]>0.5:
             resps_cor[i]=-9
-        if i>= peak_sc+10 and i<resps.shape[0]-5 and resps[i]-resps[i-1]>0.5:
+        if i>= ind_sc+10 and i<resps.shape[0]-5 and resps[i]-resps[i-1]>0.5:
             resps_cor[i]=-9
     for i in range(resps.shape[0]):
         if i>0:
             resps_cor_acc[i]=np.sum(resps_cor[:i+1])
     resps_corr=resps+resps_cor_acc
-    return resps_corr, peaks_sc[0]
-"""
+    return resps_corr, ind_sc
+
 
     
 def IV_correction_median(resps, peak_nb, peak_sc):
@@ -1737,17 +1895,17 @@ def find_transition_points(resps):
         return peak_nb, peak_sc
 
 
-def IV_analysis_ch_duo(bias_currents,resps,peak_nb,peak_sc,Rsh=0.4,filter_Rn_Al=False,plot='None'):
+def IV_analysis_ch_duo(bias_currents,resps,Rsh=0.4,filter_Rn_Al=False,plot='None'):#(bias_currents,resps,peak_nb,peak_sc,Rsh=0.4,filter_Rn_Al=False,plot='None'):
     """
     This method correct the SC and normal region for jump phi0 issue, and then fit for TES parameters
     Outputs:
     dataframe containing timestream of Ites,Rtes,Vtes,Rn_almn,Rn_al
     """ 
-    #peaks_nb,_=find_peaks(0-resps,width=20)
+    peaks_nb,_=find_peaks(0-resps,width=20)
     max_ites=np.max(resps)
     min_ites=np.min(resps)
-    #if len(peaks_nb)==0 or peaks_nb[0] < 30 or max_ites-min_ites<20:
-    if max_ites-min_ites<20:
+    if len(peaks_nb)==0 or peaks_nb[0] < 30 or max_ites-min_ites<20:
+    #if max_ites-min_ites<20:
         Rn_almn=np.nan
         Rn_al=np.nan
         Rtes=np.ones(bias_currents.shape[0])*np.nan
@@ -1757,9 +1915,9 @@ def IV_analysis_ch_duo(bias_currents,resps,peak_nb,peak_sc,Rsh=0.4,filter_Rn_Al=
         Pbias=np.ones(bias_currents.shape[0])*np.nan
         resps_correct=np.ones(bias_currents.shape[0])*np.nan
     else:   
-        #peak_nb=peaks_nb[0]
-        #resps_correct,peak_sc=IV_correction(resps)
-        resps_correct=IV_correction_median(resps,peak_nb,peak_sc)
+        peak_nb=peaks_nb[0]
+        resps_correct,peak_sc=IV_correction(resps)
+        #resps_correct=IV_correction_median(resps,peak_nb,peak_sc)
         resps_nb=resps_correct[2:int(peak_nb-10)]
         resps_sc=resps_correct[int(peak_sc+20):-10]
         bias_nb=bias_currents[2:int(peak_nb-10)]
@@ -1847,7 +2005,7 @@ def IV_analysis_ch_duo(bias_currents,resps,peak_nb,peak_sc,Rsh=0.4,filter_Rn_Al=
     return Rn_almn,Rn_al,Rtes,Vtes,Ites,bps,Pbias,resps_correct    
 
     
-def full_iv_process(iv_file,f_sawtooth,demod_method='simple',Rsh=0.4,iv_path = '/home/matt/alicpt_data/IV_data', filter_Rn_Al=False, plot='None'):
+def full_iv_process(iv_file,f_sawtooth,demod_method='iv',Rsh=0.4,iv_path = '/home/matt/alicpt_data/IV_data', filter_Rn_Al=False, plot='None'):
     """
     wrapper examining all IV curves from a dataset
     """
@@ -1886,24 +2044,24 @@ def full_iv_process(iv_file,f_sawtooth,demod_method='simple',Rsh=0.4,iv_path = '
     Pbias_list = []
     resps_correct_list = []
     
-    peak_nb_array = np.array([])
-    peak_sc_array = np.array([])
-    for ch in tqdm_notebook(range(data_demods_bin.shape[0])):
-        peak_nb, peak_sc = find_transition_points(data_demods_bin[ch])
-        peak_nb_array = np.append(peak_nb_array, peak_nb)
-        peak_sc_array = np.append(peak_sc_array, peak_sc)
+    #peak_nb_array = np.array([])
+    #peak_sc_array = np.array([])
+    #for ch in tqdm_notebook(range(data_demods_bin.shape[0])):
+    #    peak_nb, peak_sc = find_transition_points(data_demods_bin[ch])
+    #    peak_nb_array = np.append(peak_nb_array, peak_nb)
+    #    peak_sc_array = np.append(peak_sc_array, peak_sc)
     
-    print(f'peak_nb_array: {peak_nb_array}')
-    peak_nb_median = np.nanmedian(peak_nb_array)
-    print(f'peak_nb_median: {peak_nb_median}')
-    peak_sc_median = np.nanmedian(peak_sc_array)
-    print(f'peak_sc_median: {peak_sc_median}')
+    #print(f'peak_nb_array: {peak_nb_array}')
+    #peak_nb_median = np.nanmedian(peak_nb_array)
+    #print(f'peak_nb_median: {peak_nb_median}')
+    #peak_sc_median = np.nanmedian(peak_sc_array)
+    #print(f'peak_sc_median: {peak_sc_median}')
 
     for ch in tqdm_notebook(range(data_demods_bin.shape[0])):
         Rn_almn_ch,Rn_al_ch,Rtes_ch,Vtes_ch,Ites_ch,bps_ch,Pbias_ch,resps_correct_ch = IV_analysis_ch_duo(bias_currents[:,1],
                                                                                                           data_demods_bin[ch], 
-                                                                                                          peak_nb=peak_nb_median,
-                                                                                                          peak_sc=peak_sc_median,
+                                                                                                          #peak_nb=peak_nb_median,
+                                                                                                          #peak_sc=peak_sc_median,
                                                                                                           Rsh=0.4,
                                                                                                           filter_Rn_Al=filter_Rn_Al, 
                                                                                                           plot=plot)
