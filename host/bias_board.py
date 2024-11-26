@@ -258,10 +258,12 @@ class Bias:
 
         potvalue = self.si.get_wiper(2, wiper)
 
-        MAXITER = 275
+        MAXITER = 100#275
         i = 0
+        counter = 0
         while 1:
-            if i > 512:
+            print(f'counter={counter}')
+            if counter > MAXITER:
                 print(f"|ERROR| loop exceeded {MAXITER}")
                 break
             vals = np.zeros(10)
@@ -289,6 +291,7 @@ class Bias:
                 potvalue -= 1
                 self.si.set_wiper(2, wiper, potvalue)
             i += 1
+            counter += 1
 
     def vLNA_G(self, lna, voltage):
         """Adjusts V(out) for LNA Gate.

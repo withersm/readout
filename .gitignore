@@ -9,3 +9,4 @@ onr/
 *.log
 host/params
 -checkpoint.ipynb
+*.ipynb_checkpoints*
