@@ -355,14 +355,15 @@ class kidpy:
         # Differentiate 5009's connected to the system
         print("Connecting to Transceiver")
         self.udx1 = transceiver.Transceiver()
-        self.udx1.connect("/dev/IFSLICE2")
+        self.udx1.connect("/dev/ttyACM0")
         self.udx1.set_synth_out(default_f_center)
         # for v in self.__ValonPorts:
         #    self.valon = valon5009.Synthesizer(v.replace(' ', ''))
 
         print("Connecting to bias board")
-        self.bias = bias_board.Bias("/dev/BIASBOARD")
-
+        #self.bias = bias_board.Bias("/dev/BIASBOARD")
+        self.bias = bias_board.Bias("/dev/ttyACM0")
+        
         self.__udp = udpcap.udpcap()
         self.current_waveform = []
         self.current_amplitude = []
@@ -664,12 +665,15 @@ class kidpy:
                     exit()
             if opt == 999999:
                 pass
-            
+           
+            if opt == 100:
+                print(self.__accum_length)
+
             if opt == 0: #set attenuation
                 try:
                     new_atten_in = input('Set input attenuation (dB): ')
                 except ValueError:
-                    print("Error, not a valid number.")
+                    print("Error, not a validlo_sweep_manual_fcenter_5100.0_20250129141620 number.")
                 except KeyboardInterrupt:
                     return
                 atten_in = self.udx1.set_rf_in(new_atten_in)

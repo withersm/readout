@@ -53,6 +53,7 @@ def sweep(loSource: transceiver.Transceiver, udp, f_center, freqs, accum_length 
         # loSource.set_frequency(valon5009.SYNTH_B, lofreq+0.000001)
         loSource.set_synth_out(lofreq)
         print(lofreq)
+        #time.sleep(0.5)#input()#time.sleep(0.1)
         # actual_los.append(loSource.get_frequency(valon5009.SYNTH_B))
         # Read values and trash initial read, suspecting linear delay is cause..
         if accum_length == (2**16 - 1):
@@ -61,6 +62,7 @@ def sweep(loSource: transceiver.Transceiver, udp, f_center, freqs, accum_length 
         elif accum_length == (2**19 - 1):
             Naccums = 50
         I, Q = [], []
+        #for i in range(int(Naccums)):
         for i in range(int(Naccums/5)):#range(10):  # toss 10 packets in the garbage
             udp.parse_packet()
 
@@ -153,7 +155,7 @@ def plot_sweep(s21: str):
     sweep_Z = np.concatenate(data[1])
     # ftones = data[0][0]
     # sweep_Z = data[1][0]
-    mag = 20 * np.log10(np.abs(sweep_Z))
+    mag = 10 * np.log10(np.abs(sweep_Z)/np.max(sweep_Z))
 
     plt.figure(figsize=(14, 8))
     plt.plot(ftones, mag.real)

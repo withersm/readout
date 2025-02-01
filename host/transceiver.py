@@ -28,6 +28,7 @@ description: Implements a serial interface for the ASU Transceiver project
 
 from serial import Serial
 import time
+from Valon5009 import Valon5009
 
 
 class Transceiver(object):
@@ -40,6 +41,7 @@ class Transceiver(object):
         self.pfd = 0.0
         self.rf_in = -100
         self.rf_out = -100
+        self.valon = Valon5009("/dev/ttyUSB4")
 
     def connect(self, device: str) -> None:
         self.channel = Serial()
@@ -168,6 +170,11 @@ class Transceiver(object):
             raise ConnectionError("Unable to connect to Transceiver")
 
     def set_synth_out(self, val):
+        #note: this was changed at ASU to hack on the valon; will need to revert back to the original code
+        self.valon.set_frequency(2, val)
+        return self.valon.get_frequency(2)
+        
+        """
         if self.check_connection():
             # Set synth_out
             temp = self.synth_out
@@ -186,6 +193,14 @@ class Transceiver(object):
             return self.get_synth_out()
         else:
             raise ConnectionError("Unable to connect to Transceiver")
+
+
+
+        """
+
+
+
+
 
     def get_rf_in(self):
         if self.check_connection():
