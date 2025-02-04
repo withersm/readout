@@ -37,6 +37,7 @@ import transceiver
 import bias_board
 import calibration as cal
 import serial
+from scipy.fft import fft, ifft, fftfreq
 
 # from datetime import date
 # from datetime import datetime
@@ -728,11 +729,11 @@ class kidpy:
         return t_override, I_rotated_2, Q_rotated_2
     
     
-    def build_demod_lut(t, I_rotated_2, Q_rotated_2, save = False):
+    def build_demod_lut(self, t, I_rotated_2, Q_rotated_2, save = False):
         
         Z_rotated_2 = I_rotated_2 + 1j*Q_rotated_2
         
-        idx_start = find_start_idx_internal_fr(t, mag[10], 32) #TODO: 14; hard coding ch 10 for testing purposes only
+        idx_start = dm.find_start_idx_internal_fr(t, np.abs(Z_rotated_2[10]), 32) #TODO: 14; hard coding ch 10 for testing purposes only
         
         #set to start
         t_correct_start = t[idx_start:]
@@ -740,6 +741,7 @@ class kidpy:
         Q_correct_start = Q_rotated_2[:,idx_start:]
         
         #fix length so that data stream is an integer multiple of the number of packets (i.e., 32 for this test)
+        _, num_packets = self.read_pmod()
         int_len = int(len(t_correct_start) / num_packets) * num_packets
         
         #truncate
@@ -751,7 +753,11 @@ class kidpy:
         t_stack = np.reshape(t_trunc, (int(len(t_trunc)/num_packets),num_packets))
         I_stack = np.reshape(I_trunc, (len(I_trunc),int(np.shape(I_trunc)[1]/num_packets),num_packets))
         Q_stack = np.reshape(Q_trunc, (len(Q_trunc),int(np.shape(Q_trunc)[1]/num_packets),num_packets))
-        Z_stack = I_stack + 1j*Q_stack
+        
+        #average stacks
+        I_averaged_stacks = np.mean(I_stack, axis=1)
+        Q_averaged_stacks = np.mean(Q_stack, axis=1)
+        Z_averaged_stacks = I_averaged_stacks +1j*Q_averaged_stacks
         
         #TODO: will want to zero pad for better freq resolution here
         
@@ -765,6 +771,7 @@ class kidpy:
         
         #build LUT
         t_LUT = np.arange(0,512,1)
+        max_fft_idx = np.argmax(np.abs(fourier_transform),axis=1)
         table_freqs = np.abs(freqs[max_fft_idx])
         table_values = np.exp(-1j*(2*np.pi*table_freqs*32/512)*t_LUT[:, np.newaxis]) #amplitude the same, clk division changes from 32 to 1; ω goes up by factor of 32
         table_values = np.transpose(table_values)
