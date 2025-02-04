@@ -505,6 +505,17 @@ class kidpy:
         else:
             log.error("The rfsoc didn't return back our data")
             return None
+
+    def get_last_plist(self):
+        log = logger.getChild("kidpy.get_last_plist")
+        cmd = json.dumps({"cmd": "get_last_plist", "args": []})
+        self.r.publish("picard", cmd)
+        status, data = wait_for_reply(self.p, "teg_last_plist", 2)
+        if status:
+            return np.array(data)
+        else:
+            log.error("The rfsoc didn't return back our data")
+            return None
         
     def configure_pmod(self, clock_divisor, n_packets):
    
@@ -668,6 +679,83 @@ class kidpy:
            
             if opt == 100:
                 print(self.__accum_length)
+
+            if opt = 199: #test option to build demod ddc table from most recently colleted ts
+
+            if opt == 200: #test option to collect data with flux ramp demod (via ddc table) activated
+                
+                #turn on new ddc lookup table
+               
+                demodLUT = np.load('./demod_lut.npy')
+                
+                print(f'{self.__saveData}/tone_initializations/{self.__dataTag}/freq_list_lo_sweep_targeted_1_')
+
+                #files = glob.glob(f'{self.__saveData}/tone_initializations/{self.__dataTag}/freq_list_lo_sweep_targeted_1_*')
+
+                #freqs = np.load(files[0])
+
+                print(f"demodLUT: {demodLUT}")
+                #print(files)
+                #print(f"freqs: {freqs}")
+                #print(np.abs(freqs).tolist())
+
+                
+
+                cmd = {"cmd": "changeDDC", "args": [np.real(demodLUT).tolist(), 
+                                                    np.imag(demodLUT).tolist()]
+                       }
+                       #np.abs(freqs).tolist()]}
+                cmdstr = json.dumps(cmd)
+                self.r.publish("picard", cmdstr)
+                self.r.set("status", "busy")
+                print("Waiting for the RFSoC to change its ddc lookup tables.")
+                if wait_for_free(self.r, 0.75, 25):
+                    print("Done")
+                """
+                t_length = 0
+                try:
+                    t_length = int(input("How many seconds of data?: [0] for continuous data taking: "))
+                    print(t_length)
+                    if t_length == 0:
+                        print("Starting continuous data taking... Press [y]+ENTER to stop...\n")
+                except ValueError:
+                    print("Error, not a valid Number")
+                except KeyboardInterrupt:
+                    return
+                
+                def data_taking_fn(t_length):
+                    # once this function returns, the data taking will stop
+                    # :t_length data taking length in unit of [seconds]
+                    # if t_length <= 0: the data taking will stop with [y]+ENTER
+                    # if t_length  > 0: the function run the sleep function
+                    if t_length <= 0:
+                        while True:
+                            trigger = str(input("Do you wish to stop data taking?:[y]"))
+                            if trigger =='y':
+                                return
+                    else:
+                        time.sleep(t_length)
+                
+                f = self.get_last_flist()
+                t = time.strftime("%Y%m%d%H%M%S")
+                rfsoc1 = data_handler.RFChannel(
+                    f"{self.__saveData}/time_streams/ts_toneinit_{self.__dataTag}_t_{t}.hd5",  #f"./ALICPT_RDF_{t}.hd5"
+                    "192.168.3.40",
+                    self.get_last_flist(),
+		            self.get_last_alist(),
+                    port=4096,
+                    name="rfsoc2",
+                    n_tones=len(f),
+                    attenuator_settings=np.array([20.0, 10.0]),
+                    tile_number=2,
+                    rfsoc_number=2,
+                    lo_sweep_filename="",
+                    lo_freq=default_f_center
+                )
+
+                udp2.capture([rfsoc1], data_taking_fn, t_length)
+            """
+
 
             if opt == 0: #set attenuation
                 try:
