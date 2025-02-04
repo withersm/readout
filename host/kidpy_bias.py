@@ -6,6 +6,7 @@
           - Ryan Stephenson
           - Philip Mauskopf
           - Jack Sayers
+          - Matthew Withers
 
 kidpy is where users can interact with the mkid readout system. Simply launch with
 .. codeblock::
@@ -332,6 +333,7 @@ class kidpy:
         self.__valon_RF1_SYS1 = config["VALON"]["rfsoc1System1"]
         self.__accum_length = 2**19 - 1#int(config["DATARATE"]["accum_length"])
         self.__fr_V_scaling_factor = 4.6#5.69#(3.76+3.84) / 2 #V; don't leave this hardcoded; move to config
+        self.__demod_lut = None
         #self.__dataRate = config["DATARATE"]["dataRate"]
         # setup redis
         self.r = redis.Redis(self.__redis_host)
@@ -642,10 +644,147 @@ class kidpy:
         print('Note: To take effect, tones need to be reset. FR has been disabled for safety since it depends on the new data rate. Please restart it if needed.')
 
         return
-
+    
+    def get_theta(self,I,Q):
+        deltaQ = Q - np.mean(Q)
+        deltaI = I - np.mean(I)
         
+        alpha = np.mean(deltaQ * deltaI) / np.mean(deltaI * deltaI)
+        
+        theta = np.arctan(alpha)
+    
+        return theta, alpha
+    
+    
+    def rotate_ts_IQ(self,datafile):
+        t, I, Q = dm.read_data(datafile)
+        t_override = np.linspace(0,t[0],len(I[0])) #temporary override of t vector because of data bunching issue
+        
+        theta_array = np.array([])
+        alpha_array = np.array([])
+        for i in range(len(I)):
+            theta, alpha = self.get_theta(I[i], Q[i])
+            #print(theta)
+            theta_array = np.append(theta_array, theta)
+            alpha_array = np.append(alpha_array, alpha)
+            
+        rotated_array = np.empty(np.shape(I[0]))
 
-   
+        for i in range(len(theta_array)):
+            if theta_array[i] > 0:
+                #print('>')
+                if alpha_array[i] > 0:
+                    rotated = (I[i] + 1j*Q[i]) * np.exp(-1j*(theta_array[i] + np.pi/4))
+                else:
+                    rotated = (I[i] + 1j*Q[i]) * np.exp(-1j*(theta_array[i] + np.pi/4 + np.pi/2))
+            elif theta_array[i] < 0:
+                #print('<')
+                if alpha_array[i] > 0:
+                    rotated = (I[i] + 1j*Q[i]) * np.exp(-1j*(theta_array[i] - np.pi/4))
+                else:
+                    rotated = (I[i] + 1j*Q[i]) * np.exp(-1j*(theta_array[i] - np.pi/4 + np.pi/2))
+            else:
+                rotated = (I[i] + 1j*Q[i])
+        
+            rotated_array = np.vstack([rotated_array, rotated])
+        
+        #print(rotated_array)
+        
+        I_rotated = np.real(rotated_array)
+        Q_rotated = np.imag(rotated_array)
+        
+        theta_2_array = np.array([])
+        alpha_2_array = np.array([])
+        for i in range(len(I)):
+            theta, alpha = self.get_theta(I_rotated[i], Q_rotated[i])
+            #print(theta)
+            theta_2_array = np.append(theta_2_array, theta)
+            alpha_2_array = np.append(alpha_2_array, alpha)
+        
+        
+        rotated_2_array = np.empty(np.shape(I[0]))
+        
+        for i in range(len(theta_array)):
+            if theta_2_array[i] > 0:
+                #print('>')
+                if alpha_2_array[i] > 0:
+                    rotated = (I_rotated[i] + 1j*Q_rotated[i]) * np.exp(-1j*(theta_2_array[i] + np.pi/4))
+                else:
+                    rotated = (I_rotated[i] + 1j*Q_rotated[i]) * np.exp(-1j*(theta_2_array[i] + np.pi/4 + np.pi/2))
+            elif theta_2_array[i] < 0:
+                #print('<')
+                if alpha_2_array[i] > 0:
+                    rotated = (I_rotated[i] + 1j*Q_rotated[i]) * np.exp(-1j*(theta_2_array[i] - np.pi/4))
+                else:
+                    rotated = (I_rotated[i] + 1j*Q_rotated[i]) * np.exp(-1j*(theta_2_array[i] - np.pi/4 + np.pi/2))
+            else:
+                rotated = (I_rotated[i] + 1j*Q_rotated[i])
+        
+            rotated_2_array = np.vstack([rotated_2_array, rotated])
+        
+        I_rotated_2 = np.real(rotated_2_array)
+        Q_rotated_2 = np.imag(rotated_2_array)
+        
+        return t_override, I_rotated_2, Q_rotated_2
+    
+    
+    def build_demod_lut(t, I_rotated_2, Q_rotated_2, save = False):
+        
+        Z_rotated_2 = I_rotated_2 + 1j*Q_rotated_2
+        
+        idx_start = find_start_idx_internal_fr(t, mag[10], 32) #TODO: 14; hard coding ch 10 for testing purposes only
+        
+        #set to start
+        t_correct_start = t[idx_start:]
+        I_correct_start = I_rotated_2[:,idx_start:]
+        Q_correct_start = Q_rotated_2[:,idx_start:]
+        
+        #fix length so that data stream is an integer multiple of the number of packets (i.e., 32 for this test)
+        int_len = int(len(t_correct_start) / num_packets) * num_packets
+        
+        #truncate
+        t_trunc = t_correct_start[:int_len]
+        I_trunc = I_correct_start[:,:int_len]
+        Q_trunc = Q_correct_start[:,:int_len]
+        
+        #stack
+        t_stack = np.reshape(t_trunc, (int(len(t_trunc)/num_packets),num_packets))
+        I_stack = np.reshape(I_trunc, (len(I_trunc),int(np.shape(I_trunc)[1]/num_packets),num_packets))
+        Q_stack = np.reshape(Q_trunc, (len(Q_trunc),int(np.shape(Q_trunc)[1]/num_packets),num_packets))
+        Z_stack = I_stack + 1j*Q_stack
+        
+        #TODO: will want to zero pad for better freq resolution here
+        
+        #take fft
+        fourier_transform = fft(Z_averaged_stacks-np.mean(Z_averaged_stacks,axis=1)[:, np.newaxis])
+        print(fourier_transform)
+        
+        N = len(Z_averaged_stacks[0])
+        T = np.average(np.diff(t_stack[0]))
+        freqs = fftfreq(N, T)
+        
+        #build LUT
+        t_LUT = np.arange(0,512,1)
+        table_freqs = np.abs(freqs[max_fft_idx])
+        table_values = np.exp(-1j*(2*np.pi*table_freqs*32/512)*t_LUT[:, np.newaxis]) #amplitude the same, clk division changes from 32 to 1; ω goes up by factor of 32
+        table_values = np.transpose(table_values)
+        
+        #find inactive channels
+        average = np.mean(table_values,axis=1)
+        #print(average)
+        unique, counts = np.unique(average,return_counts=True)
+        print(dict(zip(unique, counts)))
+        inactive_channels = np.argwhere(average == 1)[:,0] #an inactive channel averages down to 1
+        
+        #remove inactive channels
+        table_values = np.delete(table_values, inactive_channels, axis=0)
+        
+        self.__demod_lut = table_values #save for easy application to other parts of the program
+        
+        if save == True:
+            np.save(f'{self.__saveData}/demod_luts/demod_lut_{self.__dataTag}_{time.strftime("%Y%m%d%H%M%S")}.npy') #TODO: will want to attach tag with ts filename
+        
+        return table_values
     
     def main_opt(self):
         log = logger.getChild(__name__)
@@ -680,38 +819,7 @@ class kidpy:
             if opt == 100:
                 print(self.__accum_length)
 
-            if opt = 199: #test option to build demod ddc table from most recently colleted ts
-
-            if opt == 200: #test option to collect data with flux ramp demod (via ddc table) activated
-                
-                #turn on new ddc lookup table
-               
-                demodLUT = np.load('./demod_lut.npy')
-                
-                print(f'{self.__saveData}/tone_initializations/{self.__dataTag}/freq_list_lo_sweep_targeted_1_')
-
-                #files = glob.glob(f'{self.__saveData}/tone_initializations/{self.__dataTag}/freq_list_lo_sweep_targeted_1_*')
-
-                #freqs = np.load(files[0])
-
-                print(f"demodLUT: {demodLUT}")
-                #print(files)
-                #print(f"freqs: {freqs}")
-                #print(np.abs(freqs).tolist())
-
-                
-
-                cmd = {"cmd": "changeDDC", "args": [np.real(demodLUT).tolist(), 
-                                                    np.imag(demodLUT).tolist()]
-                       }
-                       #np.abs(freqs).tolist()]}
-                cmdstr = json.dumps(cmd)
-                self.r.publish("picard", cmdstr)
-                self.r.set("status", "busy")
-                print("Waiting for the RFSoC to change its ddc lookup tables.")
-                if wait_for_free(self.r, 0.75, 25):
-                    print("Done")
-                """
+            if opt = 199: #test option to build demod ddc table
                 t_length = 0
                 try:
                     t_length = int(input("How many seconds of data?: [0] for continuous data taking: "))
@@ -754,7 +862,95 @@ class kidpy:
                 )
 
                 udp2.capture([rfsoc1], data_taking_fn, t_length)
-            """
+                
+                list_of_files = glob.glob(f'{self.__saveData}/time_streams/*') # * means all if need specific format then *.csv
+                latest_file = max(list_of_files, key=os.path.getctime)
+                
+                print(f'ts for demod lut construction: {latest_file}')
+                
+                t, I_rotated_2, Q_rotated_2 = self.rotate_ts_IQ(latest_file)
+                
+                demod_lut = self.build_demod_lut(t, I_rotated_2, Q_rotated_2, save = True)
+                
+                print('kidpy_bias constructed the following demod lut:\n{demod_lut}')
+
+
+            if opt == 200: #test option to collect data with flux ramp demod (via ddc table) activated
+                    
+            
+                #turn on new ddc lookup table
+               
+                #demodLUT = np.load('./demod_lut.npy')
+                
+                #print(f'{self.__saveData}/tone_initializations/{self.__dataTag}/freq_list_lo_sweep_targeted_1_')
+
+                #files = glob.glob(f'{self.__saveData}/tone_initializations/{self.__dataTag}/freq_list_lo_sweep_targeted_1_*')
+
+                #freqs = np.load(files[0])
+
+                demodLUT = self.__demod_lut                
+
+                print(f"demodLUT: {demodLUT}")
+                #print(files)
+                #print(f"freqs: {freqs}")
+                #print(np.abs(freqs).tolist())
+
+                
+
+                cmd = {"cmd": "changeDDC", "args": [np.real(demodLUT).tolist(), 
+                                                    np.imag(demodLUT).tolist()]
+                       }
+                       #np.abs(freqs).tolist()]}
+                cmdstr = json.dumps(cmd)
+                self.r.publish("picard", cmdstr)
+                self.r.set("status", "busy")
+                print("Waiting for the RFSoC to change its ddc lookup tables.")
+                if wait_for_free(self.r, 0.75, 25):
+                    print("Done")
+                
+                t_length = 0
+                try:
+                    t_length = int(input("How many seconds of data?: [0] for continuous data taking: "))
+                    print(t_length)
+                    if t_length == 0:
+                        print("Starting continuous data taking... Press [y]+ENTER to stop...\n")
+                except ValueError:
+                    print("Error, not a valid Number")
+                except KeyboardInterrupt:
+                    return
+                
+                def data_taking_fn(t_length):
+                    # once this function returns, the data taking will stop
+                    # :t_length data taking length in unit of [seconds]
+                    # if t_length <= 0: the data taking will stop with [y]+ENTER
+                    # if t_length  > 0: the function run the sleep function
+                    if t_length <= 0:
+                        while True:
+                            trigger = str(input("Do you wish to stop data taking?:[y]"))
+                            if trigger =='y':
+                                return
+                    else:
+                        time.sleep(t_length)
+                
+                f = self.get_last_flist()
+                t = time.strftime("%Y%m%d%H%M%S")
+                rfsoc1 = data_handler.RFChannel(
+                    f"{self.__saveData}/time_streams/ts_toneinit_{self.__dataTag}_t_{t}.hd5",  #f"./ALICPT_RDF_{t}.hd5"
+                    "192.168.3.40",
+                    self.get_last_flist(),
+		            self.get_last_alist(),
+                    port=4096,
+                    name="rfsoc2",
+                    n_tones=len(f),
+                    attenuator_settings=np.array([20.0, 10.0]),
+                    tile_number=2,
+                    rfsoc_number=2,
+                    lo_sweep_filename="",
+                    lo_freq=default_f_center
+                )
+
+                udp2.capture([rfsoc1], data_taking_fn, t_length)
+            
 
 
             if opt == 0: #set attenuation
