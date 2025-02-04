@@ -680,6 +680,8 @@ class kidpy:
             if opt == 100:
                 print(self.__accum_length)
 
+            if opt = 199: #test option to build demod ddc table from most recently colleted ts
+
             if opt == 200: #test option to collect data with flux ramp demod (via ddc table) activated
                 
                 #turn on new ddc lookup table
