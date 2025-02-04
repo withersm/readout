@@ -779,7 +779,7 @@ class kidpy:
         #remove inactive channels
         table_values = np.delete(table_values, inactive_channels, axis=0)
         
-        self.__demod_lut = table_values #save for easy application to other parts of the program
+        self.__demod_lut = table_values #save for easy application other parts of the program
         
         if save == True:
             np.save(f'{self.__saveData}/demod_luts/demod_lut_{self.__dataTag}_{time.strftime("%Y%m%d%H%M%S")}.npy') #TODO: will want to attach tag with ts filename
@@ -819,7 +819,7 @@ class kidpy:
             if opt == 100:
                 print(self.__accum_length)
 
-            if opt = 199: #test option to build demod ddc table
+            if opt == 199: #test option to build demod ddc table
                 t_length = 0
                 try:
                     t_length = int(input("How many seconds of data?: [0] for continuous data taking: "))
