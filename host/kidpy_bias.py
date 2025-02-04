@@ -787,9 +787,12 @@ class kidpy:
         table_values = np.delete(table_values, inactive_channels, axis=0)
         
         self.__demod_lut = table_values #save for easy application other parts of the program
-        
+         
+        start_time = time.strftime("%Y%m%d%H%M%S")
         if save == True:
-            np.save(f'{self.__saveData}/demod_luts/demod_lut_{self.__dataTag}_{time.strftime("%Y%m%d%H%M%S")}.npy') #TODO: will want to attach tag with ts filename
+            np.save(f'{self.__saveData}/demod_luts/demod_lut_{self.__dataTag}_{start_time}.npy',table_values) #TODO: will want to attach tag with ts filename
+
+            
         
         return table_values
     
@@ -825,6 +828,17 @@ class kidpy:
            
             if opt == 100:
                 print(self.__accum_length)
+
+            if opt == 198:
+                print('resetting ddc')
+                
+                cmd = {"cmd": "resetDDC", "args": []}
+                cmdstr = json.dumps(cmd)
+                self.r.publish("picard", cmdstr)
+                self.r.set("status", "busy")
+                print("Waiting for the RFSoC to change its ddc lookup tables.")
+                if wait_for_free(self.r, 0.75, 25):
+                    print("Done")
 
             if opt == 199: #test option to build demod ddc table
                 t_length = 0
@@ -879,7 +893,7 @@ class kidpy:
                 
                 demod_lut = self.build_demod_lut(t, I_rotated_2, Q_rotated_2, save = True)
                 
-                print('kidpy_bias constructed the following demod lut:\n{demod_lut}')
+                print(f'kidpy_bias constructed the following demod lut:\n{demod_lut}')
 
 
             if opt == 200: #test option to collect data with flux ramp demod (via ddc table) activated
@@ -915,6 +929,14 @@ class kidpy:
                 if wait_for_free(self.r, 0.75, 25):
                     print("Done")
                 
+                print(f'DDC updated to account for demod. New demod contibution is \n {demodLUT}')
+                
+                print('Attempting to query flist, alist, and plist to prevent future hangups. Expect RFSoC to fail to return.')
+
+                self.get_last_flist()
+                self.get_last_alist()
+                self.get_last_plist()
+                """    
                 t_length = 0
                 try:
                     t_length = int(input("How many seconds of data?: [0] for continuous data taking: "))
@@ -957,7 +979,7 @@ class kidpy:
                 )
 
                 udp2.capture([rfsoc1], data_taking_fn, t_length)
-            
+                """
 
 
             if opt == 0: #set attenuation

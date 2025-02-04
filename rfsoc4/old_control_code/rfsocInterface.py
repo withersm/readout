@@ -234,88 +234,6 @@ class rfsocInterface:
         ddcI, ddcQ = self.norm_wave(wave_ddc, max_amp=(2**13) - 1)
         return dacI, dacQ, ddcI, ddcQ, freqs, amplitudes, phases
 
-    def resetDDC(self):
-        """
-        Resets the ddc to its basic behavior (no demod, only correct for bin offsets)
-        """
-        
-        ###################
-        # CURRENT TONE DATA
-        ###################
-  
-        freqs  = self.last_flist
-        phases = self.last_plist
-        amplitudes = self.last_alist
-
-        #####################################################
-        # HARDCODED LUT PARAMS
-        #####################################################
-        addr_size = 18  # address bit width
-        channels = 2  # data points per memory address for DAC
-        fs = 1024e6  # sampling rate of D/A, FPGA fabric = fs/2
-        C = 2  # decimation factor        
-        data_p = channels * 2 ** (addr_size)  # length of timestream or length of LUT+1
-        
-        
-        ######################################################
-        # DAC Params
-        ######################################################
-        freq_res = fs / data_p  # Hz
-        fftbin_bw = 500e3  # Hz for effective bandwidth of 512MHz/1024 point fft on adc
-        
-        
-        ######################################################
-        # GENERATE LUT WAVEFORM FROM FREQ LIST
-        ######################################################
-        freqs = np.round(freqs / (freq_res)) * freq_res
-        delta = np.zeros(data_p, dtype="complex")  # empty array of deltas
-        fft_bin_nums = np.zeros(len(freqs), dtype=int)  # array of all dac bin index
-
-        for i in range(len(freqs)):
-            bin_num = np.round((freqs[i] / freq_res)).astype("int")
-            fft_bin_nums[i] = (np.round((freqs[i] / fftbin_bw / C)).astype("int")) * C
-            delta[bin_num] = np.exp(1j * phases[i]) * amplitudes[i]
-        ts = np.fft.ifft(delta)
-        
-        
-        # GENERATE DDC WAVEFORM FROM BEAT FREQS
-        f_fft_bin = fft_bin_nums * fftbin_bw
-        f_beat = freqs / C - f_fft_bin / C
-
-        ###########
-        # new DDC
-        ###########
-        wave_ddc = np.zeros(int(data_p), dtype="complex")  # empty array of deltas
-        delta_ddc = np.zeros(
-            shape=(len(freqs), 2**9), dtype="complex"
-        )  # empty array of deltas
-        beat_ddc = np.zeros(shape=(len(freqs), 2**9), dtype="complex")
-        bin_num_ddc = np.round(
-            f_beat * 2 / freq_res
-        )  # factor of 2 for half a bin width
-        
-        for i in range(len(freqs)):
-            delta_ddc[i, int(bin_num_ddc[i])] = np.exp(-1j * phases[i])
-            beat_ddc[i] = np.conj(np.fft.ifft(delta_ddc[i]))
-
-        for i in range(1024):
-            if i < len(freqs):
-                wave_ddc[i::1024] = beat_ddc[i]
-            else:
-                wave_ddc[i::1024] = 0
-
-        ddcI, ddcQ = self.norm_wave(wave_ddc, max_amp=(2**13) - 1)
-       
-        
-        # DDS SHIFT offset = 0x00, 0x08 is open
-        self.dds_shift.write(0x00, 193)  # WRITING TO DDS SHIFT
-        
-        self.load_DDS(ddcI, ddcQ)
-        
-        print("Successfully wrote the ddc")
-
-        return ddcI, ddcQ
-    
     def changeDDC(self, demodLUT):
         
         #print(freqs)
@@ -385,11 +303,6 @@ class rfsocInterface:
                 wave_ddc[i::1024] = 0
         
         ddcI, ddcQ = self.norm_wave(wave_ddc, max_amp=(2**13) - 1)
-        
-
-
-        # DDS SHIFT offset = 0x00, 0x08 is open
-        self.dds_shift.write(0x00, 193)  # WRITING TO DDS SHIFT
         
         self.load_DDS(ddcI, ddcQ)
         

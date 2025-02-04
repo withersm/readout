@@ -128,17 +128,6 @@ class Cli:
                         self.r.set("status", "free")
                         print('Done')
 
-                    elif cmd["cmd"] == "resetDDC":
-                        ddc_I, ddc_Q = self.rfsoc.resetDDC()
-                        reply = {
-                            "cmd": 'resetDDC',
-                            "status": "OK",
-                            "data": {'ddc_I': ddc_I.tolist(), 'ddc_Q': ddc_Q.tolist()}
-                        }
-                        self.r.publish("picard_reply", json.dumps(reply))
-                        self.r.set("status", "free")
-                        print('Done')
-
                     elif cmd["cmd"] == "ulWaveform":
                         if len(cmd["args"]) == 1:
                             print("Writing Full Comb")
