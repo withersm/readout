@@ -166,7 +166,7 @@ def checkBlastCli(r, p):
         count = count + 1
 
 
-def write_fList(self, fList, ampList, accum_length = 2**19 - 1):
+def write_fList(self, fList, ampList, accum_length = 2**19 - 1, demod = False, demod_filepath = ''):
     """
     Function for writing tones to the rfsoc. Accepts both numpy arrays and lists.
     :param fList: List of desired tones
@@ -189,15 +189,15 @@ def write_fList(self, fList, ampList, accum_length = 2**19 - 1):
     # Format Command based on provided parameters
     cmd = {}
     if len(f) == 0:
-        cmd = {"cmd": "ulWaveform", "args": [accum_length]}
+        cmd = {"cmd": "ulWaveform", "args": [accum_length, demod, demod_filepath_demod]}
     elif len(f) > 0 and len(a) == 0:
         a = np.ones_like(f).tolist()
-        cmd = {"cmd": "ulWaveform", "args": [f, a, accum_length]}
+        cmd = {"cmd": "ulWaveform", "args": [f, a, accum_length, demod, demod_filepath]}
     elif len(f) > 0 and len(a) > 0:
         assert len(a) == len(
             f
         ), "Frequency list and Amplitude list must be the same dimmension"
-        cmd = {"cmd": "ulWaveform", "args": [f, a, accum_length]}
+        cmd = {"cmd": "ulWaveform", "args": [f, a, accum_length, demod, demod_filepath]}
     else:
         log.error("Weird edge case, something went very wrong.....")
         return
@@ -1203,6 +1203,19 @@ class kidpy:
                 except KeyboardInterrupt:
                     return
                 
+                try:
+                    demod_state = int(input('Load demod? [0] No demod [1] Demod:'))
+                except KeyboardInterrupt:
+                    return
+                
+                if demod_state == 0:
+                    continue
+                elif demod_state == 1:
+                    try:
+                        demod_lut_filepath = input('Enter path of demod look up table: ')
+                    except KeyboardInterrupt:
+                        return
+                
                 freq_file = glob.glob(f'{init_filepath}/freq_list_lo_sweep_targeted_1_*')[0]
 
 
@@ -1216,8 +1229,10 @@ class kidpy:
 
                 lo = float(freq_file.split("_")[-2])*1e6
                 print(lo)
-                write_fList(self, farray.real - lo, [], accum_length=self.__accum_length) #turned off for testing because I'm not looking at resonators and peak locations are incredibly random
-
+                if demod_state == False:
+                    write_fList(self, farray.real - lo, [], accum_length=self.__accum_length) #turned off for testing because I'm not looking at resonators and peak locations are incredibly random
+                elif demod_state == True:
+                    write_fList(self, farray.real - lo, [], accum_length=self.__accum_length, demod=demod_state, demod_filepath=demod_lut_filepath)
 
                 self.change_data_tag(init_filepath)
                 print(f'Loaded tone initalization dir. / timestream datatag: {self.__dataTag}')

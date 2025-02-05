@@ -619,6 +619,8 @@ class rfsocInterface:
         accum_length: float,
         vna: bool = False,
         verbose: bool = False,
+        demod = False,
+        demod_filepath = ""
     ):
         """Generate a waveform from the RFSOC
 
@@ -647,8 +649,9 @@ class rfsocInterface:
                 "Write Waveform Error: Amplitudes and Frequency list must be same length"
             )
 
+        
         LUT_I, LUT_Q, DDS_I, DDS_Q, freqs, amps, phases = self._surfsUpDude(
-            bbfreq, bbamp, vna=False, verbose=verbose
+            bbfreq, bbamp, vna=False, verbose=verbose, demodDDC=demod, demodDDC_file=demod_filepath
         )
         self.load_bin_list(freqs)
         self.load_waveform_into_mem(freqs, LUT_I, LUT_Q, DDS_I, DDS_Q, accum_length)
