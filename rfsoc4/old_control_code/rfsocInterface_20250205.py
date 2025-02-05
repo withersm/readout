@@ -147,8 +147,7 @@ class rfsocInterface:
         vna: bool = False,
         verbose=False,
         demodDDC=False,
-        demod_I = None,
-        demod_Q = None
+        demodDDC_file='demux_file.npy'
     ):
         """! Generates a normalized timestream provided a frequency list
 
@@ -216,7 +215,7 @@ class rfsocInterface:
         )  # factor of 2 for half a bin width
         
         if demodDDC == True:
-            demodLUT = np.array(demod_I) + 1j*np.array(demod_Q)
+            demodLUT = np.load(demodDDC_file)
         
         for i in range(len(freqs)):
             delta_ddc[i, int(bin_num_ddc[i])] = np.exp(-1j * phases[i])
@@ -621,8 +620,7 @@ class rfsocInterface:
         vna: bool = False,
         verbose: bool = False,
         demod = False,
-        demod_I = None,
-        demod_Q = None
+        demod_filepath = ""
     ):
         """Generate a waveform from the RFSOC
 
@@ -653,7 +651,7 @@ class rfsocInterface:
 
         
         LUT_I, LUT_Q, DDS_I, DDS_Q, freqs, amps, phases = self._surfsUpDude(
-            bbfreq, bbamp, vna=False, verbose=verbose, demodDDC=demod, demod_I = demod_I, demod_Q = demod_Q
+            bbfreq, bbamp, vna=False, verbose=verbose, demodDDC=demod, demodDDC_file=demod_filepath
         )
         self.load_bin_list(freqs)
         self.load_waveform_into_mem(freqs, LUT_I, LUT_Q, DDS_I, DDS_Q, accum_length)

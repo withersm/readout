@@ -140,9 +140,9 @@ class Cli:
                         print('Done')
 
                     elif cmd["cmd"] == "ulWaveform":
-                        if len(cmd["args"]) == 4: 
+                        if len(cmd["args"]) == 3: 
                             print("Writing Full Comb")
-                            freqs = self.rfsoc.writeWaveform([], [], vna=True, accum_length=cmd["args"][0], demod=cmd["args"][1], demod_I=cmd["args"][2], demod_Q=cmd["args"][3]) 
+                            freqs = self.rfsoc.writeWaveform([], [], vna=True, accum_length=cmd["args"][0], demod=cmd["args"][1], demod_filepath=cmd["args"][2]) 
                             reply = {
                                 "cmd": "ulWaveform",
                                 "status": "OK",
@@ -154,7 +154,7 @@ class Cli:
                             print("Writing Specified Waveform")
                             print(cmd["args"][0])
                             freqs = self.rfsoc.writeWaveform(
-                                    cmd["args"][0], cmd["args"][1], vna=False, accum_length=cmd["args"][2], demod=cmd["args"][3], demod_I=cmd["args"][4], demod_Q=cmd["args"][5]
+                                    cmd["args"][0], cmd["args"][1], vna=False, accum_length=cmd["args"][2], demod=cmd["args"][3], demod_filepath=cmd["args"][4]
                             )
                             reply = {
                                 "cmd": "ulWaveform",

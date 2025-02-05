@@ -186,13 +186,16 @@ def write_fList(self, fList, ampList, accum_length = 2**19 - 1, demod = False, d
     if isinstance(ampList, np.ndarray):
         a = ampList.tolist()
 
+    demod_I = np.real(demod_filepath)
+    demod_Q = np.imag(demod_filepath)
+
     # Format Command based on provided parameters
     cmd = {}
     if len(f) == 0:
-        cmd = {"cmd": "ulWaveform", "args": [accum_length, demod, demod_filepath_demod]}
+        cmd = {"cmd": "ulWaveform", "args": [accum_length, demod, demod_I.tolist(), demod_Q.tolist()]}
     elif len(f) > 0 and len(a) == 0:
         a = np.ones_like(f).tolist()
-        cmd = {"cmd": "ulWaveform", "args": [f, a, accum_length, demod, demod_filepath]}
+        cmd = {"cmd": "ulWaveform", "args": [f, a, accum_length, demod, demod_I.tolist(), demod_Q.tolist()]}
     elif len(f) > 0 and len(a) > 0:
         assert len(a) == len(
             f
@@ -1209,13 +1212,18 @@ class kidpy:
                     return
                 
                 if demod_state == 0:
-                    continue
+                    demod_state = False
+                
                 elif demod_state == 1:
+                    demod_state = True
                     try:
                         demod_lut_filepath = input('Enter path of demod look up table: ')
                     except KeyboardInterrupt:
                         return
-                
+    
+                demod_lut = np.load(demod_lut_filepath)
+
+
                 freq_file = glob.glob(f'{init_filepath}/freq_list_lo_sweep_targeted_1_*')[0]
 
 
@@ -1232,7 +1240,7 @@ class kidpy:
                 if demod_state == False:
                     write_fList(self, farray.real - lo, [], accum_length=self.__accum_length) #turned off for testing because I'm not looking at resonators and peak locations are incredibly random
                 elif demod_state == True:
-                    write_fList(self, farray.real - lo, [], accum_length=self.__accum_length, demod=demod_state, demod_filepath=demod_lut_filepath)
+                    write_fList(self, farray.real - lo, [], accum_length=self.__accum_length, demod=demod_state, demod_filepath=demod_lut)
 
                 self.change_data_tag(init_filepath)
                 print(f'Loaded tone initalization dir. / timestream datatag: {self.__dataTag}')
