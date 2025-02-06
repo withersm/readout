@@ -146,7 +146,7 @@ class rfsocInterface:
         amplitudes: np.ndarray,
         vna: bool = False,
         verbose=False,
-        demodDDC=False,
+        demod=False,
         demod_I = None,
         demod_Q = None
     ):
@@ -215,14 +215,14 @@ class rfsocInterface:
             f_beat * 2 / freq_res
         )  # factor of 2 for half a bin width
         
-        if demodDDC == True:
+        if demod == True:
             demodLUT = np.array(demod_I) + 1j*np.array(demod_Q)
         
         for i in range(len(freqs)):
             delta_ddc[i, int(bin_num_ddc[i])] = np.exp(-1j * phases[i])
-            if demodDDC == True:
+            if demod == True:
                 beat_ddc[i] = np.conj(np.fft.ifft(delta_ddc[i]))*demodLUT[i]
-            elif demodDDC == False:
+            elif demod == False:
                 beat_ddc[i] = np.conj(np.fft.ifft(delta_ddc[i]))
 
         for i in range(1024):

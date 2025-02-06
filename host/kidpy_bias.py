@@ -166,7 +166,7 @@ def checkBlastCli(r, p):
         count = count + 1
 
 
-def write_fList(self, fList, ampList, accum_length = 2**19 - 1, demod = False, demod_filepath = ''):
+def write_fList(self, fList, ampList, accum_length = 2**19 - 1, demod = False, demod_data = None):
     """
     Function for writing tones to the rfsoc. Accepts both numpy arrays and lists.
     :param fList: List of desired tones
@@ -186,8 +186,8 @@ def write_fList(self, fList, ampList, accum_length = 2**19 - 1, demod = False, d
     if isinstance(ampList, np.ndarray):
         a = ampList.tolist()
 
-    demod_I = np.real(demod_filepath)
-    demod_Q = np.imag(demod_filepath)
+    demod_I = np.real(demod_data)
+    demod_Q = np.imag(demod_data)
 
     # Format Command based on provided parameters
     cmd = {}
@@ -200,7 +200,7 @@ def write_fList(self, fList, ampList, accum_length = 2**19 - 1, demod = False, d
         assert len(a) == len(
             f
         ), "Frequency list and Amplitude list must be the same dimmension"
-        cmd = {"cmd": "ulWaveform", "args": [f, a, accum_length, demod, demod_filepath]}
+        cmd = {"cmd": "ulWaveform", "args": [f, a, accum_length, demod, demod_i.tolist(), demod_Q.tolist()]}
     else:
         log.error("Weird edge case, something went very wrong.....")
         return
@@ -1240,7 +1240,7 @@ class kidpy:
                 if demod_state == False:
                     write_fList(self, farray.real - lo, [], accum_length=self.__accum_length) #turned off for testing because I'm not looking at resonators and peak locations are incredibly random
                 elif demod_state == True:
-                    write_fList(self, farray.real - lo, [], accum_length=self.__accum_length, demod=demod_state, demod_filepath=demod_lut)
+                    write_fList(self, farray.real - lo, [], accum_length=self.__accum_length, demod=demod_state, demod_data=demod_lut)
 
                 self.change_data_tag(init_filepath)
                 print(f'Loaded tone initalization dir. / timestream datatag: {self.__dataTag}')
