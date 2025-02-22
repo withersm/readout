@@ -10,3 +10,5 @@ onr/
 host/params
 -checkpoint.ipynb
 *.ipynb_checkpoints*
+*.pickle
+*.pkl
