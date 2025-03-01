@@ -1218,10 +1218,10 @@ def remove_delay_live(target_sweeps,delay,channels=[0]):
 def remove_delay_timestream(stream,f0s,delay):
     stream_rm=np.zeros((f0s.shape[0],stream.shape[1]),dtype = 'complex_')
     for i in range(f0s.shape[0]):
-        #print(delay)
-        #print(f0s)
+        print(delay)
+        print(f0s)
         delay_fac=np.exp(1j*2*np.pi*f0s[i]*delay)
-        #print(delay_fac)
+        print(delay_fac)
         stream_rm[i,:]=stream[i]*delay_fac
     return stream_rm
 
