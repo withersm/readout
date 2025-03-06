@@ -110,7 +110,7 @@ def get_timestream_chunk_idx_ALL(t_ts, t_xy_table): # t_xy_starts, t_xy_ends):
     ts_idxs = []
 
     for i in range(len(t_xy_table)): # iterate through each row (measurement window)
-
+    
         # set start and end objects
         t_xy_start = t_xy_table['start'][i] 
         t_xy_end = t_xy_table['end'][i]
@@ -136,7 +136,42 @@ def get_timestream_chunk_idx_ALL(t_ts, t_xy_table): # t_xy_starts, t_xy_ends):
 
 
 
-def get_ts_chunks_WORKING(ts_filename, t_xy_file, chunk='some', chunk_start=None, chunk_stop=None, single_channel=None, time_chunk_index_stop=10):
+def get_timestream_chunk_idx_w_time_indexing(t_ts, t_xy_table, t_chunk_index_start, t_chunk_index_stop): 
+
+    t_ts = np.asarray(t_ts) 
+
+    ts_idxs = []
+
+    #for i in range(len(t_xy_table)): # iterate through each row (measurement window)
+    
+    for i in range(t_chunk_index_start, t_chunk_index_stop):
+        # set start and end objects
+        t_xy_start = t_xy_table['start'][i] 
+        t_xy_end = t_xy_table['end'][i]
+
+        # set sub-range so that chunk being indexed doesn't include time while mapper is moving
+        start_range = t_ts[t_ts >= t_xy_start]
+        end_range = t_ts[t_ts <= t_xy_end]
+
+        # find index of min of aboslute difference between the sub-range of timestream time range and values from x-y mapper file
+        ts_start_range_idx = (np.abs(start_range - t_xy_start)).argmin()
+        ts_stop_range_idx = (np.abs(end_range - t_xy_end)).argmin()
+
+        # get index of where actual timestream equals the value found previously
+        ts_start_idx = np.where(t_ts == start_range[ts_start_range_idx])[0][0]
+        ts_end_idx = np.where(t_ts == end_range[ts_stop_range_idx])[0][0]
+
+        # append indices
+        ts_idxs.append([ts_start_idx, ts_end_idx])
+
+    ts_idxs = np.array(ts_idxs)
+
+    return ts_idxs, t_xy_table.loc[t_chunk_index_start:t_chunk_index_stop]
+
+
+
+def get_ts_chunks_WORKING(ts_filename, t_xy_file, chunk='some', chunk_start=None, chunk_stop=None, 
+                          single_channel=None, time_chunk_index_stop=10):
     
     t, i_data, q_data, ch, file = read_data(ts_filename, chunk=chunk, chunk_start=chunk_start, chunk_stop=chunk_stop)
     
@@ -178,7 +213,52 @@ def get_ts_chunks_WORKING(ts_filename, t_xy_file, chunk='some', chunk_start=None
         Q_chunks_final.append(Q_chunk) 
     
     return time_chunks, I_chunks_final, Q_chunks_final
+
+
+def get_ts_chunks_time_indexing(ts_filename, t_xy_file, chunk='some', chunk_start=None, chunk_stop=None, 
+                                single_channel=None, time_chunk_index_start=0, time_chunk_index_stop=10):
     
+    t, i_data, q_data, ch, file = read_data(ts_filename, chunk=chunk, chunk_start=chunk_start, chunk_stop=chunk_stop)
+    
+
+    print(len(i_data))
+    print(i_data[0])
+
+    t_xy_table = load_fix_xy_txt(t_xy_file)
+
+    ts_indexes, txy_idxed_table = get_timestream_chunk_idx_w_time_indexing(t, t_xy_table, t_chunk_index_start = time_chunk_index_start, 
+                                                                           t_chunk_index_stop = time_chunk_index_stop)
+
+    time_chunks = []
+    I_chunks_final = []
+    Q_chunks_final = []
+    
+    for i in range(len(ts_indexes)): # index time chunks as i 
+
+        idx_range = ts_indexes[i]
+        t_idxed = t[idx_range[0]:idx_range[1]]
+
+        time_chunks.append(t_idxed)
+
+        I_chunk=[]
+        Q_chunk=[]
+
+        for j in range(len(i_data)): # individual channels as j 
+
+            i_ts = i_data[j]
+            q_ts = q_data[j]
+
+            i_idxed = i_ts[idx_range[0]:idx_range[1]]
+            q_idxed = q_ts[idx_range[0]:idx_range[1]]
+
+            I_chunk.append(i_idxed)
+            Q_chunk.append(q_idxed)
+
+
+        I_chunks_final.append(I_chunk)
+        Q_chunks_final.append(Q_chunk) 
+    
+    return time_chunks, I_chunks_final, Q_chunks_final, txy_idxed_table
     
 
 def modified_demod_process_for_tchunks(t_chunk, i_chunk, q_chunk, ts_file, f_sawtooth, method = 'fft', correct_phase_jumps = False, 
@@ -215,9 +295,9 @@ def modified_demod_process_for_tchunks(t_chunk, i_chunk, q_chunk, ts_file, f_saw
     #ts_fr,Is_fr,Qs_fr=read_data(ts_path,channels=channels,start_channel=start_channel,stop_channel=stop_channel)    #note to self: limit tone_freqs to actively called channels; need to figure out channel numbering first
     
     # input for ts_chunk is just full 
-    ts_fr = np.array(t_chunk)
-    Is_fr = np.array(i_chunk)
-    Qs_fr = np.array(q_chunk)
+    ts_fr = np.asarray(t_chunk)
+    Is_fr = np.asarray(i_chunk)
+    Qs_fr = np.asarray(q_chunk)
 
     #testing fixing the time breaks before the demod -- probably don't want to keep this but we'll see
     fs=512e6/(2**20)    #this line is incredibly important; need to make sure we match the data rate at all times; add an if statement for faster data rate data
