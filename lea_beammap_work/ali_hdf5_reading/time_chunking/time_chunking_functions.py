@@ -295,9 +295,14 @@ def modified_demod_process_for_tchunks(t_chunk, i_chunk, q_chunk, ts_file, f_saw
     #ts_fr,Is_fr,Qs_fr=read_data(ts_path,channels=channels,start_channel=start_channel,stop_channel=stop_channel)    #note to self: limit tone_freqs to actively called channels; need to figure out channel numbering first
     
     # input for ts_chunk is just full 
-    ts_fr = np.asarray(t_chunk)
-    Is_fr = np.asarray(i_chunk)
-    Qs_fr = np.asarray(q_chunk)
+    # ts_fr = np.asarray(t_chunk)
+    # Is_fr = np.asarray(i_chunk)
+    # Qs_fr = np.asarray(q_chunk)
+
+    ts_fr = t_chunk
+    Is_fr = i_chunk
+    Qs_fr = q_chunk
+
 
     #testing fixing the time breaks before the demod -- probably don't want to keep this but we'll see
     fs=512e6/(2**20)    #this line is incredibly important; need to make sure we match the data rate at all times; add an if statement for faster data rate data
