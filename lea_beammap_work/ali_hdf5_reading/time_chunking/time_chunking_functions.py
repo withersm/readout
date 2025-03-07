@@ -144,7 +144,7 @@ def get_timestream_chunk_idx_w_time_indexing(t_ts, t_xy_table, t_chunk_index_sta
 
     #for i in range(len(t_xy_table)): # iterate through each row (measurement window)
     
-    for i in range(t_chunk_index_start, t_chunk_index_stop):
+    for i in range(t_chunk_index_start, t_chunk_index_stop+1):
         # set start and end objects
         t_xy_start = t_xy_table['start'][i] 
         t_xy_end = t_xy_table['end'][i]
@@ -295,13 +295,13 @@ def modified_demod_process_for_tchunks(t_chunk, i_chunk, q_chunk, ts_file, f_saw
     #ts_fr,Is_fr,Qs_fr=read_data(ts_path,channels=channels,start_channel=start_channel,stop_channel=stop_channel)    #note to self: limit tone_freqs to actively called channels; need to figure out channel numbering first
     
     # input for ts_chunk is just full 
-    # ts_fr = np.asarray(t_chunk)
-    # Is_fr = np.asarray(i_chunk)
-    # Qs_fr = np.asarray(q_chunk)
+    ts_fr = np.asarray(t_chunk)
+    Is_fr = np.asarray(i_chunk)
+    Qs_fr = np.asarray(q_chunk)
 
-    ts_fr = t_chunk
-    Is_fr = i_chunk
-    Qs_fr = q_chunk
+    # ts_fr = t_chunk
+    # Is_fr = i_chunk
+    # Qs_fr = q_chunk
 
 
     #testing fixing the time breaks before the demod -- probably don't want to keep this but we'll see
