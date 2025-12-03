@@ -1,3 +1,4 @@
+
 """
 Provides a serial interface to the Valon 5009.
 Adapted from Python2 Example code.
@@ -6,8 +7,10 @@ Adapted from Python2 Example code.
 # Python modules
 import serial
 import serial.tools.list_ports_linux
+import struct 
+from time import time
 import struct
-from time import sleep, time
+import serial.tools.list_ports
 
 # Handy aliases
 SYNTH_A = 1
@@ -17,7 +20,7 @@ INT_REF = 0
 EXT_REF = 1
 
 
-class Synthesizer:
+class Valon5009:
     """A simple interface to the Valon 5009 synthesizer."""
 
     def __init__(self, port):
@@ -27,7 +30,7 @@ class Synthesizer:
             serial.EIGHTBITS,
             serial.PARITY_NONE,
             serial.STOPBITS_ONE,
-            timeout=0.500,
+            timeout=1,
         )
 
         self.conn.setPort(port)
@@ -115,7 +118,9 @@ class Synthesizer:
         @return: True if success (bool)
         """
         self.conn.open()
-        data = "s" + str(synth) + ";f" + str(freq) + "\r"
+        # print(f"\nvalon5009.py:set_frequency->SET FREQ TO {freq}")
+        #b"s2;f400.1299999\r"
+        data = "s" + str(synth) + ";f" + "{}".format(freq) + "\r"
         self.conn.write(data.encode("ASCII"))
         self.conn.flush()
         t = time()
@@ -427,3 +432,52 @@ class Synthesizer:
         self.conn.close()
         print(data)
         return True
+
+
+
+
+class IfSliceAtten:
+    def __init__(self):
+        pass
+    def connect(self) -> serial.Serial:
+        ports = serial.tools.list_ports.comports()
+        COMPORT = ""
+        for sp in ports:
+            if sp.vid == 9025 and sp.pid == 32855:
+                print("Found the device")
+                COMPORT = sp.name
+                break
+
+        if COMPORT == "":
+            print("No device found")
+            exit()
+
+        self.ser = serial.Serial("/dev/"+COMPORT, 115200, timeout=1)
+        self.ser.close()
+
+    def set_atten(self,  addr:int, value : float):
+        """
+        Sets the IF Slices Attenuation
+        :param addr(int): address to set, (usually 1 and 2)
+        :param value(float): attenuation from 0 to 31.75 dB
+        :return: True if success, False if failure
+        """
+        self.ser.open()
+        assert value >= 0 and value <= 31.75, "Attenuation out of range"
+        atten = int(round(value*4))&0xFF
+        address = addr&0xFF
+        data = struct.pack('<BB', address, atten)
+        self.ser.write(b"set_atten\n")
+        self.ser.write(data)
+        response = self.ser.read_until(b'\n')
+        self.ser.close()
+        if response.strip() == b'OK':
+            return True
+        else:
+            msg = response.decode()
+            if len(msg) == 0:
+                print("Error, device did not respond")
+            else:
+                print("Error, device responded with: ", msg)
+                return False
+
